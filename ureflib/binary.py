@@ -25,18 +25,14 @@ def unpack_tinyint(byte, offset = 0, width = 8, bitorder="big"):
     if bitorder not in ["big","little"]:
         raise BinaryException("'{}' is not a bit ordering.", bitorder)
 
-    # Figure out which bits are set. This method for checking bits produces
-    # a list starting from the right, but we need it from the left, so reverse
-    # it. 
-    bitlist = [byte & 2**bit != 0 for bit in range(8)]
-    bitlist.reverse()
-    
+    # Figure out which bits are set.   
+    bitlist = [byte & 0b10000000 >> i for i in range(8)]
+
     # Slice out the bits we're interested in.
     bits = bitlist[offset:width]
     
-    # We're going to use the same method as above to calculate the value, and
-    # again it wants to start from the right, so if we have bits in big endian
-    # order (which we probably do), reverse them again. 
+    # The calculation for summing the bits is simpler starting from the right, 
+    # so if the bits are big-endian (which they probably are), reverse them. 
     if bitorder == "big":
         bits.reverse()
 
@@ -45,7 +41,7 @@ def unpack_tinyint(byte, offset = 0, width = 8, bitorder="big"):
 
 def unpack_flag(byte, offset):
     """ Extract a one-bit flag from a byte. Returns a bool. """
-    return (byte & (1 << offset)) != 0
+    return byte & 0b10000000 >> offset != 0
 
 def unpack_bitfield(byte, offset = 0, width = 8):
     """ Return a string representing a bitfield.
