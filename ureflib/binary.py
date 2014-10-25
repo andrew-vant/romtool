@@ -15,21 +15,25 @@ def unpack_tinyint(byte, offset = 0, width = 8, bitorder="big"):
     it is supported.
     """
     
-    # Sanity check the size of the number we're loading.
+    # Sanity checks.
     if byte > 255:
-        raise BinaryRangeException(
-            "Tried to unpack a tinyint that isn't tiny. Value: {}", byte)
-
-    # Sanity check bit order. 
-    bitorder = bitorder.lower()
+        raise ValueError(
+            "Tried to unpack a tinyint that isn't tiny. Value: {}", byte) 
+    if offset < 0:
+        raise IndexError("Tried to unpack a tinyint from a negative offset.")
+    if offset + width > 8:
+        raise IndexError("Tried to unpack a tinyint from past the end of the byte.")
+    if width < 1:
+        raise ValueError("Tried to unpack a tinyint of width {}.", width)
     if bitorder not in ["big","little"]:
-        raise BinaryException("'{}' is not a bit ordering.", bitorder)
+        raise ValueError("'{}' is not a bit ordering.", bitorder)
+
 
     # Figure out which bits are set.   
     bitlist = [byte & 0b10000000 >> i for i in range(8)]
 
     # Slice out the bits we're interested in.
-    bits = bitlist[offset:width]
+    bits = bitlist[offset:offset+width]
     
     # The calculation for summing the bits is simpler starting from the right, 
     # so if the bits are big-endian (which they probably are), reverse them. 
