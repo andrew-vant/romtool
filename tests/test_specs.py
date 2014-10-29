@@ -78,12 +78,26 @@ class TestTableReader(unittest.TestCase):
         reader = specs.TableReader(self.tf)
         self.assertEqual(list(next(reader).items()),
                          list(zip(self.tablefields, self.tablecontents)))
+
     def test_tablereader_spec_attachment(self):
         reader = specs.TableReader(self.tf)
         table = next(reader)
         self.assertEqual(list(table.spec[0].items()),
                          list(zip(self.specfields, self.speccontents)))
 
+    def test_tablereader_real_files(self):
+        specfolder = "tests/specfiles/7th Saga"
+        olddir = os.getcwd()
+        os.chdir(specfolder)
+        with open("tables.csv") as f:
+            tables = list(specs.TableReader(f))
+        self.assertEqual(tables[1]['name'], "armor")
+        self.assertEqual(tables[2]['offset'], "0x72F4")
+        self.assertEqual(tables[0].spec[2]['label'], "Power")
+        self.assertEqual(tables[1].spec[0]['fid'], "grd")
+        os.chdir(olddir)
+
     def tearDown(self):
         os.remove(self.sfname)
+        self.tf.close()
 
