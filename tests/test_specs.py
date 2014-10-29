@@ -33,13 +33,13 @@ class TestSpecReader(unittest.TestCase):
         self.f.seek(0)
 
     def test_specreader_read(self):
-        # This is mostly to be sure we haven't broken existing functionality. 
-        
+        # This is mostly to be sure we haven't broken existing functionality.
+
         self.helper_writeout(self.fields, self.vals)
         reader = specs.SpecReader(self.f, requiredfields=self.fields)
-        self.assertEqual(list(next(reader).items()), 
+        self.assertEqual(list(next(reader).items()),
                          list(zip(self.fields, self.vals)))
-        
+
     def test_specreader_missing_fields(self):
         self.helper_writeout(self.fields[1:], self.vals[1:])
         reader = specs.SpecReader(self.f, requiredfields=self.fields)
