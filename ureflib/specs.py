@@ -7,15 +7,17 @@ class SpecException(Exception):
 
 
 class SpecFieldMismatch(SpecException):
+
     def __init__(self, message, required, provided):
         super().__init__(message)
         self.message = message
         self.required = required
         self.provided = provided
+
     def __str__(self):
         reqstr = "Fields required: {}".format(self.required)
         provstr = "Fields provided: {}".format(self.provided)
-        return "\n".join(message, reqstr, provstr)
+        return "\n".join([self.message, reqstr, provstr])
 
 
 def load_tables(filename):
@@ -57,7 +59,7 @@ class SpecReader(OrderedDictReader):
             raise SpecFieldMismatch(
                 "Spec appears to be missing fields.",
                 self.requiredfields,
-                spec.keys())
+                list(spec.keys()))
         return spec
 
 
