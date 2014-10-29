@@ -50,6 +50,36 @@ class TestSpecReader(unittest.TestCase):
     def tearDown(self):
         self.f.close()
 
+class TestTableItemReader(unittest.TestCase):
+
+    requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+    testvals = "fld1", "Field", "0x0000", "1", "int", "", "no comment."
+
+    def setUp(self):
+        self.f = TemporaryFile("w+")
+
+    def test_tableitem_read(self):
+        reader = specs.TableItemReader(self.f)
+        self.f.write("\r\n".join([",".join(self.requiredfields),
+                                 ",".join(self.testvals)]))
+        self.f.seek(0)
+        self.assertEqual(list(next(reader).items()),
+                         list(zip(self.requiredfields, self.testvals)))
+
+    def test_tableitem_malformed_header(self):
+        reader = specs.TableItemReader(self.f)
+        header = ",".join(self.requiredfields[1:])
+        content = ",".join(self.testvals[1:])
+        self.f.write("\r\n".join([header, content]))
+        self.f.seek(0)
+        self.assertRaises(specs.SpecFieldMismatch,
+                          lambda reader: next(reader),
+                          reader)
+
+    def tearDown(self):
+        self.f.close()
+
+
 class TestTableReader(unittest.TestCase):
 
     tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"

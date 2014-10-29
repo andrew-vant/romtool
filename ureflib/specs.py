@@ -63,13 +63,20 @@ class SpecReader(OrderedDictReader):
         return spec
 
 
+class TableItemReader(SpecReader):
+
+    requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, requiredfields=self.requiredfields, **kwargs)
+
+
 class TableReader(SpecReader):
 
-    tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"
-    tableentryfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+    requiredfields = "name", "spec", "entries", "entrysize", "offset", "comment"
 
-    def __init__(self, *args, requiredfields=tablefields, **kwargs):
-        super().__init__(*args, requiredfields=requiredfields, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, requiredfields=self.requiredfields, **kwargs)
 
     def __next__(self):
         """ Read one table definition from a csv file.
@@ -81,6 +88,6 @@ class TableReader(SpecReader):
         table = super().__next__()
         logging.debug("Table spec is at: {}".format(table['spec']))
         with open(table["spec"]) as f:
-            table.spec = list(SpecReader(f, requiredfields=self.tableentryfields))
+            table.spec = list(TableItemReader(f))
         return table
 
