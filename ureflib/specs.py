@@ -66,8 +66,8 @@ class TableReader(SpecReader):
     tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"
     tableentryfields = "fid", "label", "offset", "size", "type", "tags", "comment"
     
-    def __init__(self, requiredfields=tablefields, *args, **kwargs):
-        super().__init__(requiredfields=requiredfields, *args, **kwargs)
+    def __init__(self, *args, requiredfields=tablefields, **kwargs):
+        super().__init__(*args, requiredfields=requiredfields, **kwargs)
         
     def __next__(self):
         """ Read one table definition from a csv file. 
@@ -75,8 +75,10 @@ class TableReader(SpecReader):
         Note that this also opens and reads the specification for the table, 
         and attaches the spec as an attribute.
         """
+        logging.debug("Reading table.")
         table = super().__next__()
+        logging.debug("Table spec is at: {}".format(table['spec']))
         with open(table["spec"]) as f:
-            table.spec = list(SpecReader(f, requiredfields=tableentryfields))
+            table.spec = list(SpecReader(f, requiredfields=self.tableentryfields))
         return table
 

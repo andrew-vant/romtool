@@ -1,6 +1,10 @@
 import unittest
-from tempfile import TemporaryFile
+import os
+import sys
+import logging
+from tempfile import TemporaryFile, NamedTemporaryFile
 import ureflib.specs as specs
+
 
 class TestOrderedDictReader(unittest.TestCase):
 
@@ -16,18 +20,18 @@ class TestOrderedDictReader(unittest.TestCase):
             self.assertEqual(list(next(reader).keys()), keys)
 
 class TestSpecReader(unittest.TestCase):
-    
+
     def setUp(self):
         self.f = TemporaryFile("w+")
         self.fields = ["f1", "f2", "f3"]
         self.vals = [str(i) for i in range(len(self.fields))]
-        
+
     def helper_writeout(self, fields, vals):
         header = ",".join(fields)
         content = ",".join(vals)
         self.f.write("\r\n".join([header, content]))
         self.f.seek(0)
-        
+
     def test_specreader_read(self):
         # This is mostly to be sure we haven't broken existing functionality. 
         
@@ -45,4 +49,41 @@ class TestSpecReader(unittest.TestCase):
 
     def tearDown(self):
         self.f.close()
+
+class TestTableReader(unittest.TestCase):
+
+    tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"
+    tableheader = ",".join(tablefields)
+    specfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+    specheader = ",".join(specfields)
+
+    def setUp(self):
+        # We need files for both the table itself and the contents specification
+        # it links to. The latter must be a named file that gets closed and left
+        # alone, so that the tests can re-open it later.
+
+        self.tf = TemporaryFile("w+")
+        self.sf = NamedTemporaryFile("w+", delete=False)
+        self.sfname = self.sf.name # Not sure if I can access this after close.
+
+        self.tablecontents = "table1", self.sfname, "1", "80", "0x80", "test"
+        self.speccontents = "level", "Level", "0x00", "2", "int", "", "test"
+
+        self.tf.write("\r\n".join([self.tableheader, ",".join(self.tablecontents)]))
+        self.sf.write("\r\n".join([self.specheader, ",".join(self.speccontents)]))
+        self.tf.seek(0)
+        self.sf.close() # So it can be reopened by TableReader when needed.
+
+    def test_tablereader_read(self):
+        reader = specs.TableReader(self.tf)
+        self.assertEqual(list(next(reader).items()),
+                         list(zip(self.tablefields, self.tablecontents)))
+    def test_tablereader_spec_attachment(self):
+        reader = specs.TableReader(self.tf)
+        table = next(reader)
+        self.assertEqual(list(table.spec[0].items()),
+                         list(zip(self.specfields, self.speccontents)))
+
+    def tearDown(self):
+        os.remove(self.sfname)
 
