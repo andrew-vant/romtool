@@ -1,10 +1,62 @@
 import logging
+import math
+import specs
 
 class BinaryException(Exception):
     pass
 
-class BinaryRangeException(Exception):
+class BinaryRangeException(BinaryException):
     pass
+
+class BinaryFormatError(BinaryException):
+    pass
+
+def read(f, spec, offset = 0):
+    """ Read an arbitrary object from a ROM.
+
+    The offset is the location in the file that the spec considers
+    "zero." For example, if you're reading a table entry, the passed
+    offset should be the beginning of that entry.
+    """
+
+    # Figure out where to start and how much to read.
+    obytes, obits = decompose_bytecount(spec['offset'])
+    wbytes, wbits = decompose_bytecount(spec['width'])
+
+    if wbytes > 0 and wbits > 0:
+        raise ValueError("Fractional byte widths > 0 not supported.")
+
+    f.seek(offset + obytes)
+    data = f.read(wbytes + int(math.ceil(wbits / 8)))
+
+    # Call table for the simpler type possibilities:
+    unpackers = {
+        "int.be": lambda data: int.from_bytes(data, byteorder="big"),
+        "int.le": lambda data: int.from_bytes(data, byteorder="little"),
+        "ti.be": lambda data: unpack_tinyint(data[0], obits, wbits, "big"),
+        "ti.le": lambda data: unpack_tinyint(data[0], obits, wbits, "little"),
+        "flag": lambda data: unpack_flag(data[0], obits),
+        "bitfield": lambda data: unpack_bitfield(data[0], obits, wbits)
+    }
+
+    return unpackers[spec['type']](data)
+
+
+def decompose_bytecount(s):
+    """ Turn a bytecount string into its bytes and bits parts.
+
+    The string should be in the format x.y, where x is the number of
+    bytes and y is any additional bits. Less than one byte should be
+    written as 0.y. Integer bytes may omit the decimal and bits.
+    """
+
+    parts = s.split(".")
+    if len(parts) > 2:
+        raise BinaryFormatError("'{}' is not a valid bytecount.")
+
+    bytes = int(parts[0], 0)
+    bits = int(parts[1], 0) if len(parts) > 1 else 0
+    return bytes, bits
 
 def unpack_tinyint(byte, offset = 0, width = 8, bitorder="big"):
     """ Unpack an integer that is smaller than one byte.
