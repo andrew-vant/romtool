@@ -1,3 +1,9 @@
+# THOUGHT: RESTRUCTURE UNPACKERS TO ALL ACCEPT A SPEC AND AN OFFSET. THEN
+# THIS WHOLE FILE COLLAPSES TO ONE CALL TABLE WITH A UNIFIED SYNTAX.
+
+# or, allow both? Maybe? I guess that is what read does. Maybe don't change
+# anything.
+
 import logging
 import math
 import specs
@@ -18,13 +24,13 @@ def read(f, spec, offset = 0):
     "zero." For example, if you're reading a table entry, the passed
     offset should be the beginning of that entry.
     """
-
     # Figure out where to start and how much to read.
     obytes, obits = decompose_bytecount(spec['offset'])
     wbytes, wbits = decompose_bytecount(spec['width'])
 
     if wbytes > 0 and wbits > 0:
         raise ValueError("Fractional byte widths > 0 not supported.")
+
 
     f.seek(offset + obytes)
     data = f.read(wbytes + int(math.ceil(wbits / 8)))
@@ -35,7 +41,6 @@ def read(f, spec, offset = 0):
         "int.le": lambda data: int.from_bytes(data, byteorder="little"),
         "ti.be": lambda data: unpack_tinyint(data[0], obits, wbits, "big"),
         "ti.le": lambda data: unpack_tinyint(data[0], obits, wbits, "little"),
-        "flag": lambda data: unpack_flag(data[0], obits),
         "bitfield": lambda data: unpack_bitfield(data[0], obits, wbits)
     }
 

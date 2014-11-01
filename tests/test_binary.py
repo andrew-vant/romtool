@@ -1,6 +1,7 @@
 import logging
 import unittest
 import ureflib.binary as binary
+from tempfile import TemporaryFile
 
 class TestBinaryFunctions(unittest.TestCase):
 
@@ -33,6 +34,67 @@ class TestBinaryFunctions(unittest.TestCase):
 
     def test_unpack_bitfield(self):
         self.assertEqual(binary.unpack_bitfield(12), "00001100")
+
+
+class TestRead(unittest.TestCase):
+
+    def setUp(self):
+        self.f = TemporaryFile("wb+")
+        data = 0xFF00FF00FF00FF00
+        dbytes = data.to_bytes((data.bit_length()-1) // 8 + 1, byteorder='big')
+        assert(len(dbytes) == 8) # Ran into trouble with this.
+        self.f.write(dbytes)
+
+        # I'm only going to bother setting the values that read actually uses
+        self.flag = {
+            "type":       "bitfield",
+            "offset":     "2.1",
+            "width":      "0.1"
+        }
+
+        self.intbe = {
+            "type":      "int.be",
+            "offset":    "3",
+            "width":     "2"
+        }
+
+        self.intle = {
+            "type":      "int.le",
+            "offset":    "3",
+            "width":     "2"
+        }
+
+        self.int = {
+            "type":      "int",
+            "offset":    "3",
+            "width":     "2"
+        }
+
+        self.bitfield = {
+            "type":    "bitfield",
+            "offset":  "0",
+            "width":   "6"
+        }
+
+        self.ti_le = {
+            "type":       "ti.le",
+            "offset":     "3.2",
+            "width":      "0.3"
+        }
+
+        self.ti_be = {
+            "type":       "ti.be",
+            "offset":     "3.2",
+            "width":      "0.3"
+        }
+
+    def test_normal_reads(self):
+        self.assertEqual(binary.read(self.f, self.flag, 0), '1')
+        self.assertEqual(binary.read(self.f, self.flag, 1), '0')
+        self.assertEqual(binary.read(self.f, self.intbe, 1), 0xFF00)
+
+    def tearDown(self):
+        self.f.close()
 
 if __name__ == '__main__':
     unittest.main()
