@@ -50,39 +50,22 @@ class TestSpecReader(unittest.TestCase):
     def tearDown(self):
         self.f.close()
 
-class TestTableItemReader(unittest.TestCase):
+class TestRomStructReader(unittest.TestCase):
 
-    requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
-    testvals = "fld1", "Field", "0x0000", "1", "int.le", "", "no comment."
+    requiredfields = "fid", "label", "size", "type", "order", "tags", "comment"
+    testvals = ["fld1", "Field 1", "1", "uintle", "", "", "no comment."]
 
     def setUp(self):
         self.f = TemporaryFile("w+")
 
-    def test_tableitem_read(self):
-        reader = specs.TableItemReader(self.f)
+    def test_romstruct_read(self):
+        reader = specs.RomStructReader(self.f)
         self.f.write("\r\n".join([",".join(self.requiredfields),
                                  ",".join(self.testvals)]))
         self.f.seek(0)
+        self.testvals[2] = 8 # Expected change as part of transform.
         self.assertEqual(list(next(reader).items()),
                          list(zip(self.requiredfields, self.testvals)))
-
-    def test_tableitem_int_default(self):
-        reader = specs.TableItemReader(self.f)
-        testvals = "fld1", "Field", "0x0000", "1", "int", "", "no comment."
-        self.f.write("\r\n".join([",".join(self.requiredfields),
-                                 ",".join(testvals)]))
-        self.f.seek(0)
-        self.assertTrue(next(reader)['type'] == 'int.le')
-
-    def test_tableitem_malformed_header(self):
-        reader = specs.TableItemReader(self.f)
-        header = ",".join(self.requiredfields[1:])
-        content = ",".join(self.testvals[1:])
-        self.f.write("\r\n".join([header, content]))
-        self.f.seek(0)
-        self.assertRaises(specs.SpecFieldMismatch,
-                          lambda reader: next(reader),
-                          reader)
 
     def tearDown(self):
         self.f.close()
@@ -92,7 +75,7 @@ class TestTableReader(unittest.TestCase):
 
     tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"
     tableheader = ",".join(tablefields)
-    specfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+    specfields = TestRomStructReader.requiredfields
     specheader = ",".join(specfields)
 
     def setUp(self):
@@ -104,8 +87,8 @@ class TestTableReader(unittest.TestCase):
         self.sf = NamedTemporaryFile("w+", delete=False)
         self.sfname = self.sf.name # Not sure if I can access this after close.
 
-        self.tablecontents = "table1", self.sfname, "1", "80", "0x80", "test"
-        self.speccontents = "level", "Level", "0x00", "2", "int.le", "", "test"
+        self.tablecontents = ["table1", self.sfname, "1", "80", "0x80", "test"]
+        self.speccontents = ["level", "Level", "1", "uintle", "", "", ""]
 
         self.tf.write("\r\n".join([self.tableheader, ",".join(self.tablecontents)]))
         self.sf.write("\r\n".join([self.specheader, ",".join(self.speccontents)]))
@@ -120,10 +103,14 @@ class TestTableReader(unittest.TestCase):
     def test_tablereader_spec_attachment(self):
         reader = specs.TableReader(self.tf)
         table = next(reader)
+        # Expected change from transform:
+        self.speccontents[2] = int(self.speccontents[2]) * 8
         self.assertEqual(list(table.spec[0].items()),
                          list(zip(self.specfields, self.speccontents)))
 
+    @unittest.skip("no testset files yet.")
     def test_tablereader_real_files(self):
+
         specfolder = "tests/specfiles/7th Saga"
         olddir = os.getcwd()
         os.chdir(specfolder)

@@ -71,17 +71,23 @@ class SpecReader(OrderedDictReader):
                 list(item.keys()))
 
 
-class TableItemReader(SpecReader):
+class RomStructReader(SpecReader):
 
-    requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
+    requiredfields = "id", "label", "size", "type", "tags", "comment"
 
     def transform(self, item):
-        if item['type'] == "flag": # Flag is just an alias for a width-1 bf.
-            item['type'] = "bitfield"
-            item['width'] = "0.1"
-        if item['type'] == "int": # Int defaults to little endian.
-            item['type'] = "int.le"
+        # All sizes are represented internally as bits, so convert as needed.
+        size = item['size']
+        isbits = size.startswith('b')
+        if isbits:
+            size = int(size[1:]) # Strip leading b if needed
+        else:
+            size = int(size) * 8 # Convert bytes to bits if needed.
+        item['size'] = size
 
+    def validate(self, item):
+        # Should have a regex to recognize leading b for bits here, in size.
+        pass
 
 class TableReader(SpecReader):
 
@@ -89,6 +95,6 @@ class TableReader(SpecReader):
 
     def transform(self, table):
         with open(table["spec"]) as f:
-            table.spec = list(TableItemReader(f))
+            table.spec = list(RomStructReader(f))
         return table
 
