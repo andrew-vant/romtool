@@ -53,7 +53,7 @@ class TestSpecReader(unittest.TestCase):
 class TestTableItemReader(unittest.TestCase):
 
     requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
-    testvals = "fld1", "Field", "0x0000", "1", "int", "", "no comment."
+    testvals = "fld1", "Field", "0x0000", "1", "int.le", "", "no comment."
 
     def setUp(self):
         self.f = TemporaryFile("w+")
@@ -65,6 +65,14 @@ class TestTableItemReader(unittest.TestCase):
         self.f.seek(0)
         self.assertEqual(list(next(reader).items()),
                          list(zip(self.requiredfields, self.testvals)))
+
+    def test_tableitem_int_default(self):
+        reader = specs.TableItemReader(self.f)
+        testvals = "fld1", "Field", "0x0000", "1", "int", "", "no comment."
+        self.f.write("\r\n".join([",".join(self.requiredfields),
+                                 ",".join(testvals)]))
+        self.f.seek(0)
+        self.assertTrue(next(reader)['type'] == 'int.le')
 
     def test_tableitem_malformed_header(self):
         reader = specs.TableItemReader(self.f)
@@ -97,7 +105,7 @@ class TestTableReader(unittest.TestCase):
         self.sfname = self.sf.name # Not sure if I can access this after close.
 
         self.tablecontents = "table1", self.sfname, "1", "80", "0x80", "test"
-        self.speccontents = "level", "Level", "0x00", "2", "int", "", "test"
+        self.speccontents = "level", "Level", "0x00", "2", "int.le", "", "test"
 
         self.tf.write("\r\n".join([self.tableheader, ",".join(self.tablecontents)]))
         self.sf.write("\r\n".join([self.specheader, ",".join(self.speccontents)]))

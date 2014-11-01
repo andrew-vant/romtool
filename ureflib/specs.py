@@ -48,45 +48,46 @@ class OrderedDictReader(csv.DictReader):
 
 
 class SpecReader(OrderedDictReader):
-
-    def __init__(self, *args, requiredfields=[], **kwargs):
+    requiredfields = []
+    def __init__(self, *args, requiredfields=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.requiredfields = requiredfields
+        if requiredfields is not None:
+            self.requiredfields = requiredfields
 
     def __next__(self):
         spec = super().__next__()
-        if not all(field in spec for field in self.requiredfields):
+        self.validate(spec)
+        self.transform(spec)
+        return spec
+
+    def transform(self, item): # Inheriting classes should override this.
+        pass
+
+    def validate(self, item): # And this?
+        if not all(field in item for field in self.requiredfields):
             raise SpecFieldMismatch(
                 "Spec appears to be missing fields.",
                 self.requiredfields,
-                list(spec.keys()))
-        return spec
+                list(item.keys()))
 
 
 class TableItemReader(SpecReader):
 
     requiredfields = "fid", "label", "offset", "size", "type", "tags", "comment"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, requiredfields=self.requiredfields, **kwargs)
+    def transform(self, item):
+        if item['type'] == "flag": # Flag is just an alias for a width-1 bf.
+            item['type'] = "bitfield"
+            item['width'] = "0.1"
+        if item['type'] == "int": # Int defaults to little endian.
+            item['type'] = "int.le"
 
 
 class TableReader(SpecReader):
 
     requiredfields = "name", "spec", "entries", "entrysize", "offset", "comment"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, requiredfields=self.requiredfields, **kwargs)
-
-    def __next__(self):
-        """ Read one table definition from a csv file.
-
-        Note that this also opens and reads the specification for the table,
-        and attaches the spec as an attribute.
-        """
-        logging.debug("Reading table.")
-        table = super().__next__()
-        logging.debug("Table spec is at: {}".format(table['spec']))
+    def transform(self, table):
         with open(table["spec"]) as f:
             table.spec = list(TableItemReader(f))
         return table
