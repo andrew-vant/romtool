@@ -20,12 +20,6 @@ class SpecFieldMismatch(SpecException):
         return "\n".join([self.message, reqstr, provstr])
 
 
-def load_tables(filename):
-    """ Load a list of tables present in a ROM. """
-    with open(filename, "rb") as f:
-        return list(TableReader(f))
-
-
 class OrderedDictReader(csv.DictReader):
     """ Read a csv file as a list of ordered dictionaries.
 
@@ -71,30 +65,34 @@ class SpecReader(OrderedDictReader):
                 list(item.keys()))
 
 
-class RomStructReader(SpecReader):
+class StructFieldReader(SpecReader):
 
     requiredfields = "id", "label", "size", "type", "tags", "comment"
 
     def transform(self, item):
         # All sizes are represented internally as bits, so convert as needed.
-        size = item['size']
-        isbits = size.startswith('b')
-        if isbits:
-            size = int(size[1:]) # Strip leading b if needed
-        else:
-            size = int(size) * 8 # Convert bytes to bits if needed.
-        item['size'] = size
+        item['size'] = tobits(item['size'])
+        # Tags are helpful.
+        item.tags = {s for s in item['tags'].split("|") if s}
 
     def validate(self, item):
         # Should have a regex to recognize leading b for bits here, in size.
         pass
 
-class TableReader(SpecReader):
+class ArrayReader(SpecReader):
 
-    requiredfields = "name", "spec", "entries", "entrysize", "offset", "comment"
+    requiredfields = "name", "type", "offset", "length", "stride", "comment"
 
-    def transform(self, table):
-        with open(table["spec"]) as f:
-            table.spec = list(RomStructReader(f))
-        return table
+    def transform(self, arr):
+        with open(arr["type"]) as f:
+            arr.struct = list(StructFieldReader(f))
+        return arr
 
+def tobits(size):
+    """ Convert a size specifier to number of bits. """
+    isbits = size.startswith('b')
+    if isbits:
+        bits = int(size[1:])
+    else:
+        bits = int(size) * 8
+    return bits

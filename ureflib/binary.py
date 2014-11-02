@@ -10,7 +10,7 @@ class BinaryFormatError(BinaryException):
     pass
 
 
-def read(stream, spec, offset = 0):
+def read(stream, struct, offset = 0):
     """ Read an arbitrary structure from a bitstream.
 
     The offset is the location in the stream where the structure begins. If
@@ -19,10 +19,15 @@ def read(stream, spec, offset = 0):
     stream.pos = offset
     od = OrderedDict()
     ordering = {}
-    for field in spec:
+    for field in struct:
         value = stream.read("{}:{}".format(field['type'], field['size']))
-        od[field['id']] = value
-        ordering[field['id']] = field['order']
+        fid = field['id']
+        od[fid] = value
+        ordering[fid] = field['order']
+        if "hex" in field.tags or "pointer" in field.tags:
+            digits = field['size'] * 2 # Two hex digits per byte
+            fmtstr = "0x{{:0{}X}}".format(digits)
+            od[fid] = fmtstr.format(value)
 
     od = OrderedDict(sorted(od.items(), key=lambda item: ordering[item[0]]))
     return od

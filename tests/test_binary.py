@@ -9,7 +9,7 @@ class TestBinaryFunctions(unittest.TestCase):
     def setUp(self):
         self.bits = ConstBitStream('0x3456')
         f = open("tests/specfiles/test_struct.csv")
-        self.spec = list(specs.RomStructReader(f))
+        self.spec = list(specs.StructFieldReader(f))
 
     def test_read_struct(self):
         s = binary.read(self.bits, self.spec, 0)

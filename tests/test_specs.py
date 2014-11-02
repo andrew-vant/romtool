@@ -50,7 +50,7 @@ class TestSpecReader(unittest.TestCase):
     def tearDown(self):
         self.f.close()
 
-class TestRomStructReader(unittest.TestCase):
+class TestStructFieldReader(unittest.TestCase):
 
     requiredfields = "fid", "label", "size", "type", "order", "tags", "comment"
     testvals = ["fld1", "Field 1", "1", "uintle", "", "", "no comment."]
@@ -59,7 +59,7 @@ class TestRomStructReader(unittest.TestCase):
         self.f = TemporaryFile("w+")
 
     def test_romstruct_read(self):
-        reader = specs.RomStructReader(self.f)
+        reader = specs.StructFieldReader(self.f)
         self.f.write("\r\n".join([",".join(self.requiredfields),
                                  ",".join(self.testvals)]))
         self.f.seek(0)
@@ -71,11 +71,11 @@ class TestRomStructReader(unittest.TestCase):
         self.f.close()
 
 
-class TestTableReader(unittest.TestCase):
+class TestArrayReader(unittest.TestCase):
 
-    tablefields = "name", "spec", "entries", "entrysize", "offset", "comment"
+    tablefields = "name", "type", "offset", "length", "stride", "comment"
     tableheader = ",".join(tablefields)
-    specfields = TestRomStructReader.requiredfields
+    specfields = TestStructFieldReader.requiredfields
     specheader = ",".join(specfields)
 
     def setUp(self):
@@ -93,19 +93,19 @@ class TestTableReader(unittest.TestCase):
         self.tf.write("\r\n".join([self.tableheader, ",".join(self.tablecontents)]))
         self.sf.write("\r\n".join([self.specheader, ",".join(self.speccontents)]))
         self.tf.seek(0)
-        self.sf.close() # So it can be reopened by TableReader when needed.
+        self.sf.close() # So it can be reopened by ArrayReader when needed.
 
     def test_tablereader_read(self):
-        reader = specs.TableReader(self.tf)
+        reader = specs.ArrayReader(self.tf)
         self.assertEqual(list(next(reader).items()),
                          list(zip(self.tablefields, self.tablecontents)))
 
     def test_tablereader_spec_attachment(self):
-        reader = specs.TableReader(self.tf)
+        reader = specs.ArrayReader(self.tf)
         table = next(reader)
         # Expected change from transform:
         self.speccontents[2] = int(self.speccontents[2]) * 8
-        self.assertEqual(list(table.spec[0].items()),
+        self.assertEqual(list(table.struct[0].items()),
                          list(zip(self.specfields, self.speccontents)))
 
     @unittest.skip("no testset files yet.")
@@ -115,7 +115,7 @@ class TestTableReader(unittest.TestCase):
         olddir = os.getcwd()
         os.chdir(specfolder)
         with open("tables.csv") as f:
-            tables = list(specs.TableReader(f))
+            tables = list(specs.ArrayReader(f))
         self.assertEqual(tables[1]['name'], "armor")
         self.assertEqual(tables[2]['offset'], "0x72F4")
         self.assertEqual(tables[0].spec[2]['label'], "Power")
