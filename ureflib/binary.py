@@ -24,18 +24,11 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = []
-            for od in OrderedDictReader(f):
-                try:
-                    ra = RomArray(od, self.structs)
-                    self.arrays.append(ra)
-                except NotImplementedError: # Ignore primitives for now.
-                    pass
-
-            # This is how it should be done once primitives work:
-            #
-            # self.arrays = [RomArray(od, self.structs)
-            #                for od in OrderedDictReader(f)]
+            # Note that we are skipping arrays of primitives for now because
+            # they are not implemented yet.
+            self.arrays = [RomArray(od, self.structs)
+                           for od in OrderedDictReader(f)
+                           if od['type'] in self.structs]
 
     def dump(self, rom, folder, allow_overwrite=False):
         """ Look at a ROM and export all known data to folder."""
