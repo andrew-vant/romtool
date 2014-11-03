@@ -1,0 +1,4 @@
+id,size,type,order,tags,comment
+fld1,1,uintle,,,
+fld2,b4,uint,2,,
+fld3,b4,bin,1,,
