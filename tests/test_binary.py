@@ -86,6 +86,14 @@ class TestRomMap(unittest.TestCase):
     def setUp(self):
         self.map = ureflib.RomMap("tests/map")
 
-    def test_noop(self):
-        pass
+    def test_rom_map_array_load(self):
+        self.assertEqual(len(self.map.arrays), 3)
+        self.assertEqual(self.map.arrays[0]['name'], "arr1")
+
+    def test_rom_map_struct_load(self):
+        self.assertEqual(len(self.map.structs), 1)
+        self.assertTrue('romstruct_good' in self.map.structs)
+        s = self.map.structs['romstruct_good']
+        self.assertTrue('fld1' in s)
+        self.assertEqual(s['fld1']['label'], "Field 1")
 
