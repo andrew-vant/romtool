@@ -1,7 +1,9 @@
 import logging
 import os
+import csv
 from bitstring import ConstBitStream
 from collections import OrderedDict
+from csv import DictWriter
 
 from .util import tobits, validate_spec, OrderedDictReader
 
@@ -22,12 +24,34 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = [RomArray(od, self.structs)
-                           for od in OrderedDictReader(f)]
+            self.arrays = []
+            for od in OrderedDictReader(f):
+                try:
+                    ra = RomArray(od, self.structs)
+                    self.arrays.append(ra)
+                except NotImplementedError: # Ignore primitives for now.
+                    pass
 
-    def dump(self, rom, folder):
+            # This is how it should be done once primitives work:
+            #
+            # self.arrays = [RomArray(od, self.structs)
+            #                for od in OrderedDictReader(f)]
+
+    def dump(self, rom, folder, allow_overwrite=False):
         """ Look at a ROM and export all known data to folder."""
-        raise NotImplementedError("not written yet.")
+        stream = ConstBitStream(rom)
+        mode = "w" if allow_overwrite else "x"
+        for array in self.arrays:
+            fname = "{}/{}.csv".format(folder, array['name'])
+            data = array.read(stream)
+            with open(fname, mode, newline='') as f:
+                writer = DictWriter(f, array.struct.keys(), quoting=csv.QUOTE_ALL)
+                labels = {field['id']: field['label']
+                          for field in array.struct.values()}
+                writer.writerow(labels)
+                for struct in data:
+                    writer.writerow(struct)
+
 
     def makepatch(self, rom, modfolder):
         """ Generate a ROM patch."""

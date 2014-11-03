@@ -97,3 +97,13 @@ class TestRomMap(unittest.TestCase):
         self.assertTrue('fld1' in s)
         self.assertEqual(s['fld1']['label'], "Field 1")
 
+    def test_rom_map_dump(self):
+        # FIXME: Uses real files.
+        rompath = "resources/testrom.smc"
+        specpath = "tests/map.testrom"
+        outpath = "tests/temp"
+        rom = open(rompath, "rb")
+        map = ureflib.RomMap(specpath)
+        map.dump(rom, outpath, True)
+        rom.close()
+
