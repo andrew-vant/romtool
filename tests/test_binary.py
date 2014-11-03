@@ -29,7 +29,10 @@ class TestRomArray(unittest.TestCase):
         self.assertEqual(self.array.struct, self.typedict['romstruct_good'])
 
     def test_rom_array_read(self):
-        pass
+        # Twenty copies of a romstruct.
+        bits = ConstBitStream('0x3456') * 20
+        for entry in self.array.read(bits):
+            self.assertEqual(entry['fld3'], "0110")
 
 class TestRomStruct(unittest.TestCase):
     def setUp(self):

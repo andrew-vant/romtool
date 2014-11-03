@@ -48,8 +48,8 @@ class RomArray(OrderedDict):
             raise NotImplementedError("Arrays of primitives not ready yet.")
 
     def read(self, stream):
-        for i in range(self['length']):
-            pos = i*self['stride'] + offset
+        for i in range(int(self['length'])):
+            pos = i*self['stride'] + self['offset']
             yield self.struct.read(stream, pos)
 
 
