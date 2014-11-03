@@ -1,7 +1,9 @@
-import ureflib.util as util
 import unittest
 from collections import OrderedDict
 from tempfile import TemporaryFile, NamedTemporaryFile
+
+import ureflib
+from ureflib import util
 
 class TestUtilFuncs(unittest.TestCase):
     def test_validate_spec(self):

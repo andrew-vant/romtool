@@ -1,14 +1,15 @@
 import logging
 import unittest
-import ureflib.binary as binary
-import ureflib.util as util
 from bitstring import ConstBitStream
 from tempfile import TemporaryFile
 from collections import OrderedDict
 
+import ureflib
+from ureflib import util
+
 class TestRomArray(unittest.TestCase):
     def setUp(self):
-        rp = binary.RomArray.requiredproperties
+        rp = ureflib.RomArray.requiredproperties
         od = OrderedDict({"name": "arr1",
                           "type": "romstruct_good",
                           "offset": "0x06",
@@ -16,9 +17,9 @@ class TestRomArray(unittest.TestCase):
                           "stride": "2",
                           "comment": ""})
         self.typedict = {"romstruct_good":
-                    binary.RomStruct("tests/binary/romstruct_good.csv")}
+                    ureflib.RomStruct("tests/binary/romstruct_good.csv")}
 
-        self.array = binary.RomArray(od, self.typedict)
+        self.array = ureflib.RomArray(od, self.typedict)
 
     def test_rom_array_size_conversion(self):
         self.assertEqual(self.array['offset'], 0x06*8)
@@ -33,11 +34,11 @@ class TestRomArray(unittest.TestCase):
 class TestRomStruct(unittest.TestCase):
     def setUp(self):
         self.bits = ConstBitStream('0x3456')
-        self.struct = binary.RomStruct("tests/binary/romstruct_good.csv")
+        self.struct = ureflib.RomStruct("tests/binary/romstruct_good.csv")
 
     def test_malformed_romstruct_file(self):
         badfile = "tests/binary/romstruct_malformed.csv"
-        self.assertRaises(Exception, binary.RomStruct, badfile)
+        self.assertRaises(Exception, ureflib.RomStruct, badfile)
 
     def test_read_struct(self):
         s = self.struct.read(self.bits, 0)
@@ -54,14 +55,14 @@ class TestRomStruct(unittest.TestCase):
 
 class TestRomStructField(unittest.TestCase):
     def setUp(self):
-        rp = binary.RomStructField.requiredproperties
+        rp = ureflib.RomStructField.requiredproperties
         od = OrderedDict()
         for p in rp:
             od[p] = p+"val"
         od['size'] = "b14"
         od['tags'] = "what|is|this"
         self.basedict = od
-        self.rsf = binary.RomStructField(od)
+        self.rsf = ureflib.RomStructField(od)
 
     def test_RSF_size_conversion(self):
         self.assertEqual(self.rsf['size'], 14)
@@ -72,7 +73,7 @@ class TestRomStructField(unittest.TestCase):
 
     def test_missing_fields(self):
         self.basedict.popitem(last=False)
-        self.assertRaises(util.SpecFieldMismatch,
-                          binary.RomStructField,
+        self.assertRaises(ureflib.SpecFieldMismatch,
+                          ureflib.RomStructField,
                           self.basedict)
 

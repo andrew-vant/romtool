@@ -2,6 +2,7 @@ import logging
 import os
 from bitstring import ConstBitStream
 from collections import OrderedDict
+
 from .util import tobits, validate_spec, OrderedDictReader
 
 
