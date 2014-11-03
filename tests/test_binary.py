@@ -7,6 +7,7 @@ from collections import OrderedDict
 import ureflib
 from ureflib import util
 
+
 class TestRomArray(unittest.TestCase):
     def setUp(self):
         rp = ureflib.RomArray.requiredproperties
@@ -17,7 +18,7 @@ class TestRomArray(unittest.TestCase):
                           "stride": "2",
                           "comment": ""})
         self.typedict = {"romstruct_good":
-                    ureflib.RomStruct("tests/binary/romstruct_good.csv")}
+                    ureflib.RomStruct("tests/map/structs/romstruct_good.csv")}
 
         self.array = ureflib.RomArray(od, self.typedict)
 
@@ -37,7 +38,7 @@ class TestRomArray(unittest.TestCase):
 class TestRomStruct(unittest.TestCase):
     def setUp(self):
         self.bits = ConstBitStream('0x3456')
-        self.struct = ureflib.RomStruct("tests/binary/romstruct_good.csv")
+        self.struct = ureflib.RomStruct("tests/map/structs/romstruct_good.csv")
 
     def test_malformed_romstruct_file(self):
         badfile = "tests/binary/romstruct_malformed.csv"
@@ -79,4 +80,12 @@ class TestRomStructField(unittest.TestCase):
         self.assertRaises(ureflib.SpecFieldMismatch,
                           ureflib.RomStructField,
                           self.basedict)
+
+
+class TestRomMap(unittest.TestCase):
+    def setUp(self):
+        self.map = ureflib.RomMap("tests/map")
+
+    def test_noop(self):
+        pass
 

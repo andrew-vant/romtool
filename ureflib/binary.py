@@ -11,8 +11,8 @@ class RomMap(object):
         # Find all the csv files in the structs directory and load them into
         # a dictionary keyed by their base name.
         structfiles = [f for f
-                       in os.path.listdir("{}/structs".format(root))
-                       if f.endswidth(".csv")]
+                       in os.listdir("{}/structs".format(root))
+                       if f.endswith(".csv")]
 
         self.structs = {}
         for sf in structfiles:
@@ -22,7 +22,17 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = [RomArray(OrderedDictReader(f), self.structs)]
+            self.arrays = [RomArray(od, self.structs)
+                           for od in OrderedDictReader(f)]
+
+    def dump(self, rom, folder):
+        """ Look at a ROM and export all known data to folder."""
+        raise NotImplementedError("not written yet.")
+
+    def makepatch(self, rom, modfolder):
+        """ Generate a ROM patch."""
+        raise NotImplementedError("not written yet.")
+
 
 class RomSplice(OrderedDict):
     """ Evil bad wrongness.
