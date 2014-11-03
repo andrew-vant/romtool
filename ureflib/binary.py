@@ -24,11 +24,8 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            # Note that we are skipping arrays of primitives for now because
-            # they are not implemented yet.
             self.arrays = [RomArray(od, self.structs)
-                           for od in OrderedDictReader(f)
-                           if od['type'] in self.structs]
+                           for od in OrderedDictReader(f)]
 
     def dump(self, rom, folder, allow_overwrite=False):
         """ Look at a ROM and export all known data to folder."""
@@ -38,6 +35,8 @@ class RomMap(object):
             fname = "{}/{}.csv".format(folder, array['name'])
             data = array.read(stream)
             with open(fname, mode, newline='') as f:
+                # Note that we need to use QUOTE_ALL or spreadsheet programs
+                # will do bad things to bitfields that start with zero.
                 writer = DictWriter(f, array.struct.keys(), quoting=csv.QUOTE_ALL)
                 labels = {field['id']: field['label']
                           for field in array.struct.values()}
@@ -67,12 +66,12 @@ class RomArray(OrderedDict):
     def __init__(self, od, structtypes={}):
         super().__init__(od)
         validate_spec(self)
-        self['offset'] = tobits(self['offset'])
-        self['stride'] = tobits(self['stride'])
         if self['type'] in structtypes:
             self.struct = structtypes[self['type']]
         else:
-            raise NotImplementedError("Arrays of primitives not ready yet.")
+            self.struct = RomStruct(arrayspec=self)
+        self['offset'] = tobits(self['offset'])
+        self['stride'] = tobits(self['stride'])
 
     def read(self, stream):
         for i in range(int(self['length'])):
@@ -82,11 +81,33 @@ class RomArray(OrderedDict):
 
 class RomStruct(OrderedDict):
     """ Specifies the format of a structure type in a ROM. """
-    def __init__(self, filename):
+
+    def __init__(self, filename=None, arrayspec=None):
+        """ Create a RomStruct.
+
+        We need to be able to either initialize from a csv file describing the
+        struct, or generate a single-primitive struct on demand if we are dealing
+        with a primitive array. The current implementation works for both but is
+        an awful crock, API-wise. I don't like it. FIXME.
+        """
         super().__init__()
-        with open(filename, newline="") as f:
-            for field in OrderedDictReader(f):
-                self[field['id']] = RomStructField(field)
+        if filename is not None:
+            with open(filename, newline="") as f:
+                for field in OrderedDictReader(f):
+                    self[field['id']] = RomStructField(field)
+        elif arrayspec is not None:
+            # Caller wants us to build a single-primitive struct.
+            d = { "id":     "val",
+                  "label":  arrayspec['name'],
+                  "size":   arrayspec['stride'],
+                  "type":   arrayspec['type'],
+                  "tags":   arrayspec['tags'],
+                  "comment":arrayspec['comment'],
+                  "order": ""}
+            rsfspec = OrderedDict()
+            for prop in RomStructField.requiredproperties:
+                rsfspec[prop] = d[prop]
+            self[rsfspec['id']] = RomStructField(rsfspec)
 
     def read(self, stream, offset = 0):
         """ Read an arbitrary structure from a bitstream.
@@ -118,7 +139,7 @@ class RomStruct(OrderedDict):
 
 class RomStructField(OrderedDict):
     """ Specifies the format of a single field of a structure. """
-    requiredproperties = "id", "label", "size", "type", "tags", "comment"
+    requiredproperties = "id", "label", "size", "type", "tags", "order", "comment"
 
     def __init__(self, od):
         super().__init__(od)
