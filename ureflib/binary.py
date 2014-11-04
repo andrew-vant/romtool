@@ -19,7 +19,7 @@ class RomMap(object):
         self.structs = {}
         for sf in structfiles:
             typename = os.path.splitext(sf)[0]
-            struct = RomStruct("{}/structs/{}".format(root, sf))
+            struct = RomStruct.from_file("{}/structs/{}".format(root, sf))
             self.structs[typename] = struct
 
         # Now load the array definitions.
@@ -69,7 +69,7 @@ class RomArray(OrderedDict):
         if self['type'] in structtypes:
             self.struct = structtypes[self['type']]
         else:
-            self.struct = RomStruct(arrayspec=self)
+            self.struct = RomStruct.from_primitive_array(self)
         self['offset'] = tobits(self['offset'])
         self['stride'] = tobits(self['stride'])
 
@@ -82,32 +82,31 @@ class RomArray(OrderedDict):
 class RomStruct(OrderedDict):
     """ Specifies the format of a structure type in a ROM. """
 
-    def __init__(self, filename=None, arrayspec=None):
-        """ Create a RomStruct.
-
-        We need to be able to either initialize from a csv file describing the
-        struct, or generate a single-primitive struct on demand if we are dealing
-        with a primitive array. The current implementation works for both but is
-        an awful crock, API-wise. I don't like it. FIXME.
-        """
+    def __init__(self, fields):
+        """ Create a RomStruct from a list of struct fields."""
         super().__init__()
-        if filename is not None:
-            with open(filename, newline="") as f:
-                for field in OrderedDictReader(f):
-                    self[field['id']] = RomStructField(field)
-        elif arrayspec is not None:
-            # Caller wants us to build a single-primitive struct.
-            d = { "id":     "val",
-                  "label":  arrayspec['name'],
-                  "size":   arrayspec['stride'],
-                  "type":   arrayspec['type'],
-                  "tags":   arrayspec['tags'],
-                  "comment":arrayspec['comment'],
-                  "order": ""}
-            rsfspec = OrderedDict()
-            for prop in RomStructField.requiredproperties:
-                rsfspec[prop] = d[prop]
-            self[rsfspec['id']] = RomStructField(rsfspec)
+        for field in fields:
+            self[field['id']] = field
+
+    @classmethod
+    def from_file(cls, filename):
+        with open(filename, newline="") as f:
+            fields = list(OrderedDictReader(f))
+        return RomStruct([RomStructField(field) for field in fields])
+
+    @classmethod
+    def from_primitive_array(cls, arrayspec):
+        d = { "id":     "val",
+              "label":  arrayspec['name'],
+              "size":   arrayspec['stride'],
+              "type":   arrayspec['type'],
+              "tags":   arrayspec['tags'],
+              "comment":arrayspec['comment'],
+              "order": ""}
+        rsfspec = OrderedDict()
+        for prop in RomStructField.requiredproperties:
+            rsfspec[prop] = d[prop]
+        return RomStruct([RomStructField(rsfspec)])
 
     def read(self, stream, offset = 0):
         """ Read an arbitrary structure from a bitstream.

@@ -17,8 +17,9 @@ class TestRomArray(unittest.TestCase):
                           "length": "3",
                           "stride": "2",
                           "comment": ""})
-        self.typedict = {"romstruct_good":
-                    ureflib.RomStruct("tests/map/structs/romstruct_good.csv")}
+        self.typedict = {
+            "romstruct_good": ureflib.RomStruct.from_file(
+                              "tests/map/structs/romstruct_good.csv")}
 
         self.array = ureflib.RomArray(od, self.typedict)
 
@@ -38,7 +39,7 @@ class TestRomArray(unittest.TestCase):
 class TestRomStruct(unittest.TestCase):
     def setUp(self):
         self.bits = ConstBitStream('0x3456')
-        self.struct = ureflib.RomStruct("tests/map/structs/romstruct_good.csv")
+        self.struct = ureflib.RomStruct.from_file("tests/map/structs/romstruct_good.csv")
 
     def test_malformed_romstruct_file(self):
         badfile = "tests/binary/romstruct_malformed.csv"
