@@ -50,16 +50,6 @@ class RomMap(object):
         raise NotImplementedError("not written yet.")
 
 
-class RomSplice(OrderedDict):
-    """ Evil bad wrongness.
-
-    This is going to handle entites of the form "field X of entity is the
-    value of entry Y in array X.
-    """
-    pass
-
-
-
 class RomArray(OrderedDict):
     requiredproperties = "name", "type", "offset", "length", "stride", "comment"
 
