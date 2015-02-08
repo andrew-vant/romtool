@@ -58,31 +58,6 @@ class TestStructDef(unittest.TestCase):
         s = self.assertEqual(s['fld1'], "0x34")
 
 
-class TestStructFieldDef(unittest.TestCase):
-    def setUp(self):
-        rp = ureflib.StructFieldDef.requiredproperties
-        od = OrderedDict()
-        for p in rp:
-            od[p] = p+"val"
-        od['size'] = "b14"
-        od['tags'] = "what|is|this"
-        self.basedict = od
-        self.rsf = ureflib.StructFieldDef(od)
-
-    def test_RSF_size_conversion(self):
-        self.assertEqual(self.rsf['size'], 14)
-
-    def test_RSF_tag_split(self):
-        self.assertEqual(len(self.rsf.tags), 3)
-        self.assertEqual(self.rsf.tags, {"what","is","this"})
-
-    def test_missing_fields(self):
-        self.basedict.popitem(last=False)
-        self.assertRaises(ureflib.SpecFieldMismatch,
-                          ureflib.StructFieldDef,
-                          self.basedict)
-
-
 class TestRomMap(unittest.TestCase):
     def setUp(self):
         self.map = ureflib.RomMap("tests/map")

@@ -1,4 +1,4 @@
-from .binary import ArrayDef, StructDef, StructFieldDef, RomMap
+from .binary import ArrayDef, StructDef, RomMap
 from .exceptions import SpecFieldMismatch
 from . import util
 

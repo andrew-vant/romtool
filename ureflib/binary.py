@@ -70,31 +70,31 @@ class StructDef(OrderedDict):
     """ Specifies the format of a structure type in a ROM. """
 
     def __init__(self, fields):
-        """ Create a StructDef from a list of struct fields."""
+        """ Create a StructDef from a list of ordered dicts."""
         super().__init__()
         for field in fields:
+            field['size'] = tobits(field['size'])
             self[field['id']] = field
 
     @classmethod
     def from_file(cls, filename):
         with open(filename, newline="") as f:
             fields = list(OrderedDictReader(f))
-        return StructDef([StructFieldDef(field) for field in fields])
+        return StructDef(fields)
 
     @classmethod
     def from_primitive_array(cls, arrayspec):
-        d = { "id":     "val",
-              "label":  arrayspec['name'],
-              "size":   arrayspec['stride'],
-              "type":   arrayspec['type'],
-              "display": "",
-              "tags":   arrayspec['tags'],
-              "comment":arrayspec['comment'],
-              "order": ""}
-        rsfspec = OrderedDict()
-        for prop in StructFieldDef.requiredproperties:
-            rsfspec[prop] = d[prop]
-        return StructDef([StructFieldDef(rsfspec)])
+        spec = OrderedDict()
+        spec['id'] = "val"
+        spec['label'] = arrayspec['name']
+        spec['size'] = arrayspec['stride']
+        spec['type'] = arrayspec['type']
+        spec['display'] = arrayspec['display']
+        spec['tags'] = arrayspec['tags']
+        spec['comment'] = arrayspec['comment']
+        spec['order'] = ""
+
+        return StructDef([spec])
 
     def read(self, stream, offset = 0):
         """ Read an arbitrary structure from a bitstream.
@@ -113,16 +113,6 @@ class StructDef(OrderedDict):
         od = OrderedDict(sorted(od.items(), key=lambda item: ordering[item[0]]))
         return od
 
-
-class StructFieldDef(OrderedDict):
-    """ Specifies the format of a single field of a structure. """
-    requiredproperties = "id", "label", "size", "type", "display", "tags", "order", "comment"
-
-    def __init__(self, od):
-        super().__init__(od)
-        self.tags = {s for s in od['tags'].split("|") if s}
-        self['size'] = tobits(self['size'])
-        validate_spec(self)
 
 def hexify(i, length = None):
     """ Converts an integer to a hex string.
