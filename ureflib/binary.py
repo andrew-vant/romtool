@@ -16,12 +16,12 @@ class RomMap(object):
         self.structs = {}
         for sf in structfiles:
             typename = os.path.splitext(sf)[0]
-            struct = RomStruct.from_file("{}/structs/{}".format(root, sf))
+            struct = StructDef.from_file("{}/structs/{}".format(root, sf))
             self.structs[typename] = struct
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = [RomArray(od, self.structs)
+            self.arrays = [ArrayDef(od, self.structs)
                            for od in OrderedDictReader(f)]
 
     def dump(self, rom, folder, allow_overwrite=False):
@@ -47,7 +47,7 @@ class RomMap(object):
         raise NotImplementedError("not written yet.")
 
 
-class RomArray(OrderedDict):
+class ArrayDef(OrderedDict):
     requiredproperties = "name", "type", "offset", "length", "stride", "comment"
 
     def __init__(self, od, structtypes={}):
@@ -56,7 +56,7 @@ class RomArray(OrderedDict):
         if self['type'] in structtypes:
             self.struct = structtypes[self['type']]
         else:
-            self.struct = RomStruct.from_primitive_array(self)
+            self.struct = StructDef.from_primitive_array(self)
         self['offset'] = tobits(self['offset'])
         self['stride'] = tobits(self['stride'])
 
@@ -66,11 +66,11 @@ class RomArray(OrderedDict):
             yield self.struct.read(stream, pos)
 
 
-class RomStruct(OrderedDict):
+class StructDef(OrderedDict):
     """ Specifies the format of a structure type in a ROM. """
 
     def __init__(self, fields):
-        """ Create a RomStruct from a list of struct fields."""
+        """ Create a StructDef from a list of struct fields."""
         super().__init__()
         for field in fields:
             self[field['id']] = field
@@ -79,7 +79,7 @@ class RomStruct(OrderedDict):
     def from_file(cls, filename):
         with open(filename, newline="") as f:
             fields = list(OrderedDictReader(f))
-        return RomStruct([RomStructField(field) for field in fields])
+        return StructDef([StructFieldDef(field) for field in fields])
 
     @classmethod
     def from_primitive_array(cls, arrayspec):
@@ -92,9 +92,9 @@ class RomStruct(OrderedDict):
               "comment":arrayspec['comment'],
               "order": ""}
         rsfspec = OrderedDict()
-        for prop in RomStructField.requiredproperties:
+        for prop in StructFieldDef.requiredproperties:
             rsfspec[prop] = d[prop]
-        return RomStruct([RomStructField(rsfspec)])
+        return StructDef([StructFieldDef(rsfspec)])
 
     def read(self, stream, offset = 0):
         """ Read an arbitrary structure from a bitstream.
@@ -114,7 +114,7 @@ class RomStruct(OrderedDict):
         return od
 
 
-class RomStructField(OrderedDict):
+class StructFieldDef(OrderedDict):
     """ Specifies the format of a single field of a structure. """
     requiredproperties = "id", "label", "size", "type", "display", "tags", "order", "comment"
 
