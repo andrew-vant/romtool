@@ -108,3 +108,7 @@ class TestRomMap(unittest.TestCase):
         map.dump(rom, outpath, True)
         rom.close()
 
+class TestFunctions(unittest.TestCase):
+    def test_hexify(self):
+        self.assertEqual(ureflib.binary.hexify(4, 8), "0x04")
+        self.assertEqual(ureflib.binary.hexify(4), "0x4")

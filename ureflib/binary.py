@@ -112,15 +112,7 @@ class RomStruct(OrderedDict):
             od[fid] = value
             ordering[fid] = field['order']
             if "hex" in field.tags or "pointer" in field.tags:
-                bits = field['size']
-                # How many bytes is this, rounded up?
-                numbytes = bits // 8
-                if bits % 8 != 0: # Check for partial bytes
-                    numbytes += 1
-
-                digits = numbytes * 2 # Two hex digits per byte
-                fmtstr = "0x{{:0{}X}}".format(digits)
-                od[fid] = fmtstr.format(value)
+                od[fid] = hexify(value, field['size'])
 
         od = OrderedDict(sorted(od.items(), key=lambda item: ordering[item[0]]))
         return od
@@ -136,3 +128,18 @@ class RomStructField(OrderedDict):
         self['size'] = tobits(self['size'])
         validate_spec(self)
 
+def hexify(i, bitlength = None):
+    """ Converts an integer to a hex string.
+
+    If bitlength is provided, the string will be padded enough to represent
+    at least bitlength bits, even if those bits are all zero.
+    """
+    if bitlength is None:
+        return hex(i)
+
+    numbytes = bitlength // 8
+    if bitlength % 8 != 0: # Check for partial bytes
+        numbytes += 1
+    digits = numbytes * 2 # Two hex digits per byte
+    fmtstr = "0x{{:0{}X}}".format(digits)
+    return fmtstr.format(i)
