@@ -57,6 +57,10 @@ class TestStructDef(unittest.TestCase):
         s = self.struct.read(self.bits, 0)
         s = self.assertEqual(s['fld1'], "0x34")
 
+    @unittest.skip("Test not implemented yet.")
+    def test_pointer_dereferencing(self):
+        pass
+
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
