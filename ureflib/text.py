@@ -30,6 +30,17 @@ class TextTable(object):
             if prefix == "/":
                 self.eos.append(codeseq)
 
+    def readstr(self, f, pos = None, include_eos = True, maxlen = 1000):
+        """ Read and decode an eos-terminated string from a file.
+
+            Keyword arguments:
+            maxlen -- Fail if no eos encountered before this many bytes.
+        """
+        if pos is not None:
+            f.seek(pos)
+        data = f.read(maxlen)
+        return self.decode(data, include_eos=include_eos)
+
     def encode(self, s):
         codeseq = []
         i = 0

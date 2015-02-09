@@ -1,5 +1,6 @@
 import unittest
 from ureflib import text
+from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
@@ -29,3 +30,11 @@ class TestTextTable(unittest.TestCase):
         text = "Esuna[EOS]00"
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
         self.assertEqual(self.tbl.decode(binary, stop_on_eos = False), text)
+
+    def test_readstr(self):
+        text = "Esuna[EOS]"
+        binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
+        with TemporaryFile("bw+") as f:
+            f.write(binary)
+            f.seek(0)
+            self.assertEqual(self.tbl.readstr(f), text)
