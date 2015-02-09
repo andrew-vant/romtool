@@ -54,7 +54,11 @@ class TextTable(object):
         text = ""
         i = 0
         while i < len(data):
-            match, s = self.dec.item(data[i:])
+            byte = data[i:i+1]
+            s = "[${:02X}]".format(data[i])
+            match, s = self.dec.item(data[i:], default=s)
+            if match is None:
+                match = data[i:i+1]
             if include_eos or match not in self.eos:
                 text += s
             if stop_on_eos and match in self.eos:
