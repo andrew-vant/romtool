@@ -31,6 +31,10 @@ class TestTextTable(unittest.TestCase):
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF0, 0x0A])
         self.assertEqual(self.tbl.decode(binary), text)
 
+    @unittest.skip("Test not implemented yet.")
+    def test_encode_miss(self):
+        pass
+
     def test_eos_override(self):
         text = "Esuna[EOS]00"
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
