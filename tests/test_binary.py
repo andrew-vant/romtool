@@ -82,10 +82,9 @@ class TestRomMap(unittest.TestCase):
         rompath = "resources/testrom.smc"
         specpath = "tests/map.testrom"
         outpath = "tests/temp"
-        rom = open(rompath, "rb")
-        map = ureflib.RomMap(specpath)
-        map.dump(rom, outpath, True)
-        rom.close()
+        with open(rompath, "rb") as rom:
+            map = ureflib.RomMap(specpath)
+            map.dump(rom, outpath, True)
 
 class TestFunctions(unittest.TestCase):
     def test_hexify(self):
