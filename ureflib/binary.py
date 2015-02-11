@@ -1,16 +1,18 @@
-import logging, os, csv, sys
+import logging, os, csv, sys, itertools, yaml
 from bitstring import ConstBitStream
 from collections import OrderedDict
 from csv import DictWriter
-from . import text
+from pprint import pprint
 
+from . import text
 from .util import tobits, validate_spec, OrderedDictReader
 
 class RomMap(object):
     def __init__(self, root):
         self.structs = {}
         self.texttables = {}
-        self.arrays = []
+        self.arrays = {}
+        self.merge = {}
 
         # Find all the csv files in the structs directory and load them into
         # a dictionary keyed by their base name.
@@ -33,15 +35,24 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = [ArrayDef(od, self.structs)
-                           for od in OrderedDictReader(f)]
-
+            self.arrays = {od['name']: ArrayDef(od, self.structs)
+                           for od in OrderedDictReader(f)}
+        try:
+            with open("{}/merge.yaml".format(root)) as f:
+                self.merge = yaml.safe_load(f)
+        except IOError:
+            pass
 
     def dump(self, rom, folder, allow_overwrite=False):
         """ Look at a ROM and export all known data to folder."""
         stream = ConstBitStream(rom)
         mode = "w" if allow_overwrite else "x"
-        for array in self.arrays:
+        objects = []
+        merged = list(itertools.chain(*self.merge.values()))
+        unmerged = [array for array in self.arrays.values() if array['name'] not in merged]
+        # We can almost certainly scrap this section and treat a bare array as
+        # a single-array merge...
+        for array in unmerged:
             fname = "{}/{}.csv".format(folder, array['name'])
             data = array.read(stream)
             data = [d.struct_def.dereference_pointers(d, self, rom)
@@ -57,6 +68,31 @@ class RomMap(object):
                 writer.writerow(labels)
                 for struct in data:
                     writer.writerow(struct)
+
+        for entity, arraynames in self.merge.items():
+            arrays = [self.arrays[name] for name in arraynames]
+            data = [array.read(stream) for array in arrays]
+            data = [[item.struct_def.dereference_pointers(item, self, rom)
+                     for item in array] for array in data]
+
+            fname = "{}/{}.csv".format(folder, entity)
+            fields = list(itertools.chain(*[array[0].keys() for array in data]))
+            labels = {}
+            for array in arrays:
+                labels.update({field['id']: field['label']
+                               for field in array.struct.values()})
+                labels.update({field['id']: field['label']
+                               for field in array.struct.pointers})
+
+            with open(fname, mode, newline='') as f:
+                writer = DictWriter(f, fields, quoting=csv.QUOTE_ALL)
+                writer.writerow(labels)
+                for parts in zip(*data):
+                    # FIXME: Should complain about overlapping field ids!
+                    item = OrderedDict()
+                    for struct in parts:
+                        item.update(struct)
+                    writer.writerow(item)
 
 
     def makepatch(self, rom, modfolder):
@@ -129,6 +165,17 @@ class StructDef(OrderedDict):
     @classmethod
     def isname(cls, field):
         return field['label'] == "Name"
+    
+    @classmethod
+    def merge(cls, structures):
+        d = OrderedDict()
+        d.pointers = []
+        d.name = None
+        for s in structures:
+            d.pointers += s.pointers
+            d.name = s.name
+            d.update(s)
+        return d
 
     def read(self, stream, offset = 0, rommap = None):
         """ Read an arbitrary structure from a bitstream.
