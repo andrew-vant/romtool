@@ -52,7 +52,7 @@ class RomMap(object):
                 writer = DictWriter(f, data[0].keys(), quoting=csv.QUOTE_ALL)
                 labels = {field['id']: field['label']
                           for field in array.struct.values()}
-                labels.update({field['id']: field['id']
+                labels.update({field['id']: field['label']
                               for field in array.struct.pointers})
                 writer.writerow(labels)
                 for struct in data:
@@ -90,8 +90,11 @@ class StructDef(OrderedDict):
         """ Create a StructDef from a list of ordered dicts."""
         super().__init__()
         fields = list(fields)
-        self.pointers = [f for f in fields if f['id'][0] == "*"]
-        for field in [f for f in fields if f['id'][0] not in "*_"]:
+        self.pointers = [f for f in fields if self.ispointer(f)]
+        self.name = next((f for f in fields if self.isname(f)), None)
+
+        normal_fields = [f for f in fields if self.isnormal(f)]
+        for field in normal_fields:
             field['size'] = tobits(field['size'])
             self[field['id']] = field
 
@@ -115,6 +118,18 @@ class StructDef(OrderedDict):
 
         return StructDef([spec])
 
+    @classmethod
+    def isnormal(cls, field):
+        return field['id'].isalnum()
+
+    @classmethod
+    def ispointer(cls, field):
+        return field['id'][0] == "*"
+
+    @classmethod
+    def isname(cls, field):
+        return field['label'] == "Name"
+
     def read(self, stream, offset = 0, rommap = None):
         """ Read an arbitrary structure from a bitstream.
 
@@ -136,16 +151,22 @@ class StructDef(OrderedDict):
     def dereference_pointers(self, item, rommap, rom):
         ''' Dereference pointers in a struct. '''
         for ptr in self.pointers:
-            pid = ptr['id']
+            # Take off the asterisk to get the id of the pointer field.
+            # Get the value of that pointer, intify it, then do whatever's
+            # required by ptype. Pay attention to the difference between the
+            # id of the pointer (pid) and the id of the dereferenced field
+            # (fid) here. This could probably use clarity work.
+            fid = ptr['id']
+            pid = ptr['id'][1:]
             ptype = ptr['ptype']
-            ramaddr = int(item[ptr['label']], 0)
+            ramaddr = int(item[pid], 0)
             romaddr = ptr_ram_to_rom[ptype](ramaddr)
             if ptr['type'] == "strz":
                 tbl = rommap.texttables[ptr['display']]
                 s = tbl.readstr(rom, romaddr)
-                item[pid] = s
-            if pid == "*name":
-                item.move_to_end(pid, False)
+                item[fid] = s
+            if self.isname(ptr):
+                item.move_to_end(fid, False)
         return item
 
 
