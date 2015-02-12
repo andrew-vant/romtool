@@ -12,6 +12,8 @@ class TestArrayDef(unittest.TestCase):
     def setUp(self):
         rp = ureflib.ArrayDef.requiredproperties
         od = OrderedDict({"name": "arr1",
+                          "label": "arr1",
+                          "set": "",
                           "type": "romstruct_good",
                           "offset": "0x06",
                           "length": "3",

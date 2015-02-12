@@ -12,7 +12,7 @@ class RomMap(object):
         self.structs = {}
         self.texttables = {}
         self.arrays = {}
-        self.merge = {}
+        self.arraysets = {}
 
         # Find all the csv files in the structs directory and load them into
         # a dictionary keyed by their base name.
@@ -35,33 +35,26 @@ class RomMap(object):
 
         # Now load the array definitions.
         with open("{}/arrays.csv".format(root)) as f:
-            self.arrays = {od['name']: ArrayDef(od, self.structs)
-                           for od in OrderedDictReader(f)}
-        try:
-            with open("{}/merge.yaml".format(root)) as f:
-                self.merge = yaml.safe_load(f)
-        except IOError:
-            pass
+            arrays = [ArrayDef(od, self.structs)
+                      for od in OrderedDictReader(f)]
+            self.arrays = {a['name']: a for a in arrays}
+            arraysets = set([a['set'] for a in arrays])
+            for _set in arraysets:
+                self.arraysets[_set] = [a for a in arrays if a['set'] == _set]
 
     def dump(self, rom, folder, allow_overwrite=False):
         """ Look at a ROM and export all known data to folder."""
         stream = ConstBitStream(rom)
         mode = "w" if allow_overwrite else "x"
-        objects = []
-        merged = list(itertools.chain(*self.merge.values()))
-        unmerged = {array['name']: [array['name']]
-                    for array in self.arrays.values()
-                    if array['name'] not in merged}
 
         # Black magic begins here. We want to go through each set of arrays
         # and merge the corresponding structures from each, then output the
         # result. We want the output fields to remain well-ordered, and we
         # want the name field at the front if it is there.
 
-        for entity, arraynames in itertools.chain(self.merge.items(), unmerged.items()):
+        for entity, arrays in self.arraysets.items():
 
             # This ugly mess gets us a list of lists of structures.
-            arrays = [self.arrays[name] for name in arraynames]
             data = [array.read(stream) for array in arrays]
             data = [[item.struct_def.dereference_pointers(item, self, rom)
                      for item in array] for array in data]
@@ -70,6 +63,7 @@ class RomMap(object):
             # This is the union of the IDs available in each list in `data`.
             # We also need to know what human-readable labels to print on
             # the first row.
+
             fields = list(itertools.chain(*[array[0].keys() for array in data]))
             labels = {}
             for array in arrays:
@@ -123,6 +117,10 @@ class ArrayDef(OrderedDict):
             self.struct = StructDef.from_primitive_array(self)
         self['offset'] = tobits(self['offset'])
         self['stride'] = tobits(self['stride'])
+        if not self['set']:
+            self['set'] = self['name']
+        if not self['label']:
+            self['label'] = self['name']
 
     def read(self, stream):
         for i in range(int(self['length'])):
@@ -154,8 +152,8 @@ class StructDef(OrderedDict):
     @classmethod
     def from_primitive_array(cls, arrayspec):
         spec = OrderedDict()
-        spec['id'] = "val"
-        spec['label'] = arrayspec['name']
+        spec['id'] = arrayspec['name']
+        spec['label'] = arrayspec['label']
         spec['size'] = arrayspec['stride']
         spec['type'] = arrayspec['type']
         spec['display'] = arrayspec['display']

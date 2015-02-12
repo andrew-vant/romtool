@@ -1,4 +1,4 @@
-name,type,offset,length,stride,comment
-arr1,romstruct_good,0x00,3,2,
-arr2,romstruct_good,0x06,3,2,
-arr3,romstruct_good,0x0C,3,2,
+"name","label","set","type","offset","length","stride","comment"
+"arr1",,,"romstruct_good","0x00",3,2,
+"arr2",,,"romstruct_good","0x06",3,2,
+"arr3",,,"romstruct_good","0x0C",3,2,
