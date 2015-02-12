@@ -49,33 +49,27 @@ class RomMap(object):
         mode = "w" if allow_overwrite else "x"
         objects = []
         merged = list(itertools.chain(*self.merge.values()))
-        unmerged = [array for array in self.arrays.values() if array['name'] not in merged]
-        # We can almost certainly scrap this section and treat a bare array as
-        # a single-array merge...
-        for array in unmerged:
-            fname = "{}/{}.csv".format(folder, array['name'])
-            data = array.read(stream)
-            data = [d.struct_def.dereference_pointers(d, self, rom)
-                    for d in data]
-            with open(fname, mode, newline='') as f:
-                # Note that we need to use QUOTE_ALL or spreadsheet programs
-                # will do bad things to bitfields that start with zero.
-                writer = DictWriter(f, data[0].keys(), quoting=csv.QUOTE_ALL)
-                labels = {field['id']: field['label']
-                          for field in array.struct.values()}
-                labels.update({field['id']: field['label']
-                              for field in array.struct.pointers})
-                writer.writerow(labels)
-                for struct in data:
-                    writer.writerow(struct)
+        unmerged = {array['name']: [array['name']]
+                    for array in self.arrays.values()
+                    if array['name'] not in merged}
 
-        for entity, arraynames in self.merge.items():
+        # Black magic begins here. We want to go through each set of arrays
+        # and merge the corresponding structures from each, then output the
+        # result. We want the output fields to remain well-ordered, and we
+        # want the name field at the front if it is there.
+
+        for entity, arraynames in itertools.chain(self.merge.items(), unmerged.items()):
+
+            # This ugly mess gets us a list of lists of structures.
             arrays = [self.arrays[name] for name in arraynames]
             data = [array.read(stream) for array in arrays]
             data = [[item.struct_def.dereference_pointers(item, self, rom)
                      for item in array] for array in data]
 
-            fname = "{}/{}.csv".format(folder, entity)
+            # Now work out what field IDs need to be included in the output.
+            # This is the union of the IDs available in each list in `data`.
+            # We also need to know what human-readable labels to print on
+            # the first row.
             fields = list(itertools.chain(*[array[0].keys() for array in data]))
             labels = {}
             for array in arrays:
@@ -84,11 +78,28 @@ class RomMap(object):
                 labels.update({field['id']: field['label']
                                for field in array.struct.pointers})
 
+            # Figure out if this object has a name and move it to the front of
+            # the output if it does.
+            name = next((field[0] for field in labels.items() if field[1] == "Name"), None)
+            if name is not None:
+                fields.insert(0, fields.pop(fields.index(name)))
+
+            # Check for overlapping field ids and complain if needed.
+            parts = next(zip(*data))
+            if len(parts) > 1:
+                keys = [set(part.keys()) for part in parts]
+                overlap = keys[0].intersection(*keys)
+                if overlap:
+                    raise ValueError("Attempt to merge arrays with overlapping keys, keys were: {}".format(overlap))
+
+            # Now dump.
+            fname = "{}/{}.csv".format(folder, entity)
             with open(fname, mode, newline='') as f:
                 writer = DictWriter(f, fields, quoting=csv.QUOTE_ALL)
                 writer.writerow(labels)
+                # Iterate over the arrays in parallel. At each step, merge the
+                # available structs, then output them.
                 for parts in zip(*data):
-                    # FIXME: Should complain about overlapping field ids!
                     item = OrderedDict()
                     for struct in parts:
                         item.update(struct)
@@ -165,7 +176,7 @@ class StructDef(OrderedDict):
     @classmethod
     def isname(cls, field):
         return field['label'] == "Name"
-    
+
     @classmethod
     def merge(cls, structures):
         d = OrderedDict()
