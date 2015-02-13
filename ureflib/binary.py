@@ -175,17 +175,6 @@ class StructDef(OrderedDict):
     def isname(cls, field):
         return field['label'] == "Name"
 
-    @classmethod
-    def merge(cls, structures):
-        d = OrderedDict()
-        d.pointers = []
-        d.name = None
-        for s in structures:
-            d.pointers += s.pointers
-            d.name = s.name
-            d.update(s)
-        return d
-
     def read(self, stream, offset = 0, rommap = None):
         """ Read an arbitrary structure from a bitstream.
 
