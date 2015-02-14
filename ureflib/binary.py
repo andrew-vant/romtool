@@ -54,40 +54,39 @@ class RomMap(object):
 
         for entity, arrays in self.arraysets.items():
 
-            # This ugly mess gets us a list of lists of structures.
+            # Read in each array, then dereference any pointers in their
+            # respective items, then merge them so we get a single dict
+            # for each object.
             data = [array.read(stream) for array in arrays]
             data = [[item.struct_def.dereference_pointers(item, self, rom)
                      for item in array] for array in data]
+            data = [merge_dicts(parts) for parts in zip(*data)]
 
             # Now work out what field IDs need to be included in the output.
-            # This is the union of the IDs available in each list in `data`.
+            # This is the union of the IDs available in each array.
             # We also need to know what human-readable labels to print on
             # the first row.
 
-            fields = list(itertools.chain(*[array[0].keys() for array in data]))
-            labels = {}
+            headermap = OrderedDict()
             for array in arrays:
-                labels.update({field['id']: field['label']
-                               for field in array.struct.values()})
-                labels.update({field['id']: field['label']
-                               for field in array.struct.pointers})
+                s = array.struct
+                allfields = itertools.chain(s.values(), s.pointers)
+                od = OrderedDict((field['id'], field['label'])
+                                 for field in allfields)
+                headermap.update(od)
 
-            # Figure out if this object has a name and move it to the front of
-            # the output if it does.
-            name = next((field[0] for field in labels.items() if field[1] == "Name"), None)
+            # If the object has a name, move it to the front of the output.
+            name = next((k for k, v in headermap.items() if v == "Name"), None)
             if name is not None:
-                fields.insert(0, fields.pop(fields.index(name)))
+                headermap.move_to_end(name, False)
 
             # Now dump.
             fname = "{}/{}.csv".format(folder, entity)
             with open(fname, mode, newline='') as f:
-                writer = DictWriter(f, fields, quoting=csv.QUOTE_ALL)
-                writer.writerow(labels)
-                # Iterate over the arrays in parallel. At each step, merge the
-                # available structs, then output them.
-                for parts in zip(*data):
-                    writer.writerow(merge_dicts(parts))
-
+                writer = DictWriter(f, headermap.keys(), quoting=csv.QUOTE_ALL)
+                writer.writerow(headermap)
+                for item in data:
+                    writer.writerow(item)
 
     def makepatch(self, rom, modfolder):
         """ Generate a ROM patch."""
