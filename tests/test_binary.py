@@ -108,3 +108,4 @@ class TestFunctions(unittest.TestCase):
     def test_hexify(self):
         self.assertEqual(ureflib.binary.hexify(4, 8), "0x04")
         self.assertEqual(ureflib.binary.hexify(4), "0x4")
+        self.assertEqual(ureflib.binary.hexify(4, 12), "0x0004")
