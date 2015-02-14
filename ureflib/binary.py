@@ -5,7 +5,7 @@ from csv import DictWriter
 from pprint import pprint
 
 from . import text
-from .util import tobits, validate_spec, OrderedDictReader
+from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
 
 class RomMap(object):
     def __init__(self, root):
@@ -78,14 +78,6 @@ class RomMap(object):
             if name is not None:
                 fields.insert(0, fields.pop(fields.index(name)))
 
-            # Check for overlapping field ids and complain if needed.
-            parts = next(zip(*data))
-            if len(parts) > 1:
-                keys = [set(part.keys()) for part in parts]
-                overlap = keys[0].intersection(*keys)
-                if overlap:
-                    raise ValueError("Attempt to merge arrays with overlapping keys, keys were: {}".format(overlap))
-
             # Now dump.
             fname = "{}/{}.csv".format(folder, entity)
             with open(fname, mode, newline='') as f:
@@ -94,10 +86,7 @@ class RomMap(object):
                 # Iterate over the arrays in parallel. At each step, merge the
                 # available structs, then output them.
                 for parts in zip(*data):
-                    item = OrderedDict()
-                    for struct in parts:
-                        item.update(struct)
-                    writer.writerow(item)
+                    writer.writerow(merge_dicts(parts))
 
 
     def makepatch(self, rom, modfolder):

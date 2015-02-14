@@ -31,6 +31,22 @@ def validate_spec(spec):
             spec.requiredproperties,
             list(spec.keys()))
 
+def merge_dicts(dicts, allow_overlap=False):
+    if not dicts:
+        return {}
+    if len(dicts) == 1:
+        return dicts[0]
+    if not allow_overlap:
+        keys = [set(d.keys()) for d in dicts]
+        overlap = keys[0].intersection(*keys)
+        if overlap:
+            msg = "Attempt to merge dicts with overlapping keys, keys were: {}"
+            raise ValueError(msg.format(overlap))
+
+    out = type(dicts[0])() # To account for OrderedDicts
+    for d in dicts:
+        out.update(d)
+    return out
 
 def tobits(size):
     """ Convert a size specifier to number of bits. """
