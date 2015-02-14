@@ -151,6 +151,8 @@ class StructDef(OrderedDict):
 
     @classmethod
     def from_primitive_array(cls, arrayspec):
+        # FIXME: This is actually working from a primitive array initialization
+        # dict, not a real array.
         spec = OrderedDict()
         spec['id'] = arrayspec['name']
         spec['label'] = arrayspec['label']

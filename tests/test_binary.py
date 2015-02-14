@@ -59,6 +59,22 @@ class TestStructDef(unittest.TestCase):
         s = self.struct.read(self.bits, 0)
         s = self.assertEqual(s['fld1'], "0x34")
 
+    def test_load_from_array(self):
+        arraydict = OrderedDict({ "name": "arrprim",
+                                  "label": "Primitive",
+                                  "set": "none",
+                                  "type": "uintle",
+                                  "offset": "0x06",
+                                  "length": "3",
+                                  "stride": "2",
+                                  "display": "",
+                                  "tags": "",
+                                  "comment": ""})
+        s = ureflib.StructDef.from_primitive_array(arraydict)
+        self.assertEqual(s['arrprim']['id'], arraydict['name'])
+        self.assertEqual(s['arrprim']['type'], arraydict['type'])
+        self.assertEqual(s['arrprim']['size'], 16)
+
     @unittest.skip("Test not implemented yet.")
     def test_pointer_dereferencing(self):
         pass
@@ -69,7 +85,7 @@ class TestRomMap(unittest.TestCase):
         self.map = ureflib.RomMap("tests/map")
 
     def test_rom_map_array_load(self):
-        self.assertEqual(len(self.map.arrays), 3)
+        self.assertEqual(len(self.map.arrays), 4)
         self.assertEqual(self.map.arrays['arr1']['name'], "arr1")
 
     def test_rom_map_struct_load(self):
