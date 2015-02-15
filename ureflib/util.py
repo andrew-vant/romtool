@@ -41,7 +41,9 @@ def merge_dicts(dicts, allow_overlap=False):
         overlap = keys[0].intersection(*keys)
         if overlap:
             msg = "Attempt to merge dicts with overlapping keys, keys were: {}"
-            raise ValueError(msg.format(overlap))
+            err = ValueError(msg.format(overlap))
+            err.overlap = overlap
+            raise err
 
     out = type(dicts[0])() # To account for OrderedDicts
     for d in dicts:

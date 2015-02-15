@@ -11,3 +11,5 @@ class SpecFieldMismatch(Exception):
         provstr = "Fields provided: {}".format(self.provided)
         return "\n".join([self.message, reqstr, provstr])
 
+class RomMapError(Exception):
+    pass

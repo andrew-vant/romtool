@@ -6,6 +6,7 @@ from pprint import pprint
 
 from . import text
 from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
+from .exceptions import RomMapError
 
 class RomMap(object):
     def __init__(self, root):
@@ -60,7 +61,12 @@ class RomMap(object):
             data = [array.read(stream) for array in arrays]
             data = [[item.struct_def.dereference_pointers(item, self, rom)
                      for item in array] for array in data]
-            data = [merge_dicts(parts) for parts in zip(*data)]
+            try:
+                data = [merge_dicts(parts) for parts in zip(*data)]
+            except ValueError as e:
+                # FIXME: These checks should really be done in init.
+                msg = "The arrays in set {} have overlapping keys: {}"
+                raise RomMapError(msg.format(entity, e.overlap))
 
             # Now work out what field IDs need to be included in the output.
             # This is the union of the IDs available in each array.
