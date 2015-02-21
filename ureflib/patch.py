@@ -3,9 +3,12 @@ from bitstring import Bits
 class IPSPatch(object):
     header = "PATCH".encode("ascii")
     footer = "EOF".encode("ascii")
+    bogoaddr = 0x454f46
 
     def __init__(self, changes, bogobyte = None):
         self.records = []
+        self.bogobyte = bogobyte
+
         for offset, data in sorted(changes.items()):
             if len(self.records) == 0:
                 self.records.append((offset, data))
@@ -16,9 +19,16 @@ class IPSPatch(object):
                 continue
             self.records.append((offset, data))
 
-        if 0x454f46 in self.records and bogobyte is None:
-            raise ValueError("A change started at 0x454f46 (EOF) but bogobyte was not provided.")
-        self.bogobyte = bogobyte
+        for i, (offset, data) in enumerate(self.records):
+            if offset == self.bogoaddr:
+                if bogobyte is None:
+                    raise ValueError("A change started at 0x454f46 (EOF) "
+                                     "but bogobyte was not provided.")
+                else:
+                    # Kick back the record starting at the bad address one byte.
+                    # This should always be safe, because if there was something
+                    # at the previous byte, concatenation would have occurred.
+                    self.records[i] = (offset - 1, bytes([bogobyte]) + data)
 
 
     def write(self, f):
