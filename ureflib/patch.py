@@ -4,10 +4,22 @@ class IPSPatch(object):
     header = "PATCH".encode("ascii")
     footer = "EOF".encode("ascii")
 
-    def __init__(self, changes):
-        if 0x454f46 in changes:
-            raise NotImplementedError("0x454f46/EOF workaround not yet implemented.")
-        self.records = sorted(changes.items())
+    def __init__(self, changes, bogobyte = None):
+        self.records = []
+        for offset, data in sorted(changes.items()):
+            if len(self.records) == 0:
+                self.records.append((offset, data))
+                continue
+            lastoffset, lastdata = self.records[-1]
+            if lastoffset + len(lastdata) == offset:
+                self.records[-1] = (lastoffset, lastdata + data)
+                continue
+            self.records.append((offset, data))
+
+        if 0x454f46 in self.records and bogobyte is None:
+            raise ValueError("A change started at 0x454f46 (EOF) but bogobyte was not provided.")
+        self.bogobyte = bogobyte
+
 
     def write(self, f):
         recordbytes = b""

@@ -26,6 +26,16 @@ class TestIPSPatch(unittest.TestCase):
     def test_ips_0x454f46(self):
         self.assertFalse(True)
 
-    @unittest.expectedFailure
     def test_ips_change_concatenation(self):
-        self.assertFalse(True)
+        changes = {0x00: b"\x00\x00",
+                   0x02: b"\x01\x02\x03"}
+
+        intended_output = b"".join([
+            "PATCH".encode("ascii"),
+            b'\x00\x00\x00\x00\x05\x00\x00\x01\x02\x03',
+            "EOF".encode("ascii")])
+
+        with TemporaryFile("wb+") as f:
+            patch.IPSPatch(changes).write(f)
+            f.seek(0)
+            self.assertEqual(f.read(), intended_output)
