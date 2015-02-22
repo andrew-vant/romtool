@@ -210,6 +210,17 @@ class StructDef(OrderedDict):
                 item.move_to_end(fid, False)
         return item
 
+    def extract(self, item):
+        ''' Extract a structure's elements from an ordered dict. '''
+        # FIXME: Needs unit test.
+        out = OrderedDict()
+        for fid, field in self.items():
+            if fid in item:
+                out[fid] = item[fid]
+            elif field['label'] in item:
+                out[fid] = item[field['label']]
+        return out
+
 
 def hexify(i, length = None):
     """ Converts an integer to a hex string.

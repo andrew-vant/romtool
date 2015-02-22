@@ -79,6 +79,31 @@ class TestStructDef(unittest.TestCase):
     def test_pointer_dereferencing(self):
         pass
 
+    def test_extract_fields_from_object(self):
+        fields = [("fld1", "something"),
+                  ("fld2", "something 2"),
+                  ("fld3", "something 3"),
+                  ("fld4", "something 4"),
+                  ("fld5", "something 5")]
+
+        me = OrderedDict(fields[0:3])
+        source = OrderedDict(fields)
+        self.assertEqual(self.struct.extract(source), me)
+
+    def test_extract_fields_by_label(self):
+        me = OrderedDict([("fld1", "something"),
+                          ("fld2", "something 2"),
+                          ("fld3", "something 3")])
+
+        source = OrderedDict([("Field 1", "something"),
+                              ("Field 2", "something 2"),
+                              ("Field 3", "something 3"),
+                              ("Field 4", "something 4"),
+                              ("Field 5", "something 5")])
+
+        self.assertEqual(self.struct.extract(source), me)
+
+
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
