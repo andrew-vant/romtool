@@ -105,8 +105,8 @@ class TestStructDef(unittest.TestCase):
 
     def test_data_comparison(self):
         romdata = bytes([0, 0])
-        item = OrderedDict([("fld1", 0),
-                            ("fld2", 2),
+        item = OrderedDict([("fld1", "0"),
+                            ("fld2", "2"),
                             ("fld3", "0000")])
         intended_changes = {1: b"\x20"}
         with TemporaryFile("wb+") as rom:
@@ -114,8 +114,8 @@ class TestStructDef(unittest.TestCase):
             changes = self.struct.compare(item, rom, 0)
             self.assertEqual(changes, intended_changes)
 
-        item = OrderedDict([("fld1", 1),
-                            ("fld2", 2),
+        item = OrderedDict([("fld1", "1"),
+                            ("fld2", "2"),
                             ("fld3", "1111")])
         intended_changes = {0: b"\x01",
                             1: b"\x2F"}
