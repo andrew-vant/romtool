@@ -7,6 +7,7 @@ from pprint import pprint
 from . import text
 from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
 from .exceptions import RomMapError
+from .patch import IPSPatch
 
 class RomMap(object):
     def __init__(self, root):
@@ -94,9 +95,41 @@ class RomMap(object):
                 for item in data:
                     writer.writerow(item)
 
-    def makepatch(self, rom, modfolder):
-        """ Generate a ROM patch."""
-        raise NotImplementedError("not written yet.")
+    def makepatch(self, romfile, modfolder, patchfile):
+        # Get the filenames for all objects. Assemble a dictionary mapping
+        # object types to all objects of that type.
+        files = [f for f in os.listdir(modfolder)
+                 if f.endswith(".csv")]
+        paths = [os.path.join(modfolder, f) for f in files]
+        objnames = [os.path.splitext(f)[0] for f in files]
+        objects = {}
+        for name, path in zip(objnames, paths):
+            with open(path) as f:
+                objects[name] = list(OrderedDictReader(f))
+
+        # This mess splits the object-to-data mapping into an array-to-data
+        # mapping. This should really be functioned out and unit tested
+        # because it is confusing as hell.
+        data = {array['name']: [] for array in self.arrays.values()}
+        for otype, objects in objects.items():
+            for array in self.arraysets[otype]:
+                for o in objects:
+                    data[array['name']].append(array.struct.extract(o))
+
+        # Now get a list of bytes to change.
+        changed = {}
+        with open(romfile, "rb") as rom:
+            for arrayname, contents in data.items():
+                a = self.arrays[arrayname]
+                offset = int(a['offset'] // 8)
+                stride = int(a['stride'] // 8)
+                for item in contents:
+                    changed.update(a.struct.compare(item, rom, offset))
+                    offset += stride
+
+        # Generate the patch
+        with open(patchfile, "wb+") as f:
+            IPSPatch(changed).write(f)
 
 
 class ArrayDef(OrderedDict):
