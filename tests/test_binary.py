@@ -103,6 +103,16 @@ class TestStructDef(unittest.TestCase):
 
         self.assertEqual(self.struct.extract(source), me)
 
+    def test_data_comparison(self):
+        romdata = bytes([0, 0])
+        item = OrderedDict([("fld1", 0),
+                            ("fld2", 2),
+                            ("fld3", "0000")])
+        intended_changes = {1: b"\x20"}
+        with TemporaryFile("wb+") as rom:
+            rom.write(romdata)
+            changes = self.struct.compare(item, rom, 0)
+            self.assertEqual(changes, intended_changes)
 
 
 class TestRomMap(unittest.TestCase):

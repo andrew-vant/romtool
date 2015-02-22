@@ -1,5 +1,5 @@
 import logging, os, csv, sys, itertools, yaml
-from bitstring import ConstBitStream
+from bitstring import ConstBitStream, Bits
 from collections import OrderedDict
 from csv import DictWriter
 from pprint import pprint
@@ -220,6 +220,29 @@ class StructDef(OrderedDict):
             elif field['label'] in item:
                 out[fid] = item[field['label']]
         return out
+
+    def compare(self, item, rom, offset):
+        ''' Get the offsets and values of changed bytes. '''
+        # Construct bitstring of item, then bitstring of item in ROM.
+        # Split into bytes and find bytes that have changed. Return dict
+        # mapping offsets to values.
+        # FIXME: does not work if item is not an ordereddict!
+
+        size = sum(field['size'] for field in self.values()) # bits
+        rom.seek(offset)
+        romdata = Bits(rom.read(size // 8)) # FIXME: Exception on partial bytes?
+        initializers = []
+        for fid, value in item.items():
+            size = self[fid]['size']
+            ftype = self[fid]['type']
+            initializers.append("{}:{}={}".format(ftype, size, value))
+        itemdata = Bits(", ".join(initializers))
+        print(", ".join(initializers))
+
+        # Return the offsets and values for changed bytes.
+        return {offset+i: bytes([new]) for i, (old, new)
+                in enumerate(zip(romdata.bytes, itemdata.bytes))
+                if old != new}
 
 
 def hexify(i, length = None):
