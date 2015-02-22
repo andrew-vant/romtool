@@ -235,9 +235,12 @@ class StructDef(OrderedDict):
         for fid, value in item.items():
             size = self[fid]['size']
             ftype = self[fid]['type']
+            # bitstring can't implicitly convert ints expressed as hex
+            # strings, so let's do it ourselves.
+            if "int" in ftype:
+                value = int(value, 0)
             initializers.append("{}:{}={}".format(ftype, size, value))
         itemdata = Bits(", ".join(initializers))
-        print(", ".join(initializers))
 
         # Return the offsets and values for changed bytes.
         return {offset+i: bytes([new]) for i, (old, new)
