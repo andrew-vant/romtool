@@ -139,15 +139,6 @@ class TestRomMap(unittest.TestCase):
         self.assertTrue('fld1' in s)
         self.assertEqual(s['fld1']['label'], "Field 1")
 
-    def test_rom_map_dump(self):
-        # FIXME: Uses real files.
-        rompath = "resources/testrom.smc"
-        specpath = "tests/map.testrom"
-        outpath = "tests/temp"
-        with open(rompath, "rb") as rom:
-            map = ureflib.RomMap(specpath)
-            map.dump(rom, outpath, True)
-
 class TestFunctions(unittest.TestCase):
     def test_hexify(self):
         self.assertEqual(ureflib.binary.hexify(4, 8), "0x04")
