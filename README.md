@@ -5,6 +5,18 @@ known requirements:
 - bitstring
 - patricia-trie
 
+Need a command for updating a data collection based on a new map. Consider: patch the rom from the old map and then re-extract using the new map.
+
+Specs should probably be in a different repo. In that case the hash would need to be in the repo as well and romtool should cache it.
+
+option: --remap. Offsets patch data by some amount, writes all data, and expands
+the rom as needed. Possibly very useful for hacks that require rom expansion.
+Unsure of UI. What if some data needs to be offset but not other data?
+
+project file -- specify what map and rom to use, what remap to use? Perhaps this
+is the implementation for the previous -- require explicit second map for
+remapped data.
+
 array type field: type name, which can be a primitive or a struct, and if primitive a column label for the output data (separate column, optional?)
 
 arrays.csv specifies the arrays in a ROM and their types. Some separate table (objects.csv?) specifies which arrays to unpack, which to splice together as a single object, and maybe text-decoding information? Something like: 
