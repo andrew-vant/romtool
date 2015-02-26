@@ -2,9 +2,11 @@ import unittest
 from ureflib import text
 from tempfile import TemporaryFile
 
+# FIXME: This should really use a dummy ROM rather than a real one.
+
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        self.tbl = text.TextTable("tests/map.testrom/texttables/main.tbl")
+        self.tbl = text.TextTable("specs/7th Saga (US)/texttables/main.tbl")
 
     def test_basic_encode(self):
         text = "Esuna"
