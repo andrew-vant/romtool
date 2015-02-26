@@ -1,0 +1,11 @@
+"name","label","set","type","offset","length","stride","display","tags","comment"
+"characters",,"characters","character","0x623F",7,18,,,
+"charnames",,"characters","charname","0x2F62F",7,3,"hexify",,"Pointers to character names. There are actually three copies of this pointer set in the ROM, this one didn't seem to have anything else around it. "
+"spells",,"spells","spell","0x7018",61,12,,,
+"weapons",,,"weapon","0x639D",51,10,,,
+"armor",,,"armor","0x659B",105,17,,,
+"monsters",,,"monster","0x72F4",98,42,,,
+"spellset",,"characters","spellset","0x62BD",7,32,,,
+"itemstats",,,"item","0x6C94",100,9,,,
+"dropsets",,,"dropset","0x8A18",16,16,,,
+"spellfuncs","Spell Routine","spells","uintle","0x4b155",64,3,"hexify","pointer","Table of pointers to spell behavior routines. "
