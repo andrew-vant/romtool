@@ -1,6 +1,10 @@
 ureflib
 =======
 
+known requirements:
+- bitstring
+- patricia-trie
+
 array type field: type name, which can be a primitive or a struct, and if primitive a column label for the output data (separate column, optional?)
 
 arrays.csv specifies the arrays in a ROM and their types. Some separate table (objects.csv?) specifies which arrays to unpack, which to splice together as a single object, and maybe text-decoding information? Something like: 
