@@ -27,9 +27,14 @@ class RomMap(object):
             self.structs[typename] = struct
 
         # Repeat for text tables.
-        ttfiles = [f for f
-                   in os.listdir("{}/texttables".format(root))
-                   if f.endswith(".tbl")]
+        try:
+            ttfiles = [f for f
+                       in os.listdir("{}/texttables".format(root))
+                       if f.endswith(".tbl")]
+        except FileNotFoundError:
+            # FIXME: Log warning here?
+            ttfiles = []
+
         for tf in ttfiles:
             tblname = os.path.splitext(tf)[0]
             tbl = text.TextTable("{}/texttables/{}".format(root, tf))
