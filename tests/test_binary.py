@@ -4,13 +4,13 @@ from bitstring import ConstBitStream
 from tempfile import TemporaryFile
 from collections import OrderedDict
 
-import ureflib
-from ureflib import util
+import romlib
+from romlib import util
 
 
 class TestArrayDef(unittest.TestCase):
     def setUp(self):
-        rp = ureflib.ArrayDef.requiredproperties
+        rp = romlib.ArrayDef.requiredproperties
         od = OrderedDict({"name": "arr1",
                           "label": "arr1",
                           "set": "",
@@ -20,10 +20,10 @@ class TestArrayDef(unittest.TestCase):
                           "stride": "2",
                           "comment": ""})
         self.typedict = {
-            "romstruct_good": ureflib.StructDef.from_file(
+            "romstruct_good": romlib.StructDef.from_file(
                               "tests/map/structs/romstruct_good.csv")}
 
-        self.array = ureflib.ArrayDef(od, self.typedict)
+        self.array = romlib.ArrayDef(od, self.typedict)
 
     def test_rom_array_size_conversion(self):
         self.assertEqual(self.array['offset'], 0x06*8)
@@ -41,11 +41,11 @@ class TestArrayDef(unittest.TestCase):
 class TestStructDef(unittest.TestCase):
     def setUp(self):
         self.bits = ConstBitStream('0x3456')
-        self.struct = ureflib.StructDef.from_file("tests/map/structs/romstruct_good.csv")
+        self.struct = romlib.StructDef.from_file("tests/map/structs/romstruct_good.csv")
 
     def test_malformed_romstruct_file(self):
         badfile = "tests/binary/romstruct_malformed.csv"
-        self.assertRaises(Exception, ureflib.StructDef, badfile)
+        self.assertRaises(Exception, romlib.StructDef, badfile)
 
     def test_read_struct(self):
         s = self.struct.read(self.bits, 0)
@@ -70,7 +70,7 @@ class TestStructDef(unittest.TestCase):
                                   "display": "",
                                   "tags": "",
                                   "comment": ""})
-        s = ureflib.StructDef.from_primitive_array(arraydict)
+        s = romlib.StructDef.from_primitive_array(arraydict)
         self.assertEqual(s['arrprim']['id'], arraydict['name'])
         self.assertEqual(s['arrprim']['type'], arraydict['type'])
         self.assertEqual(s['arrprim']['size'], 16)
@@ -126,7 +126,7 @@ class TestStructDef(unittest.TestCase):
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
-        self.map = ureflib.RomMap("tests/map")
+        self.map = romlib.RomMap("tests/map")
 
     def test_rom_map_array_load(self):
         self.assertEqual(len(self.map.arrays), 4)
@@ -141,6 +141,6 @@ class TestRomMap(unittest.TestCase):
 
 class TestFunctions(unittest.TestCase):
     def test_hexify(self):
-        self.assertEqual(ureflib.binary.hexify(4, 8), "0x04")
-        self.assertEqual(ureflib.binary.hexify(4), "0x4")
-        self.assertEqual(ureflib.binary.hexify(4, 12), "0x0004")
+        self.assertEqual(romlib.binary.hexify(4, 8), "0x04")
+        self.assertEqual(romlib.binary.hexify(4), "0x4")
+        self.assertEqual(romlib.binary.hexify(4, 12), "0x0004")

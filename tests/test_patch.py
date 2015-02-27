@@ -2,8 +2,8 @@ import unittest
 from collections import OrderedDict
 from tempfile import TemporaryFile, NamedTemporaryFile
 
-import ureflib
-from ureflib import patch
+import romlib
+from romlib import patch
 
 class TestIPSPatch(unittest.TestCase):
     def test_ips_basic(self):

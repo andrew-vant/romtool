@@ -3,7 +3,7 @@
 import argparse
 import sys
 import hashlib
-import ureflib
+import romlib
 import logging
 
 class RomDetectionError(Exception):
@@ -28,7 +28,7 @@ def detect(romfile):
 def dump(args):
     if args.map is None:
         args.map = detect(args.rom)
-    rmap = ureflib.RomMap(args.map)
+    rmap = romlib.RomMap(args.map)
     logging.info("Dumping data from {} to {} using map {}.".format(
                 args.rom, args.datafolder, args.map))
     with open(args.rom, "rb") as rom:
@@ -38,7 +38,7 @@ def dump(args):
 def makepatch(args):
     if args.map is None:
         args.map = detect(args.rom)
-    rmap = ureflib.RomMap(args.map)
+    rmap = romlib.RomMap(args.map)
     logging.info("Creating patch for {} from data at {} using map {}.".format(
                 args.rom, args.datafolder, args.map))
     rmap.makepatch(args.rom, args.datafolder, args.patchfile)
