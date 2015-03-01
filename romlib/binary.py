@@ -239,7 +239,7 @@ class StructDef(OrderedDict):
             pid = ptr['id'][1:]
             ptype = ptr['ptype']
             ramaddr = int(item[pid], 0)
-            romaddr = ptr_ram_to_rom[ptype](ramaddr)
+            romaddr = ptr_romify[ptype](ramaddr)
             if ptr['type'] == "strz":
                 tbl = rommap.texttables[ptr['display']]
                 s = tbl.readstr(rom, romaddr)
@@ -302,8 +302,20 @@ def hexify(i, length = None):
     fmtstr = "0x{{:0{}X}}".format(digits)
     return fmtstr.format(i)
 
-ptr_ram_to_rom = {
-    "hirom": lambda address: address - 0xC00000
+
+# These functions convert pointers from ROM addresses to the architecture's
+# address scheme and back. I want them to be idempotent but I'm not sure that's
+# going to be possible for all architectures. We'll see.
+
+ptr_romify = {
+    # hirom has multiple mirrors, but I *think* this covers all of them...
+    "hirom": lambda address: address % 0x400000
+}
+
+ptr_archify = {
+    # hirom has multiple possible re-referencings, but C0-FF should 
+    # always be safe.
+    "hirom": lambda address: address | 0xC00000
 }
 
 display = {
