@@ -47,8 +47,6 @@ def makepatch(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tool for examining and modifying ROMs")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--debug", action="store_true", help="Print debug information")
     subparsers = parser.add_subparsers(title="subcommands")
 
     # Arguments for dump subcommand.
@@ -60,6 +58,8 @@ if __name__ == "__main__":
     parser_dump.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
     parser_dump.add_argument("-f", "--force", action='store_true', 
                              help="overwrite existing destination files")
+    parser_dump.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser_dump.add_argument("--debug", action="store_true", help="Print debug information")
 
     # Arguments for makepatch subcommand.
     parser_patch = subparsers.add_parser('makepatch',
@@ -69,6 +69,8 @@ if __name__ == "__main__":
     parser_patch.add_argument("datafolder", help="Get input from this folder")
     parser_patch.add_argument("patchfile", help="Patch filename")
     parser_patch.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
+    parser_patch.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser_patch.add_argument("--debug", action="store_true", help="Print debug information")
 
     # Parse whatever came in.
     args = parser.parse_args()
