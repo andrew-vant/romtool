@@ -5,6 +5,7 @@ import sys
 import hashlib
 import romlib
 import logging
+import os
 
 class RomDetectionError(Exception):
     pass
@@ -44,6 +45,27 @@ def makepatch(args):
     rmap.makepatch(args.rom, args.datafolder, args.patchfile)
     logging.info("Patch created at {}.".format(args.patchfile))
 
+def textualize(args):
+    if not args.output:
+        args.output = args.file + ".txt"
+    prefix, ext = os.path.splitext(args.file)
+    patchclass = {
+        '.ips': romlib.patch.IPSPatch
+    }[ext]
+    with open(args.file, "rb") as infile, open(args.output, "w") as outfile:
+        patchclass.textualize(infile, outfile)
+
+def detextualize(args):
+    prefix, txt = os.path.splitext(args.file)
+    prefix, ext = os.path.splitext(prefix)
+    if not args.output:
+        args.output = prefix + ext
+    patchclass = {
+        '.ips': romlib.patch.IPSPatch
+    }[ext]
+    with open(args.file) as infile, open(args.output, "wb") as outfile:
+        patchclass.compile(infile, outfile)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tool for examining and modifying ROMs")
@@ -56,10 +78,8 @@ if __name__ == "__main__":
     parser_dump.add_argument("rom", help="ROM file to dump from")
     parser_dump.add_argument("datafolder", help="Send output to this folder")
     parser_dump.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
-    parser_dump.add_argument("-f", "--force", action='store_true', 
+    parser_dump.add_argument("-f", "--force", action='store_true',
                              help="overwrite existing destination files")
-    parser_dump.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser_dump.add_argument("--debug", action="store_true", help="Print debug information")
 
     # Arguments for makepatch subcommand.
     parser_patch = subparsers.add_parser('makepatch',
@@ -69,8 +89,26 @@ if __name__ == "__main__":
     parser_patch.add_argument("datafolder", help="Get input from this folder")
     parser_patch.add_argument("patchfile", help="Patch filename")
     parser_patch.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
-    parser_patch.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser_patch.add_argument("--debug", action="store_true", help="Print debug information")
+
+    # Arguments for textualize/detextualize.
+    parser_textualize = subparsers.add_parser('textualize', aliases=['decompile'],
+                                              description='Textualize a patch file for editing.')
+    parser_textualize.set_defaults(func=textualize)
+    parser_textualize.add_argument("file", help="File to convert")
+    parser_textualize.add_argument("-o", "--output", help="Filename to write to")
+
+    parser_detextualize = subparsers.add_parser('detextualize', aliases=['compile'],
+                                                description='Compile a patch for use.')
+    parser_detextualize.set_defaults(func=detextualize)
+    parser_detextualize.add_argument("file", help="File to convert")
+    parser_detextualize.add_argument("-o", "--output", help="Filename to write to")
+
+    # Universal arguments.
+    for subparser in [parser_dump, parser_patch, parser_textualize,
+                      parser_detextualize]:
+        subparser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+        subparser.add_argument("--debug", action="store_true", help="Print debug information")
+
 
     # Parse whatever came in.
     args = parser.parse_args()
