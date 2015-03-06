@@ -84,10 +84,10 @@ class IPSPatch(object):
             offset_str = binascii.hexlify(offset_raw).decode().upper()
 
             if repeat is None:
-                line = "0x{}:{}:{}".format(offset_str, size, data_str)
+                line = "{}:{}:{}".format(offset_str, size, data_str)
                 print(line, file=outfile)
             else:
-                line = "0x{}:!{}:{}".format(offset_str, repeat, data_str)
+                line = "{}:!{}:{}".format(offset_str, repeat, data_str)
                 print(line, file=outfile)
 
 
@@ -114,7 +114,7 @@ class IPSPatch(object):
                 repeat = size[1:]
                 size = "0"
 
-            outfile.write(bytearray.fromhex(offset[2:]))
+            outfile.write(bytearray.fromhex(offset))
             outfile.write(int(size, 0).to_bytes(2, 'big'))
             if repeat:
                 outfile.write(int(repeat, 0).to_bytes(2, 'big'))
