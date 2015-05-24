@@ -77,7 +77,7 @@ class Patch(object):
                 break
 
             # Start reading a record.
-            offset = int.from_bytes(data)
+            offset = int.from_bytes(data, 'big')
             size = int.from_bytes(f.read(2), 'big')
 
             # If size is greater than zero, we have a normal record.

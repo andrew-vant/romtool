@@ -17,7 +17,17 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(p.changes[0x11], 2)
         self.assertEqual(p.changes[0x12], 3)
 
-        
+    def test_from_ips(self):
+        ips = BytesIO(b'PATCH\x00\x00\x00\x00\x01\x03'
+                      b'\x00\x00\x01\x00\x04\x01\x01\x01\xAAEOF')
+        p = patch.Patch.from_ips(ips)
+        self.assertEqual(p.changes[0], 3)
+        self.assertEqual(p.changes[1], 1)
+        self.assertEqual(p.changes[2], 1)
+        self.assertEqual(p.changes[3], 1)
+        self.assertEqual(p.changes[4], 0xAA)
+        self.assertEqual(len(p.changes), 5)
+
     def test_to_ips(self):
         intended_output = b"".join([
             "PATCH".encode("ascii"),
