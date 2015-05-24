@@ -190,6 +190,9 @@ class Patch(object):
 
         This compares the list of changes to the contents of a ROM and
         filters out any data that is already present."""
+        def getbyte(f, offset):
+            f.seek(offset)
+            return f.read(1)[0]
 
-        self.data = {offset: value for offset, value in self.data.items()
-                     if value != struct.unpack_from('B', rom, offset)[0]}
+        self.changes = {offset: value for offset, value in self.changes.items()
+                        if value != getbyte(rom, offset)}

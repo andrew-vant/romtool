@@ -103,3 +103,13 @@ class TestPatch(unittest.TestCase):
             p.to_ips(f)
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
+
+    def test_patch_filter(self):
+        changes = {o: v for o, v in enumerate(range(5))}
+        filtered = {1: 1, 4: 4}
+        p = patch.Patch(changes)
+        with TemporaryFile("wb+") as rom:
+            rom.write(bytes([0, 0, 2, 3, 0]))
+            rom.seek(0)
+            p.filter(rom)
+        self.assertEqual(p.changes, filtered)
