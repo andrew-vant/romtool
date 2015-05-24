@@ -106,7 +106,7 @@ class Patch(object):
             raise PatchFormatError("Header mismatch reading IPST file.")
 
         changes = {}
-        for line_number, line in enumerate(f, 1):
+        for line_number, line in enumerate(f, 2):
             line = line.rstrip()
             # Check for EOF marker
             if line == _ips_footer:
@@ -126,7 +126,7 @@ class Patch(object):
                         raise PatchValueError(msg.format(line_number, value))
                     changes[offset+i] = value
             else:
-                msg = "IPST problem on line {}."
+                msg = "Line {}: IPST format error."
                 raise PatchFormatError(msg.format(line_number))
 
         return Patch(changes)
