@@ -97,7 +97,7 @@ class Patch(object):
     def from_ipst(cls, f):
         """ Load an ipst patch file. """
         # Skip empty or commented lines.
-        f = (line for line in f if not line or line.startswith("#"))
+        f = (line for line in f if not line or not line.startswith("#"))
 
         header = next(f).rstrip()
         if header != _ips_header:
@@ -115,7 +115,7 @@ class Patch(object):
             if len(parts) == 3:
                 offset, size, data = parts
                 for n, b in enumerate(bytes.fromhex(data)):
-                    changes[offset+n] = b
+                    changes[int(offset)+n] = b
             elif len(parts) == 4:
                 offset, size, rle_size, value = parts
                 for i in range(rle_size):

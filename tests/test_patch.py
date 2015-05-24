@@ -28,6 +28,16 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(p.changes[4], 0xAA)
         self.assertEqual(len(p.changes), 5)
 
+    def test_from_ipst(self):
+        ipst = StringIO("PATCH\n000000:1:03\n000001:4:010101AA\nEOF\n")
+        p = patch.Patch.from_ipst(ipst)
+        self.assertEqual(p.changes[0], 3)
+        self.assertEqual(p.changes[1], 1)
+        self.assertEqual(p.changes[2], 1)
+        self.assertEqual(p.changes[3], 1)
+        self.assertEqual(p.changes[4], 0xAA)
+        self.assertEqual(len(p.changes), 5)
+
     def test_to_ips(self):
         intended_output = b"".join([
             "PATCH".encode("ascii"),
