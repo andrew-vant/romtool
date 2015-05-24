@@ -52,6 +52,7 @@ class Patch(object):
                 offset = o
         return merged
 
+    @classmethod
     def from_blocks(cls, blocks):
         """ Load an offset-to-bytes-object dictionary. """
         changes = {}

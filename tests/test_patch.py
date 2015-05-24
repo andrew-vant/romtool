@@ -6,12 +6,19 @@ from io import BytesIO, StringIO
 import romlib
 from romlib import patch
 
-class TestIPSPatch(unittest.TestCase):
-    def test_ips_basic(self):
-
+class TestPatch(unittest.TestCase):
+    def test_from_blocks(self):
         changes = {0x00: b"\x00\x00",
                    0x10: b"\x01\x02\x03"}
+        p = patch.Patch.from_blocks(changes)
+        self.assertEqual(p.changes[0], 0)
+        self.assertEqual(p.changes[1], 0)
+        self.assertEqual(p.changes[0x10], 1)
+        self.assertEqual(p.changes[0x11], 2)
+        self.assertEqual(p.changes[0x12], 3)
 
+        
+    def test_to_ips(self):
         intended_output = b"".join([
             "PATCH".encode("ascii"),
             b'\x00\x00\x00\x00\x02\x00\x00',
