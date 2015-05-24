@@ -166,7 +166,7 @@ class Patch(object):
                 f.write(offset.to_bytes(3, 'big'))
                 f.write(bytes(2))  # Size is zero for RLE
                 f.write(len(data).to_bytes(2, 'big'))
-                f.write(data[0])
+                f.write(data[0:1])
             else:
                 f.write(offset.to_bytes(3, 'big'))
                 f.write(len(data).to_bytes(2, 'big'))

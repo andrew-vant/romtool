@@ -70,6 +70,18 @@ class TestPatch(unittest.TestCase):
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
 
+    def test_to_ips_with_rle(self):
+        changes = {i: 0xFF for i in range(0x10)}
+        intended_output = b"".join([
+            "PATCH".encode("ascii"),
+            b'\x00\x00\x00\x00\x00\x00\x10\xFF',
+            "EOF".encode("ascii")])
+        p = patch.Patch(changes)
+        with TemporaryFile("wb+") as f:
+            p.to_ips(f)
+            f.seek(0)
+            self.assertEqual(f.read(), intended_output)
+
     def test_to_ipst(self):
         changes = {0: 1,
                    5: 5,
@@ -81,6 +93,18 @@ class TestPatch(unittest.TestCase):
                  "00000A:0001:0A",
                  "EOF\n"]
         intended_output = ("\n".join(lines))
+        p = patch.Patch(changes)
+        with TemporaryFile("wt+") as f:
+            p.to_ipst(f)
+            f.seek(0)
+            self.assertEqual(f.read(), intended_output)
+
+    def test_to_ipst_with_rle(self):
+        changes = {i: 0xFF for i in range(0x10)}
+        lines = ["PATCH",
+                 "000000:0000:0010:FF",
+                 "EOF\n"]
+        intended_output = "\n".join(lines)
         p = patch.Patch(changes)
         with TemporaryFile("wt+") as f:
             p.to_ipst(f)
