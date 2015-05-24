@@ -7,7 +7,7 @@ from pprint import pprint
 from . import text
 from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
 from .exceptions import RomMapError
-from .patch import IPSPatch
+from .patch import Patch
 
 class RomMap(object):
     def __init__(self, root):
@@ -134,7 +134,7 @@ class RomMap(object):
 
         # Generate the patch
         with open(patchfile, "wb+") as f:
-            IPSPatch(changed).write(f)
+            Patch(changed).to_ips(f)
 
 
 class ArrayDef(OrderedDict):
@@ -219,7 +219,14 @@ class StructDef(OrderedDict):
         od = OrderedDict()
         ordering = {}
         for fid, field in self.items():
-            value = stream.read("{}:{}".format(field['type'], field['size']))
+            # There should be a function for "Read primitive from stream",
+            # and a dict within that function mapping types to type-specific
+            # read functions, with a function using the bitstring format
+            # string below as the default in a dict.get() call.
+            if field['type'] == "string":
+                value = stream.read(int(field['size'])).bytes.decode()
+            else:
+                value = stream.read("{}:{}".format(field['type'], field['size']))
             od[fid] = display[field['display']](value, field)
             ordering[fid] = field['order']
 
@@ -313,7 +320,7 @@ ptr_romify = {
 }
 
 ptr_archify = {
-    # hirom has multiple possible re-referencings, but C0-FF should 
+    # hirom has multiple possible re-referencings, but C0-FF should
     # always be safe.
     "hirom": lambda address: address | 0xC00000
 }
