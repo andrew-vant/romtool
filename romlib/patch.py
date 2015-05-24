@@ -50,6 +50,8 @@ class Patch(object):
                 block.append(v)
                 start = o
                 offset = o
+        if start is not None:
+            merged[start] = block
         return merged
 
     @classmethod
@@ -134,7 +136,6 @@ class Patch(object):
         FIXME: We should split up blocks that include both a RLE-appropriate
         segment and a normal segment. Careful how this interacts with bogoaddr.
         """
-
         blocks = self._blockify(self.changes).items()
         if _ips_bogo_address in blocks:
             if bogobyte is not None:
@@ -151,7 +152,7 @@ class Patch(object):
         """ Create an ips patch file."""
         blocks = self._ips_sanitize_changes(bogobyte)
         f.write(_ips_header.encode())
-        for offset, data in blocks.items():
+        for offset, data in sorted(blocks):
             # Use RLE if we have a long repetition
             if len(data) > 3 and len(set(data)) == 1:
                 f.write(offset.to_bytes(3, 'big'))

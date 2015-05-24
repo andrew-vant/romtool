@@ -39,14 +39,20 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(len(p.changes), 5)
 
     def test_to_ips(self):
+        changes = {0: 1,
+                   5: 5,
+                   6: 6,
+                   10: 10}
         intended_output = b"".join([
             "PATCH".encode("ascii"),
-            b'\x00\x00\x00\x00\x02\x00\x00',
-            b'\x00\x00\x10\x00\x03\x01\x02\x03',
+            b'\x00\x00\x00\x00\x01\x01',
+            b'\x00\x00\x05\x00\x02\x05\x06',
+            b'\x00\x00\x0A\x00\x01\x0A',
             "EOF".encode("ascii")])
+        p = patch.Patch(changes)
 
         with TemporaryFile("wb+") as f:
-            patch.IPSPatch(changes).write(f)
+            p.to_ips(f)
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
 
