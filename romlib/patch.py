@@ -169,7 +169,7 @@ class Patch(object):
         """ Create an ipst patch file."""
         blocks = self._ips_sanitize_changes(bogobyte)
         print(_ips_header, file=f)
-        for offset, data in blocks.items():
+        for offset, data in sorted(blocks):
             # Use RLE if we have a long repetition
             if len(data) > 3 and len(set(data)) == 1:
                 fmt = "{:06X}:{:04X}:{:04X}:{:01X}"

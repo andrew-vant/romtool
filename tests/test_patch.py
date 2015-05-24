@@ -29,7 +29,7 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(len(p.changes), 5)
 
     def test_from_ipst(self):
-        ipst = StringIO("PATCH\n000000:1:03\n000001:4:010101AA\nEOF\n")
+        ipst = StringIO("PATCH\n000000:0001:03\n000001:0004:010101AA\nEOF\n")
         p = patch.Patch.from_ipst(ipst)
         self.assertEqual(p.changes[0], 3)
         self.assertEqual(p.changes[1], 1)
@@ -53,6 +53,23 @@ class TestPatch(unittest.TestCase):
 
         with TemporaryFile("wb+") as f:
             p.to_ips(f)
+            f.seek(0)
+            self.assertEqual(f.read(), intended_output)
+
+    def test_to_ipst(self):
+        changes = {0: 1,
+                   5: 5,
+                   6: 6,
+                   10: 10}
+        lines = ["PATCH",
+                 "000000:0001:01",
+                 "000005:0002:0506",
+                 "00000A:0001:0A",
+                 "EOF\n"]
+        intended_output = ("\n".join(lines))
+        p = patch.Patch(changes)
+        with TemporaryFile("wt+") as f:
+            p.to_ipst(f)
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
 
