@@ -119,8 +119,11 @@ class Patch(object):
                 for n, b in enumerate(bytes.fromhex(data)):
                     changes[int(offset)+n] = b
             elif len(parts) == 4:
-                offset, size, rle_size, value = parts
+                offset, size, rle_size, value = map(int, parts, [16]*4)
                 for i in range(rle_size):
+                    if value > 0xFF:
+                        msg = "Line {}: RLE value {:02X} won't fit in one byte."
+                        raise PatchValueError(msg.format(line_number, value))
                     changes[offset+i] = value
             else:
                 msg = "IPST problem on line {}."

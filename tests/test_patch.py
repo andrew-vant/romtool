@@ -28,6 +28,14 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(p.changes[4], 0xAA)
         self.assertEqual(len(p.changes), 5)
 
+    def test_from_ips_with_rle(self):
+        ips = BytesIO(b'PATCH\x00\x00\x00'
+                      b'\x00\x00\x00\x03'
+                      b'\xFFEOF')
+        changes = {i: 0xFF for i in range(3)}
+        p = patch.Patch.from_ips(ips)
+        self.assertEqual(changes, p.changes)
+
     def test_from_ipst(self):
         ipst = StringIO("PATCH\n000000:0001:03\n000001:0004:010101AA\nEOF\n")
         p = patch.Patch.from_ipst(ipst)
@@ -37,6 +45,12 @@ class TestPatch(unittest.TestCase):
         self.assertEqual(p.changes[3], 1)
         self.assertEqual(p.changes[4], 0xAA)
         self.assertEqual(len(p.changes), 5)
+
+    def test_from_ipst_with_rle(self):
+        ipst = StringIO("PATCH\n000000:0000:0003:FF\nEOF\n")
+        changes = {i: 0xFF for i in range(3)}
+        p = patch.Patch.from_ipst(ipst)
+        self.assertEqual(changes, p.changes)
 
     def test_to_ips(self):
         changes = {0: 1,
