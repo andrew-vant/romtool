@@ -136,16 +136,21 @@ class Patch(object):
         FIXME: We should split up blocks that include both a RLE-appropriate
         segment and a normal segment. Careful how this interacts with bogoaddr.
         """
+        # Merge blocks of changes.
         blocks = self._blockify(self.changes)
-        if _ips_bogo_address in blocks:
-            if bogobyte is not None:
-                data = blocks[_ips_bogo_address]
-                bb = bogobyte.to_bytes(1, "big")
-                blocks[_ips_bogo_address] = bb + data
-            else:
-                s = ("A change started at 0x454f46 (EOF) "
-                     "but bogobyte was not provided.")
-                raise PatchValueError(s)
+
+        # Deal with bogoaddress issues.
+        try:
+            data = blocks.pop(_ips_bogo_address)
+            bb = bogobyte.to_bytes(1, "big")
+            blocks[_ips_bogo_address-1] = bb + data
+        except KeyError:
+            # Nothing starts at bogoaddr so we're OK.
+            pass
+        except AttributeError:
+            s = ("A change started at 0x454f46 (EOF) "
+                 "but a valid bogobyte was not provided.")
+            raise PatchValueError(s)
         return blocks
 
     def to_ips(self, f, bogobyte=None):

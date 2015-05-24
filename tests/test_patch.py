@@ -79,17 +79,16 @@ class TestPatch(unittest.TestCase):
         with TemporaryFile("wb+") as f:
             self.assertRaises(patch.PatchValueError, p.to_ips, f)
 
-    def test_ips_bogoaddr_workaround(self):
-        changes = {patch.IPSPatch.bogoaddr: b"\x00\x00"}
+    def test_ips_bogoaddr_supplied(self):
+        changes = {patch._ips_bogo_address: 0}
         bogobyte = 0x10
-
         intended_output = b"".join([
             "PATCH".encode("ascii"),
-            b'\x45\x4f\x45\x00\x03\x10\x00\x00',
+            b'\x45\x4f\x45\x00\x02\x10\x00',
             "EOF".encode("ascii")])
-
+        p = patch.Patch(changes)
         with TemporaryFile("wb+") as f:
-            patch.IPSPatch(changes, bogobyte).write(f)
+            p.to_ips(f, bogobyte)
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
 
