@@ -93,15 +93,13 @@ class TestPatch(unittest.TestCase):
             self.assertEqual(f.read(), intended_output)
 
     def test_ips_change_concatenation(self):
-        changes = {0x00: b"\x00\x00",
-                   0x02: b"\x01\x02\x03"}
-
+        changes = {o: v for o, v in enumerate(range(5))}
         intended_output = b"".join([
             "PATCH".encode("ascii"),
-            b'\x00\x00\x00\x00\x05\x00\x00\x01\x02\x03',
+            b'\x00\x00\x00\x00\x05\x00\x01\x02\x03\x04',
             "EOF".encode("ascii")])
-
+        p = patch.Patch(changes)
         with TemporaryFile("wb+") as f:
-            patch.IPSPatch(changes).write(f)
+            p.to_ips(f)
             f.seek(0)
             self.assertEqual(f.read(), intended_output)
