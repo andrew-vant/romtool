@@ -1,5 +1,6 @@
 from patricia import trie
 
+
 class TextTable(object):
     def __init__(self, filename):
         self.id = None
@@ -21,7 +22,8 @@ class TextTable(object):
                 self.id = line
                 continue
             if prefix == "!":
-                raise NotImplementedError("Table switching not yet implemented.")
+                msg = "Table switching not yet implemented."
+                raise NotImplementedError(msg)
 
             code, text = line.split("=", 1)
             codeseq = bytes.fromhex(code)
@@ -30,7 +32,7 @@ class TextTable(object):
             if prefix == "/":
                 self.eos.append(codeseq)
 
-    def readstr(self, f, pos = None, include_eos = True, maxlen = 1000):
+    def readstr(self, f, pos=None, include_eos=True, maxlen=1000):
         """ Read and decode an eos-terminated string from a file.
 
             Keyword arguments:
@@ -50,7 +52,7 @@ class TextTable(object):
             i += len(match)
         return bytes(codeseq)
 
-    def decode(self, data, include_eos = True, stop_on_eos = True):
+    def decode(self, data, include_eos=True, stop_on_eos=True):
         text = ""
         i = 0
         while i < len(data):

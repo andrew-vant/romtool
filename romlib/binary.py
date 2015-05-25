@@ -1,4 +1,11 @@
-import logging, os, csv, sys, itertools, yaml
+import logging
+import os
+import csv
+import sys
+import itertools
+
+import yaml
+
 from bitstring import ConstBitStream, Bits
 from collections import OrderedDict
 from csv import DictWriter
@@ -8,6 +15,7 @@ from . import text
 from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
 from .exceptions import RomMapError
 from .patch import Patch
+
 
 class Address(object):
     """ Manage and convert between rom offsets and pointer formats."""
@@ -44,6 +52,7 @@ class Address(object):
         """ Initialize an address from a hirom pointer. """
         # hirom has multiple mirrors, but I *think* this covers all of them...
         return offset % 0x400000
+
 
 class RomMap(object):
     def __init__(self, root):
@@ -175,7 +184,8 @@ class RomMap(object):
 
 
 class ArrayDef(OrderedDict):
-    requiredproperties = "name", "type", "offset", "length", "stride", "comment"
+    requiredproperties = ["name", "type", "offset",
+                          "length", "stride", "comment"]
 
     def __init__(self, od, structtypes={}):
         super().__init__(od)
@@ -246,13 +256,14 @@ class StructDef(OrderedDict):
     def isname(cls, field):
         return field['label'] == "Name"
 
-    def read(self, stream, offset = 0, rommap = None):
+    def read(self, stream, offset=None, rommap=None):
         """ Read an arbitrary structure from a bitstream.
 
         The offset is the location in the stream where the structure begins. If
         the stream was created from a file, then it's the offset in the file.
         """
-        stream.pos = offset
+        if offset is not None:
+            stream.pos = offset
         od = OrderedDict()
         ordering = {}
         for fid, field in self.items():
@@ -263,11 +274,14 @@ class StructDef(OrderedDict):
             if field['type'] == "string":
                 value = stream.read(int(field['size'])).bytes.decode()
             else:
-                value = stream.read("{}:{}".format(field['type'], field['size']))
+                tp = field['type']
+                sz = field['size']
+                value = stream.read("{}:{}".format(tp, sz))
             od[fid] = display[field['display']](value, field)
             ordering[fid] = field['order']
 
-        od = OrderedDict(sorted(od.items(), key=lambda item: ordering[item[0]]))
+        od = OrderedDict(sorted(od.items(),
+                                key=lambda item: ordering[item[0]]))
         od.struct_def = self
         return od
 
@@ -318,7 +332,7 @@ class StructDef(OrderedDict):
         return {offset+i: b for i, b in enumerate(itemdata.bytes)}
 
 
-def hexify(i, length = None):
+def hexify(i, length=None):
     """ Converts an integer to a hex string.
 
     If bitlength is provided, the string will be padded enough to represent
@@ -328,9 +342,9 @@ def hexify(i, length = None):
         return hex(i)
 
     numbytes = length // 8
-    if length % 8 != 0: # Check for partial bytes
+    if length % 8 != 0:  # Check for partial bytes
         numbytes += 1
-    digits = numbytes * 2 # Two hex digits per byte
+    digits = numbytes * 2  # Two hex digits per byte
     fmtstr = "0x{{:0{}X}}".format(digits)
     return fmtstr.format(i)
 
