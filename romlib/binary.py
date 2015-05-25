@@ -123,18 +123,19 @@ class RomMap(object):
 
         # Now get a list of bytes to change.
         changed = {}
-        with open(romfile, "rb") as rom:
-            for arrayname, contents in data.items():
-                a = self.arrays[arrayname]
-                offset = int(a['offset'] // 8)
-                stride = int(a['stride'] // 8)
-                for item in contents:
-                    changed.update(a.struct.compare(item, rom, offset))
-                    offset += stride
-
+        for arrayname, contents in data.items():
+            a = self.arrays[arrayname]
+            offset = int(a['offset'] // 8)
+            stride = int(a['stride'] // 8)
+            for item in contents:
+                changed.update(a.struct.changeset(item, offset))
+                offset += stride
         # Generate the patch
-        with open(patchfile, "wb+") as f:
-            Patch(changed).to_ips(f)
+        p = Patch(changed)
+        with open(romfile, "rb") as rom:
+            p.filter(rom)
+        with open(patchfile, "wb+") as patch:
+            p.to_ips(patch)
 
 
 class ArrayDef(OrderedDict):
@@ -265,6 +266,20 @@ class StructDef(OrderedDict):
             elif field['label'] in item:
                 out[fid] = item[field['label']]
         return out
+
+    def changeset(self, item, offset):
+        """ Get all changes made by item """
+        initializers = []
+        for fid, value in item.items():
+            size = self[fid]['size']
+            ftype = self[fid]['type']
+            # bitstring can't implicitly convert ints expressed as hex
+            # strings, so let's do it ourselves.
+            if "int" in ftype:
+                value = int(value, 0)
+            initializers.append("{}:{}={}".format(ftype, size, value))
+        itemdata = Bits(", ".join(initializers))
+        return {offset+i: b for i, b in enumerate(itemdata.bytes)}
 
     def compare(self, item, rom, offset):
         ''' Get the offsets and values of changed bytes. '''
