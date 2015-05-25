@@ -122,7 +122,8 @@ class Patch(object):
                 offset, size, rle_size, value = map(int, parts, [16]*4)
                 for i in range(rle_size):
                     if value > 0xFF:
-                        msg = "Line {}: RLE value {:02X} won't fit in one byte."
+                        msg = ("Line {}: RLE value {:02X} "
+                               "won't fit in one byte.")
                         raise PatchValueError(msg.format(line_number, value))
                     changes[offset+i] = value
             else:
