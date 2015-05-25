@@ -1,8 +1,8 @@
 import csv
 from collections import OrderedDict
 
-from .exceptions import SpecFieldMismatch
-
+class Box(object):
+    pass
 
 class OrderedDictReader(csv.DictReader):
     """ Read a csv file as a list of ordered dictionaries.
@@ -24,14 +24,6 @@ class OrderedDictReader(csv.DictReader):
     def __next__(self):
         d = super().__next__()
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
-
-
-def validate_spec(spec):
-    if not all(prop in spec for prop in spec.requiredproperties):
-        raise SpecFieldMismatch(
-            "Creating spec: {}".format(spec.__class__.__name__),
-            spec.requiredproperties,
-            list(spec.keys()))
 
 
 def merge_dicts(dicts, allow_overlap=False):
@@ -62,3 +54,13 @@ def tobits(size):
     else:
         bits = int(size, 0) * 8
     return bits
+
+def flatten(obj):
+    flat = Box()
+    for k, v in vars(obj).items():
+        if not hasattr(v, '__dict__'):
+            setattr(flat, k, v)
+        else:
+            for k, v in vars(flatten(v)).items():
+                setattr(flat, k, v)
+    return flat

@@ -12,7 +12,7 @@ from csv import DictWriter
 from pprint import pprint
 
 from . import text
-from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
+from .util import tobits, OrderedDictReader, merge_dicts, flatten
 from .exceptions import RomMapError
 from .patch import Patch
 
@@ -189,7 +189,6 @@ class ArrayDef(OrderedDict):
 
     def __init__(self, od, structtypes={}):
         super().__init__(od)
-        validate_spec(self)
         if self['type'] in structtypes:
             self.struct = structtypes[self['type']]
         else:
@@ -207,31 +206,115 @@ class ArrayDef(OrderedDict):
             yield self.struct.read(stream, pos)
 
 
-class StructDef(OrderedDict):
-    """ Specifies the format of a structure type in a ROM. """
-
-    def __init__(self, fields):
-        """ Create a StructDef from a list of ordered dicts."""
-        super().__init__()
-        fields = list(fields)
-        self.pointers = [f for f in fields if self.ispointer(f)]
-        self.name = next((f for f in fields if self.isname(f)), None)
-
-        normal_fields = [f for f in fields if self.isnormal(f)]
-        for field in normal_fields:
-            field['size'] = tobits(field['size'])
-            self[field['id']] = field
+class Struct(object):
+    def __init__(self, definition):
+        """ Create an empty structure of a given type."""
+        self.definition = definition
+        self.data = definition._datant()
+        self.calculated = definition._pointersnt()
 
     @classmethod
-    def from_file(cls, filename):
-        with open(filename, newline="") as f:
-            fields = list(OrderedDictReader(f))
-        return StructDef(fields)
+    def from_dict(cls, definition, d):
+        """ Create a structure with data taken from a dictionary. """
+        out = Struct(definition)
+        allfields = definition.fields + definition.pointers
+        unlabel = {f['label']: f['id'] for f
+                   in definition.fields + definition.pointers}
+        for name, data in d.items():
+            name = unlabel.get(name, name)
+            if name in vars(self.data):
+                setattr(self.data, data)
+            elif name in vars(self.calculated):
+                setattr(self.calculated, data)
+        return out
+
+    def read(self, stream, offset=None):
+        """ Read data into a structure from a bitstream.
+
+        The offset is the location in the stream where the structure begins. If
+        the stream was created from a file, then it's the offset in the file.
+        If offset is None, the current stream position will be used.
+
+        Returns an object with attributes for each field of the structure.
+        """
+        if offset is not None:
+            stream.seek(offset)
+        fmt = ["{}:{}".format(f['type'], f['size'])
+               for f in self.definition.fields]
+        self.data = self.definition._datant(bitstream.readlist(fmt))
+        for f in self.definition.fields:
+            value = stream.read("{}:{}".format(f['type'], f['size']))
+            setattr(self.data, value)
+
+    def to_od(self):
+        """ Create an ordered dict from the struct's properties.
+        
+        The output will be human readable and suitable for saving to a csv
+        file. The name will come first, then regular properties in definition-
+        order, then computed properties in definition-order, then pointer
+        properties in definition-order.
+        """
+        out = OrderedDict()
+        for fid, label in self.definition._output_fields():
+            value = getattr(self.data, fid,
+                    getattr(self.calculated, fid.lstrip('*'), ""))
+            out[label] = value
+        return out            
+
+    def to_bytes(self):
+        """ Generate a bytes object from the struct's properties.
+        
+        The output will be suitable for writing back to the ROM or generating
+        a patch. Currently it outputs normal data fields only.
+        """
+        bitinit = []
+        for field in self.definition.fields:
+            tp = field['type']
+            size = field['size']
+            value = getattr(self.data, field['id'])
+            bitinit.append("{}:{}={}".format(tp, size, value))
+        return Bits(", ".join(bitinit)).bytes
+
+    def calculate(self, f):
+        """ Dereference pointers and populate calculated properties. """
+        for ptr in definition.pointers:
+            # Take off the asterisk to get the id of the pointer field. Convert
+            # that pointer to a ROM address, then read from that address.
+            fid = ptr['id'][1:]
+            archaddr = getattr(self.data, fid)
+            romaddr = Address(archaddr, ptr['ptype']).rom
+            if ptr['type'] == "strz":
+                ttable = self.tbl[ptr['display']]
+                s = ttable.readstring(f, romaddr)
+                setattr(self.calculated, fid, s)
+
+
+class StructDef(object):
+    def __init__(self, name, fields, texttables=None):
+        """ Create a structure definition.
+        
+        name: The class name of this type of structure.
+        fields: A list of dictionaries defining this structure's fields.
+        texttables: A dictionary of text tables for decoding strings.
+        """
+        self.tbl = texttables
+        fields = list(fields)  # In case we were passed a generator
+        self.pointers = [f for f in fields if self.ispointer(f)]
+        self.fields = [f for f in fields if self.isdata(f)]
+        for f in self.fields:
+            f['size'] = tobits(f['size'])
+
+        fids = [f['id'] for f in self.fields]
+        pids = [f['id'] for f in self.pointers]
+        self._datant = namedtuple(name, ",".join(fids))
+        self._pointersnt = namedtuple(name, ",".join(pids))
+
+    @classmethod
+    def from_file(cls, name, f):
+        return StructDef(name, OrderedDictReader(f))
 
     @classmethod
     def from_primitive_array(cls, arrayspec):
-        # FIXME: This is actually working from a primitive array initialization
-        # dict, not a real array.
         spec = OrderedDict()
         spec['id'] = arrayspec['name']
         spec['label'] = arrayspec['label']
@@ -241,11 +324,18 @@ class StructDef(OrderedDict):
         spec['tags'] = arrayspec['tags']
         spec['comment'] = arrayspec['comment']
         spec['order'] = ""
+        return StructDef(arrayspec['name'], [spec])
 
-        return StructDef([spec])
+    def _output_fields(self):
+        """ Get the ordering for data fields in csv output."""
+        allfields = self.fields + self.pointers
+        name = next(f for f in allfields if self.isname(f))
+        normal = [f for f in self.fields if not self.isname(f)]
+        pointers = [f for f in self.pointers if not self.isname(f)]
+        return [(f['id'], f['label']) for f in [name, *normal, *pointers]]
 
     @classmethod
-    def isnormal(cls, field):
+    def isdata(cls, field):
         return field['id'].isalnum()
 
     @classmethod
@@ -256,66 +346,15 @@ class StructDef(OrderedDict):
     def isname(cls, field):
         return field['label'] == "Name"
 
-    def read(self, stream, offset=None, rommap=None):
-        """ Read an arbitrary structure from a bitstream.
-
-        The offset is the location in the stream where the structure begins. If
-        the stream was created from a file, then it's the offset in the file.
-        """
-        if offset is not None:
-            stream.pos = offset
-        od = OrderedDict()
-        ordering = {}
-        for fid, field in self.items():
-            # There should be a function for "Read primitive from stream",
-            # and a dict within that function mapping types to type-specific
-            # read functions, with a function using the bitstring format
-            # string below as the default in a dict.get() call.
-            if field['type'] == "string":
-                value = stream.read(int(field['size'])).bytes.decode()
-            else:
-                tp = field['type']
-                sz = field['size']
-                value = stream.read("{}:{}".format(tp, sz))
-            od[fid] = display[field['display']](value, field)
-            ordering[fid] = field['order']
-
-        od = OrderedDict(sorted(od.items(),
-                                key=lambda item: ordering[item[0]]))
-        od.struct_def = self
-        return od
-
-    def dereference_pointers(self, item, rommap, rom):
-        ''' Dereference pointers in a struct. '''
-        for ptr in self.pointers:
-            # Take off the asterisk to get the id of the pointer field.
-            # Get the value of that pointer, intify it, then do whatever's
-            # required by ptype. Pay attention to the difference between the
-            # id of the pointer (pid) and the id of the dereferenced field
-            # (fid) here. This could probably use clarity work.
-            fid = ptr['id']
-            pid = ptr['id'][1:]
-            ptype = ptr['ptype']
-            ramaddr = int(item[pid], 0)
-            romaddr = Address(ramaddr, ptype).rom
-            if ptr['type'] == "strz":
-                tbl = rommap.texttables[ptr['display']]
-                s = tbl.readstr(rom, romaddr)
-                item[fid] = s
-            if self.isname(ptr):
-                item.move_to_end(fid, False)
-        return item
-
-    def extract(self, item):
-        ''' Extract a structure's elements from an ordered dict. '''
-        # FIXME: Needs unit test.
-        out = OrderedDict()
-        for fid, field in self.items():
-            if fid in item:
-                out[fid] = item[fid]
-            elif field['label'] in item:
-                out[fid] = item[field['label']]
-        return out
+    @property
+    def bytes(self):
+        """ The size of this structure in bytes."""
+        return sum(f['size'] / 8 for f in self.fields)
+    
+    @property
+    def bits(self):
+        """ The size of this structure in bits."""
+        return sum(f['size'] for f in self.fields)
 
     def changeset(self, item, offset):
         """ Get all changes made by item """
