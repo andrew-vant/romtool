@@ -9,6 +9,42 @@ from .util import tobits, validate_spec, OrderedDictReader, merge_dicts
 from .exceptions import RomMapError
 from .patch import Patch
 
+class Address(object):
+    """ Manage and convert between rom offsets and pointer formats."""
+
+    def __init__(self, offset, schema="offset"):
+        funcname = "_from_{}".format(schema)
+        converter = getattr(self, funcname)
+        self._address = converter(offset)
+
+    @property
+    def rom(self):
+        """ Use this address as a ROM offset. """
+        return self._address
+
+    @property
+    def hirom(self, mirror=0xC00000):
+        """ Use this address as a hirom pointer.
+
+        Use this when writing pointers back to a hirom image. There are
+        multiple rom mirrors in hirom; this defaults to using the C0-FF
+        mirror, since it contains all possible banks.
+        """
+        # hirom has multiple possible re-referencings, but C0-FF should
+        # always be safe.
+        return self._address | mirror
+
+    @classmethod
+    def _from_offset(cls, offset):
+        """ Initialize an address from a ROM offset. """
+        return offset
+
+    @classmethod
+    def _from_hirom(cls, offset):
+        """ Initialize an address from a hirom pointer. """
+        # hirom has multiple mirrors, but I *think* this covers all of them...
+        return offset % 0x400000
+
 class RomMap(object):
     def __init__(self, root):
         self.structs = {}
@@ -247,7 +283,7 @@ class StructDef(OrderedDict):
             pid = ptr['id'][1:]
             ptype = ptr['ptype']
             ramaddr = int(item[pid], 0)
-            romaddr = ptr_romify[ptype](ramaddr)
+            romaddr = Address(ramaddr, ptype).rom
             if ptr['type'] == "strz":
                 tbl = rommap.texttables[ptr['display']]
                 s = tbl.readstr(rom, romaddr)
@@ -323,22 +359,6 @@ def hexify(i, length = None):
     digits = numbytes * 2 # Two hex digits per byte
     fmtstr = "0x{{:0{}X}}".format(digits)
     return fmtstr.format(i)
-
-
-# These functions convert pointers from ROM addresses to the architecture's
-# address scheme and back. I want them to be idempotent but I'm not sure that's
-# going to be possible for all architectures. We'll see.
-
-ptr_romify = {
-    # hirom has multiple mirrors, but I *think* this covers all of them...
-    "hirom": lambda address: address % 0x400000
-}
-
-ptr_archify = {
-    # hirom has multiple possible re-referencings, but C0-FF should
-    # always be safe.
-    "hirom": lambda address: address | 0xC00000
-}
 
 display = {
     "hexify": lambda value, field: hexify(value, field['size']),
