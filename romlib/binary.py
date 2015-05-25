@@ -317,32 +317,6 @@ class StructDef(OrderedDict):
         itemdata = Bits(", ".join(initializers))
         return {offset+i: b for i, b in enumerate(itemdata.bytes)}
 
-    def compare(self, item, rom, offset):
-        ''' Get the offsets and values of changed bytes. '''
-        # Construct bitstring of item, then bitstring of item in ROM.
-        # Split into bytes and find bytes that have changed. Return dict
-        # mapping offsets to values.
-        # FIXME: does not work if item is not an ordereddict!
-
-        size = sum(field['size'] for field in self.values()) # bits
-        rom.seek(offset)
-        romdata = Bits(rom.read(size // 8)) # FIXME: Exception on partial bytes?
-        initializers = []
-        for fid, value in item.items():
-            size = self[fid]['size']
-            ftype = self[fid]['type']
-            # bitstring can't implicitly convert ints expressed as hex
-            # strings, so let's do it ourselves.
-            if "int" in ftype:
-                value = int(value, 0)
-            initializers.append("{}:{}={}".format(ftype, size, value))
-        itemdata = Bits(", ".join(initializers))
-
-        # Return the offsets and values for changed bytes.
-        return {offset+i: bytes([new]) for i, (old, new)
-                in enumerate(zip(romdata.bytes, itemdata.bytes))
-                if old != new}
-
 
 def hexify(i, length = None):
     """ Converts an integer to a hex string.
