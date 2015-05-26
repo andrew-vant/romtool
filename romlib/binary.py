@@ -6,8 +6,8 @@ import itertools
 
 import yaml
 
-from bitstring import ConstBitStream, Bits
-from collections import OrderedDict
+from bitstring import ConstBitStream, Bits, BitStream
+from collections import OrderedDict, namedtuple
 from csv import DictWriter
 from pprint import pprint
 
@@ -98,50 +98,20 @@ class RomMap(object):
         """ Look at a ROM and export all known data to folder."""
         stream = ConstBitStream(rom)
         mode = "w" if allow_overwrite else "x"
-
-        # Black magic begins here. We want to go through each set of arrays
-        # and merge the corresponding structures from each, then output the
-        # result. We want the output fields to remain well-ordered, and we
-        # want the name field at the front if it is there.
-
         for entity, arrays in self.arraysets.items():
-
-            # Read in each array, then dereference any pointers in their
-            # respective items, then merge them so we get a single dict
-            # for each object.
+            # Read in each array, then dereference any pointers
             data = [array.read(stream) for array in arrays]
-            data = [[item.struct_def.dereference_pointers(item, self, rom)
-                     for item in array] for array in data]
-            try:
-                data = [merge_dicts(parts) for parts in zip(*data)]
-            except ValueError as e:
-                # FIXME: These checks should really be done in init.
-                msg = "The arrays in set {} have overlapping keys: {}"
-                raise RomMapError(msg.format(entity, e.overlap))
-
-            # Now work out what field IDs need to be included in the output.
-            # This is the union of the IDs available in each array.
-            # We also need to know what human-readable labels to print on
-            # the first row.
-
-            headermap = OrderedDict()
-            for array in arrays:
-                s = array.struct
-                allfields = itertools.chain(s.values(), s.pointers)
-                od = OrderedDict((field['id'], field['label'])
-                                 for field in allfields)
-                headermap.update(od)
-
-            # If the object has a name, move it to the front of the output.
-            name = next((k for k, v in headermap.items() if v == "Name"), None)
-            if name is not None:
-                headermap.move_to_end(name, False)
-
+            for array in data:
+                for struct in array:
+                    struct.calculate(rom)
+            # Now merge corresponding items in each set.
+            data = [Struct.merged_od(structset)
+                    for structset in zip(*data)]
             # Now dump.
             fname = "{}/{}.csv".format(folder, entity)
             with open(fname, mode, newline='') as f:
-                writer = DictWriter(f, headermap.keys(), quoting=csv.QUOTE_ALL)
-                writer.writerow(headermap)
+                writer = DictWriter(f, data[0].keys(), quoting=csv.QUOTE_ALL)
+                writer.writeheader()
                 for item in data:
                     writer.writerow(item)
 
@@ -210,22 +180,27 @@ class Struct(object):
     def __init__(self, definition):
         """ Create an empty structure of a given type."""
         self.definition = definition
-        self.data = definition._datant()
-        self.calculated = definition._pointersnt()
+        default = [None for i in definition._datant._fields]
+        self.data = definition._datant(*default)
+        default = [None for i in definition._pointersnt._fields]
+        self.calculated = definition._pointersnt(*default)
 
     @classmethod
     def from_dict(cls, definition, d):
-        """ Create a structure with data taken from a dictionary. """
+        """ Create a structure with data taken from a dictionary.
+        
+        This is useful when loading from csv.DictReader.
+        """
         out = Struct(definition)
         allfields = definition.fields + definition.pointers
         unlabel = {f['label']: f['id'] for f
                    in definition.fields + definition.pointers}
         for name, data in d.items():
             name = unlabel.get(name, name)
-            if name in vars(self.data):
-                setattr(self.data, data)
-            elif name in vars(self.calculated):
-                setattr(self.calculated, data)
+            if name in vars(out.data):
+                setattr(out.data, name, data)
+            elif name in vars(out.calculated):
+                setattr(out.calculated, name, data)
         return out
 
     def read(self, stream, offset=None):
@@ -238,13 +213,10 @@ class Struct(object):
         Returns an object with attributes for each field of the structure.
         """
         if offset is not None:
-            stream.seek(offset)
+            stream.pos = offset
         fmt = ["{}:{}".format(f['type'], f['size'])
                for f in self.definition.fields]
-        self.data = self.definition._datant(bitstream.readlist(fmt))
-        for f in self.definition.fields:
-            value = stream.read("{}:{}".format(f['type'], f['size']))
-            setattr(self.data, value)
+        self.data = self.definition._datant(*stream.readlist(fmt))
 
     def to_od(self):
         """ Create an ordered dict from the struct's properties.
@@ -259,7 +231,32 @@ class Struct(object):
             value = getattr(self.data, fid,
                     getattr(self.calculated, fid.lstrip('*'), ""))
             out[label] = value
-        return out            
+        return out
+
+    @classmethod
+    def merged_od(cls, structs):
+        """ Create an ordered dict from the properties of a list of structs.
+
+        The output will be human readable and suitable for saving to a csv
+        file. The name will come first. Remaining properties will be sorted
+        first as data/computed/pointer properties, then in order of the
+        original list.
+        """
+        # Find out what order to print fields in.
+        sdefs = [s.definition for s in structs]
+        outputfields = StructDef._output_fields_merged(sdefs)
+        out = OrderedDict()
+        for fid, label in outputfields:
+            value = None
+            for s in structs:
+                if fid in s.data.__dict__:
+                    value = getattr(s.data, fid)
+                elif fid in s.calculated.__dict__:
+                    value = getattr(s.calculated, fid)
+            # assert value is not None
+            out[label] = value
+        return out
+
 
     def to_bytes(self):
         """ Generate a bytes object from the struct's properties.
@@ -306,8 +303,8 @@ class StructDef(object):
 
         fids = [f['id'] for f in self.fields]
         pids = [f['id'] for f in self.pointers]
-        self._datant = namedtuple(name, ",".join(fids))
-        self._pointersnt = namedtuple(name, ",".join(pids))
+        self._datant = namedtuple(name + "data", ",".join(fids))
+        self._pointersnt = namedtuple(name + "ptr", ",".join(pids))
 
     @classmethod
     def from_file(cls, name, f):
@@ -329,10 +326,40 @@ class StructDef(object):
     def _output_fields(self):
         """ Get the ordering for data fields in csv output."""
         allfields = self.fields + self.pointers
-        name = next(f for f in allfields if self.isname(f))
+        try:
+            name = [next(f for f in allfields if self.isname(f))]
+        except StopIteration:
+            name = []
         normal = [f for f in self.fields if not self.isname(f)]
         pointers = [f for f in self.pointers if not self.isname(f)]
-        return [(f['id'], f['label']) for f in [name, *normal, *pointers]]
+        return [(f['id'], f['label']) for f in name+normal+pointers]
+
+    @classmethod    
+    def _output_fields_merged(cls, sdefs):
+        """ Order fields from multiple structdefs into a complete set."""
+        # ordering should be: name first, then data (in order), then pointers
+        # (in order).
+        # Probably simpler to order them all and then move the name to
+        # the front of the list.
+        
+        allfields = [s.fields + s.pointers for s in sdefs]
+        allfields = itertools.chain.from_iterable(allfields)
+        out = []
+        name = None
+        try:
+            name = next(f for f in allfields if cls.isname(f))
+            out.append(name['id'], name['label'])
+        except StopIteration:
+            pass
+        for sdef in sdefs:
+            out += [(f['id'], f['label'])
+                    for f in sdef.fields
+                    if f != name]
+        for sdef in sdefs:
+            out += [(f['id'], f['label'])
+                    for f in sdef.pointers
+                    if f != name]
+        return out
 
     @classmethod
     def isdata(cls, field):

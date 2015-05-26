@@ -6,11 +6,6 @@ import romlib
 from romlib import util
 
 class TestUtilFuncs(unittest.TestCase):
-    def test_validate_spec(self):
-        d = OrderedDict({"fld1": 1, "fld2": 2, "fld3": 3})
-        d.requiredproperties = "fld1","fld2","fld3","fld4"
-        self.assertRaises(util.SpecFieldMismatch, util.validate_spec, d)
-
     def test_tobits_bytes(self):
         s = "8"
         self.assertEqual(util.tobits(s), 64)
