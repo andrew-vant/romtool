@@ -1,0 +1,4 @@
+"id","label","size","type","display","order","tags","comment"
+"fld4","Field 4",1,"uintle","hexify",,"pointer",
+"fld5","Field 5","b4","uint",,2,,
+"fld6","Field 6","b4","bin",,1,,

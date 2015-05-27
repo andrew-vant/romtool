@@ -180,31 +180,38 @@ class Struct(object):
     def __init__(self, definition):
         """ Create an empty structure of a given type."""
         self.definition = definition
-        default = [None for i in definition._datant._fields]
-        self.data = definition._datant(*default)
-        default = [None for i in definition._pointersnt._fields]
-        self.calculated = definition._pointersnt(*default)
+        self.data = None
+        self.calculated = None
+
+#        default = [None for i in definition._datant._fields]
+#        self.data = definition._datant(*default)
+#        default = [None for i in definition._pointersnt._fields]
+#        self.calculated = definition._pointersnt(*default)
 
     @classmethod
     def from_dict(cls, definition, d):
-        """ Create a structure with data taken from a dictionary.
+        """ Initialize a structure from a dictionary. """
+        return cls.from_mergedict([definition], d)[0]
+
+    @classmethod
+    def from_mergedict(cls, definitions, d):
+        """ Decompose a dictionary into multiple structures.
         
-        This is useful when loading from csv.DictReader.
+        This is useful when loading a set of structures using csv.DictReader.
         """
-        out = Struct(definition)
-        allfields = definition.fields + definition.pointers
+        # Currently totally broken.
+        out = [Struct(d) for d in definitions]
+        # Useful since our input will likely be labeled rather than id'd.
         unlabel = {f['label']: f['id'] for f
                    in definition.fields + definition.pointers}
-        for name, data in d.items():
-            name = unlabel.get(name, name)
-            if name in vars(out.data):
-                setattr(out.data, name, data)
-            elif name in vars(out.calculated):
-                setattr(out.calculated, name, data)
-        return out
+        # Ganked the rest of this rather than try to unbreak it. Remember
+        # namedtuples are read-only.
 
     def read(self, stream, offset=None):
         """ Read data into a structure from a bitstream.
+
+        FIXME: Wrap this in a bitstream inside this function so that we can
+        accept multiple types -- bytes, file object, another bitstream, etc.
 
         The offset is the location in the stream where the structure begins. If
         the stream was created from a file, then it's the offset in the file.
@@ -234,7 +241,7 @@ class Struct(object):
         return out
 
     @classmethod
-    def merged_od(cls, structs):
+    def to_merged_od(cls, structs):
         """ Create an ordered dict from the properties of a list of structs.
 
         The output will be human readable and suitable for saving to a csv

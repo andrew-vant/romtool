@@ -34,6 +34,8 @@ class TestTextTable(unittest.TestCase):
         self.assertEqual(self.tbl.decode(binary), text)
 
     @unittest.skip("Test not implemented yet.")
+    # Note to self, separately test for raw hex encode (which should work)
+    # and no valid encoding (which should fail)
     def test_encode_miss(self):
         pass
 

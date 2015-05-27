@@ -69,10 +69,10 @@ class TestStruct(unittest.TestCase):
         self.assertEqual(od['Field 3'], "0110")
         self.assertEqual(od['Field 1'], "0x34")
 
-    def test_struct_merged_od(self):
+    def test_struct_to_merged_od(self):
         self.s1.read(self.bits, 0)
         self.s2.read(self.bits, 0)
-        od = romlib.Struct.merged_od([self.s1, self.s2])
+        od = romlib.Struct.to_merged_od([self.s1, self.s2])
         self.assertEqual(od['Field 3'], "0110")
         self.assertEqual(od['Field 6'], "0110")
 
