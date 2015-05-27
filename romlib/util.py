@@ -1,8 +1,6 @@
 import csv
 from collections import OrderedDict
-
-class Box(object):
-    pass
+from types import SimpleNamespace
 
 class OrderedDictReader(csv.DictReader):
     """ Read a csv file as a list of ordered dictionaries.
@@ -56,7 +54,7 @@ def tobits(size):
     return bits
 
 def flatten(obj):
-    flat = Box()
+    flat = SimpleNamespace()
     for k, v in vars(obj).items():
         if not hasattr(v, '__dict__'):
             setattr(flat, k, v)
