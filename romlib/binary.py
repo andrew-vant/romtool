@@ -207,11 +207,12 @@ class Struct(object):
         # Ganked the rest of this rather than try to unbreak it. Remember
         # namedtuples are read-only.
 
-    def read(self, stream, offset=None):
+    def read(self, data, offset=None):
         """ Read data into a structure from a bitstream.
 
-        FIXME: Wrap this in a bitstream inside this function so that we can
-        accept multiple types -- bytes, file object, another bitstream, etc.
+        data is any kind of object that can be sanely converted to a
+        BitStream. Most commonly this will be a file opened in binary mode,
+        a bytes object, or another bitstream.
 
         The offset is the location in the stream where the structure begins. If
         the stream was created from a file, then it's the offset in the file.
@@ -219,6 +220,7 @@ class Struct(object):
 
         Returns an object with attributes for each field of the structure.
         """
+        stream = ConstBitStream(data)
         if offset is not None:
             stream.pos = offset
         fmt = ["{}:{}".format(f['type'], f['size'])

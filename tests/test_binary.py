@@ -1,5 +1,6 @@
 import logging
 import unittest
+import io
 from bitstring import ConstBitStream
 from tempfile import TemporaryFile
 from collections import OrderedDict
@@ -48,10 +49,22 @@ class TestStruct(unittest.TestCase):
             self.d2 = romlib.StructDef.from_file("good2", f2)
         self.s1 = romlib.Struct(self.d1)
         self.s2 = romlib.Struct(self.d2)
-        self.bits = ConstBitStream('0x3456')
+        self.data = b'\x34\x56'
+        self.bits = ConstBitStream(self.data)
 
     def test_struct_read(self):
         self.s1.read(self.bits)
+        self.assertEqual(self.s1.data.fld1, 0x34)
+        self.assertEqual(self.s1.data.fld3, "0110")
+
+    def test_struct_read_bytes(self):
+        self.s1.read(self.data)
+        self.assertEqual(self.s1.data.fld1, 0x34)
+        self.assertEqual(self.s1.data.fld3, "0110")
+
+    def test_struct_read_file(self):
+        f = io.BytesIO(self.data)
+        self.s1.read(self.data)
         self.assertEqual(self.s1.data.fld1, 0x34)
         self.assertEqual(self.s1.data.fld3, "0110")
 
