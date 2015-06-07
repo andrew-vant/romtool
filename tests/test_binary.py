@@ -72,9 +72,9 @@ class TestStruct(unittest.TestCase):
         d = {'fld1': 1,
              'fld2': 1,
              'fld3': "0110"}
-        romlib.Struct.from_dict(self.d1, d)
-        self.assertEqual(self.s1.data.fld1, 1)
-        self.assertEqual(self.s1.data.fld3, "0110")
+        s = romlib.Struct.from_dict(self.d1, d)
+        self.assertEqual(s.data.fld1, 1)
+        self.assertEqual(s.data.fld3, "0110")
 
     def test_struct_to_od(self):
         self.s1.read(self.bits, 0)

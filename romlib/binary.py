@@ -194,18 +194,35 @@ class Struct(object):
         return cls.from_mergedict([definition], d)[0]
 
     @classmethod
-    def from_mergedict(cls, definitions, d):
+    def from_mergedict(cls, definitions, md):
         """ Decompose a dictionary into multiple structures.
         
-        This is useful when loading a set of structures using csv.DictReader.
+        This is useful when loading a set of structures from an edited csv
+        using csv.DictReader.
         """
         # Currently totally broken.
-        out = [Struct(d) for d in definitions]
-        # Useful since our input will likely be labeled rather than id'd.
-        unlabel = {f['label']: f['id'] for f
-                   in definition.fields + definition.pointers}
-        # Ganked the rest of this rather than try to unbreak it. Remember
-        # namedtuples are read-only.
+
+        out = []
+        for sdef in definitions:
+            # Build a dict mapping labels to their field id. Useful since our
+            # input will likely be labeled rather than id'd.
+            ofs = sdef._output_fields()
+            ids = [i[0] for i in ofs]
+            unlabel = {i[1]: i[0] for i in ofs}
+
+            # Build another dict containing only the data we want to insert.
+            # Handle both id and label mappings.
+            d = {k: md[k] for k in md
+                 if k in ids}
+            d.update({unlabel[k]: md[k] for k in md
+                      if k in unlabel})
+
+            s = Struct(sdef)
+            s.data = sdef._datant(**d)
+            pprint(s.data)
+            out.append(s)
+        pprint(out)
+        return out
 
     def read(self, data, offset=None):
         """ Read data into a structure from a bitstream.
