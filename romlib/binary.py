@@ -219,9 +219,7 @@ class Struct(object):
 
             s = Struct(sdef)
             s.data = sdef._datant(**d)
-            pprint(s.data)
             out.append(s)
-        pprint(out)
         return out
 
     def read(self, data, offset=None):
@@ -254,9 +252,10 @@ class Struct(object):
         """
         out = OrderedDict()
         for fid, label in self.definition._output_fields():
+            field = self.definition._get_field_by_id(fid)
             value = getattr(self.data, fid,
                     getattr(self.calculated, fid.lstrip('*'), ""))
-            out[label] = value
+            out[label] = display.get(field["display"])(value, field)
         return out
 
     @classmethod
@@ -277,7 +276,7 @@ class Struct(object):
             for s in structs:
                 if fid in s.data.__dict__:
                     value = getattr(s.data, fid)
-                elif fid in s.calculated.__dict__:
+                elif s.calculated is not None and fid in s.calculated.__dict__:
                     value = getattr(s.calculated, fid)
             # assert value is not None
             out[label] = value
@@ -348,6 +347,16 @@ class StructDef(object):
         spec['comment'] = arrayspec['comment']
         spec['order'] = ""
         return StructDef(arrayspec['name'], [spec])
+    def _get_field_by_id(self, fid):
+        out = None
+        try:
+            out = next(f for f in self.fields if f['id'] == fid)
+        except StopIteration:
+            out = next(f for f in self.pointers if f['id'] == fid)
+        finally:
+            if out is None:
+                raise KeyError("No field named {}.".format(fid))
+            return out
 
     def _output_fields(self):
         """ Get the ordering for data fields in csv output."""
