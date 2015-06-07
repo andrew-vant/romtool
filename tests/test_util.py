@@ -28,14 +28,23 @@ class TestUtilFuncs(unittest.TestCase):
                   "key3": "val3"}
 
         self.assertEqual(util.merge_dicts({}), {})
+        self.assertEqual(util.merge_dicts([{1: 2}]), {1: 2})
         self.assertEqual(util.merge_dicts(None), {})
         self.assertEqual(util.merge_dicts(dicts[0:3]), merged)
         self.assertRaises(ValueError, util.merge_dicts, dicts[2:])
         merged['key3'] = 'oops'
         self.assertEqual(util.merge_dicts(dicts, True), merged)
 
-class TestOrderedDictReader(unittest.TestCase):
+    def test_hexify(self):
+        self.assertEqual(util.hexify(4), "0x4")
 
+    def test_hexify_bitlength(self):
+        self.assertEqual(util.hexify(4, 8), "0x04")
+
+    def test_hexify_partial_byte(self):
+        self.assertEqual(util.hexify(4, 5), "0x04")
+
+class TestOrderedDictReader(unittest.TestCase):
     def test_read_ordereddict_field_order(self):
         with TemporaryFile("w+") as f:
             keys = ["f{}".format(i) for i in range(8)]
@@ -47,3 +56,11 @@ class TestOrderedDictReader(unittest.TestCase):
             reader = util.OrderedDictReader(f)
             self.assertEqual(list(next(reader).keys()), keys)
 
+class TestAddress(unittest.TestCase):
+    def test_offset_to_hirom(self):
+        a = util.Address(0)
+        self.assertEqual(a.hirom, 0xC00000)
+
+    def test_hirom_to_offset(self):
+        a = util.Address(0xC00000, "hirom")
+        self.assertEqual(a.rom, 0)

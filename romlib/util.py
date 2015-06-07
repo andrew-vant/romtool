@@ -107,14 +107,3 @@ def tobits(size):
     else:
         bits = int(size, 0) * 8
     return bits
-
-
-def flatten(obj):
-    flat = SimpleNamespace()
-    for k, v in vars(obj).items():
-        if not hasattr(v, '__dict__'):
-            setattr(flat, k, v)
-        else:
-            for k, v in vars(flatten(v)).items():
-                setattr(flat, k, v)
-    return flat

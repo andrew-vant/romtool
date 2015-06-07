@@ -5,7 +5,7 @@ from itertools import chain
 from collections import OrderedDict, namedtuple
 from bitstring import ConstBitStream, Bits, BitStream
 
-from .util import tobits, OrderedDictReader, merge_dicts, flatten, hexify
+from .util import tobits, OrderedDictReader, merge_dicts, hexify
 
 
 class Struct(object):
