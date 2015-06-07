@@ -196,7 +196,7 @@ class Struct(object):
     @classmethod
     def from_mergedict(cls, definitions, md):
         """ Decompose a dictionary into multiple structures.
-        
+
         This is useful when loading a set of structures from an edited csv
         using csv.DictReader.
         """
@@ -244,7 +244,7 @@ class Struct(object):
 
     def to_od(self):
         """ Create an ordered dict from the struct's properties.
-        
+
         The output will be human readable and suitable for saving to a csv
         file. The name will come first, then regular properties in definition-
         order, then computed properties in definition-order, then pointer
@@ -254,7 +254,7 @@ class Struct(object):
         for fid, label in self.definition._output_fields():
             field = self.definition._get_field_by_id(fid)
             value = getattr(self.data, fid,
-                    getattr(self.calculated, fid.lstrip('*'), ""))
+                            getattr(self.calculated, fid.lstrip('*'), ""))
             out[label] = display.get(field["display"])(value, field)
         return out
 
@@ -282,10 +282,9 @@ class Struct(object):
             out[label] = value
         return out
 
-
     def to_bytes(self):
         """ Generate a bytes object from the struct's properties.
-        
+
         The output will be suitable for writing back to the ROM or generating
         a patch. Currently it outputs normal data fields only.
         """
@@ -314,7 +313,7 @@ class Struct(object):
 class StructDef(object):
     def __init__(self, name, fields, texttables=None):
         """ Create a structure definition.
-        
+
         name: The class name of this type of structure.
         fields: A list of dictionaries defining this structure's fields.
         texttables: A dictionary of text tables for decoding strings.
@@ -347,6 +346,7 @@ class StructDef(object):
         spec['comment'] = arrayspec['comment']
         spec['order'] = ""
         return StructDef(arrayspec['name'], [spec])
+
     def _get_field_by_id(self, fid):
         out = None
         try:
@@ -369,14 +369,14 @@ class StructDef(object):
         pointers = [f for f in self.pointers if not self.isname(f)]
         return [(f['id'], f['label']) for f in name+normal+pointers]
 
-    @classmethod    
+    @classmethod
     def _output_fields_merged(cls, sdefs):
         """ Order fields from multiple structdefs into a complete set."""
         # ordering should be: name first, then data (in order), then pointers
         # (in order).
         # Probably simpler to order them all and then move the name to
         # the front of the list.
-        
+
         allfields = [s.fields + s.pointers for s in sdefs]
         allfields = itertools.chain.from_iterable(allfields)
         out = []
@@ -412,7 +412,7 @@ class StructDef(object):
     def bytes(self):
         """ The size of this structure in bytes."""
         return sum(f['size'] / 8 for f in self.fields)
-    
+
     @property
     def bits(self):
         """ The size of this structure in bits."""

@@ -2,6 +2,7 @@ import csv
 from collections import OrderedDict
 from types import SimpleNamespace
 
+
 class OrderedDictReader(csv.DictReader):
     """ Read a csv file as a list of ordered dictionaries.
 
@@ -52,6 +53,7 @@ def tobits(size):
     else:
         bits = int(size, 0) * 8
     return bits
+
 
 def flatten(obj):
     flat = SimpleNamespace()
