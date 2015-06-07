@@ -1,179 +1,11 @@
 import logging
-import os
-import csv
-import sys
-import itertools
 
-import yaml
-
-from bitstring import ConstBitStream, Bits, BitStream
-from collections import OrderedDict, namedtuple
-from csv import DictWriter
 from pprint import pprint
+from itertools import chain
+from collections import OrderedDict, namedtuple
+from bitstring import ConstBitStream, Bits, BitStream
 
-from . import text
-from .util import tobits, OrderedDictReader, merge_dicts, flatten
-from .exceptions import RomMapError
-from .patch import Patch
-
-
-class Address(object):
-    """ Manage and convert between rom offsets and pointer formats."""
-
-    def __init__(self, offset, schema="offset"):
-        funcname = "_from_{}".format(schema)
-        converter = getattr(self, funcname)
-        self._address = converter(offset)
-
-    @property
-    def rom(self):
-        """ Use this address as a ROM offset. """
-        return self._address
-
-    @property
-    def hirom(self, mirror=0xC00000):
-        """ Use this address as a hirom pointer.
-
-        Use this when writing pointers back to a hirom image. There are
-        multiple rom mirrors in hirom; this defaults to using the C0-FF
-        mirror, since it contains all possible banks.
-        """
-        # hirom has multiple possible re-referencings, but C0-FF should
-        # always be safe.
-        return self._address | mirror
-
-    @classmethod
-    def _from_offset(cls, offset):
-        """ Initialize an address from a ROM offset. """
-        return offset
-
-    @classmethod
-    def _from_hirom(cls, offset):
-        """ Initialize an address from a hirom pointer. """
-        # hirom has multiple mirrors, but I *think* this covers all of them...
-        return offset % 0x400000
-
-
-class RomMap(object):
-    def __init__(self, root):
-        self.structs = {}
-        self.texttables = {}
-        self.arrays = {}
-        self.arraysets = {}
-
-        # Find all the csv files in the structs directory and load them into
-        # a dictionary keyed by their base name.
-        structfiles = [f for f
-                       in os.listdir("{}/structs".format(root))
-                       if f.endswith(".csv")]
-        for sf in structfiles:
-            typename = os.path.splitext(sf)[0]
-            struct = StructDef.from_file("{}/structs/{}".format(root, sf))
-            self.structs[typename] = struct
-
-        # Repeat for text tables.
-        try:
-            ttfiles = [f for f
-                       in os.listdir("{}/texttables".format(root))
-                       if f.endswith(".tbl")]
-        except FileNotFoundError:
-            # FIXME: Log warning here?
-            ttfiles = []
-
-        for tf in ttfiles:
-            tblname = os.path.splitext(tf)[0]
-            tbl = text.TextTable("{}/texttables/{}".format(root, tf))
-            self.texttables[tblname] = tbl
-
-        # Now load the array definitions.
-        with open("{}/arrays.csv".format(root)) as f:
-            arrays = [ArrayDef(od, self.structs)
-                      for od in OrderedDictReader(f)]
-            self.arrays = {a['name']: a for a in arrays}
-            arraysets = set([a['set'] for a in arrays])
-            for _set in arraysets:
-                self.arraysets[_set] = [a for a in arrays if a['set'] == _set]
-
-    def dump(self, rom, folder, allow_overwrite=False):
-        """ Look at a ROM and export all known data to folder."""
-        stream = ConstBitStream(rom)
-        mode = "w" if allow_overwrite else "x"
-        for entity, arrays in self.arraysets.items():
-            # Read in each array, then dereference any pointers
-            data = [array.read(stream) for array in arrays]
-            for array in data:
-                for struct in array:
-                    struct.calculate(rom)
-            # Now merge corresponding items in each set.
-            data = [Struct.merged_od(structset)
-                    for structset in zip(*data)]
-            # Now dump.
-            fname = "{}/{}.csv".format(folder, entity)
-            with open(fname, mode, newline='') as f:
-                writer = DictWriter(f, data[0].keys(), quoting=csv.QUOTE_ALL)
-                writer.writeheader()
-                for item in data:
-                    writer.writerow(item)
-
-    def makepatch(self, romfile, modfolder, patchfile):
-        # Get the filenames for all objects. Assemble a dictionary mapping
-        # object types to all objects of that type.
-        files = [f for f in os.listdir(modfolder)
-                 if f.endswith(".csv")]
-        paths = [os.path.join(modfolder, f) for f in files]
-        objnames = [os.path.splitext(f)[0] for f in files]
-        objects = {}
-        for name, path in zip(objnames, paths):
-            with open(path) as f:
-                objects[name] = list(OrderedDictReader(f))
-
-        # This mess splits the object-to-data mapping into an array-to-data
-        # mapping. This should really be functioned out and unit tested
-        # because it is confusing as hell.
-        data = {array['name']: [] for array in self.arrays.values()}
-        for otype, objects in objects.items():
-            for array in self.arraysets[otype]:
-                for o in objects:
-                    data[array['name']].append(array.struct.extract(o))
-
-        # Now get a list of bytes to change.
-        changed = {}
-        for arrayname, contents in data.items():
-            a = self.arrays[arrayname]
-            offset = int(a['offset'] // 8)
-            stride = int(a['stride'] // 8)
-            for item in contents:
-                changed.update(a.struct.changeset(item, offset))
-                offset += stride
-        # Generate the patch
-        p = Patch(changed)
-        with open(romfile, "rb") as rom:
-            p.filter(rom)
-        with open(patchfile, "wb+") as patch:
-            p.to_ips(patch)
-
-
-class ArrayDef(OrderedDict):
-    requiredproperties = ["name", "type", "offset",
-                          "length", "stride", "comment"]
-
-    def __init__(self, od, structtypes={}):
-        super().__init__(od)
-        if self['type'] in structtypes:
-            self.struct = structtypes[self['type']]
-        else:
-            self.struct = StructDef.from_primitive_array(self)
-        self['offset'] = tobits(self['offset'])
-        self['stride'] = tobits(self['stride'])
-        if not self['set']:
-            self['set'] = self['name']
-        if not self['label']:
-            self['label'] = self['name']
-
-    def read(self, stream):
-        for i in range(int(self['length'])):
-            pos = i*self['stride'] + self['offset']
-            yield self.struct.read(stream, pos)
+from .util import tobits, OrderedDictReader, merge_dicts, flatten, hexify
 
 
 class Struct(object):
@@ -378,7 +210,7 @@ class StructDef(object):
         # the front of the list.
 
         allfields = [s.fields + s.pointers for s in sdefs]
-        allfields = itertools.chain.from_iterable(allfields)
+        allfields = chain.from_iterable(allfields)
         out = []
         name = None
         try:
@@ -431,23 +263,6 @@ class StructDef(object):
             initializers.append("{}:{}={}".format(ftype, size, value))
         itemdata = Bits(", ".join(initializers))
         return {offset+i: b for i, b in enumerate(itemdata.bytes)}
-
-
-def hexify(i, length=None):
-    """ Converts an integer to a hex string.
-
-    If bitlength is provided, the string will be padded enough to represent
-    at least bitlength bits, even if those bits are all zero.
-    """
-    if length is None:
-        return hex(i)
-
-    numbytes = length // 8
-    if length % 8 != 0:  # Check for partial bytes
-        numbytes += 1
-    digits = numbytes * 2  # Two hex digits per byte
-    fmtstr = "0x{{:0{}X}}".format(digits)
-    return fmtstr.format(i)
 
 display = {
     "hexify": lambda value, field: hexify(value, field['size']),

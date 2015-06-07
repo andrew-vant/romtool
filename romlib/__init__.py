@@ -1,4 +1,5 @@
-from .binary import ArrayDef, StructDef, Struct, RomMap
+from .rommap import RomMap, ArrayDef
+from .struct import Struct, StructDef
 from .text import TextTable
 from .exceptions import SpecFieldMismatch
 from . import util
