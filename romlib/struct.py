@@ -1,271 +1,166 @@
-import logging
+import bitstring
 
-from pprint import pprint
-from itertools import chain
-from collections import OrderedDict, namedtuple
-from bitstring import ConstBitStream, Bits, BitStream
+from bitstring import ConstBitStream
+from collections import namedtuple, OrderedDict
 
-from .util import tobits, OrderedDictReader, merge_dicts, hexify
-
+from . import util
 
 class Struct(object):
-    def __init__(self, definition):
-        """ Create an empty structure of a given type."""
-        self.definition = definition
-        self.data = None
-        self.calculated = None
+    def __init__(self, definition, auto=None,
+                 fileobj=None, bitstr=None, bytesobj=None, dictionary=None,
+                 offset=0, dereference=True):
+        """ Create a structure with a given definition from input data.
 
-#        default = [None for i in definition._datant._fields]
-#        self.data = definition._datant(*default)
-#        default = [None for i in definition._pointersnt._fields]
-#        self.calculated = definition._pointersnt(*default)
+        definition: a StructDef object.
 
-    @classmethod
-    def from_dict(cls, definition, d):
-        """ Initialize a structure from a dictionary. """
-        return cls.from_mergedict([definition], d)[0]
+        One and only one of the following initialization objects should be
+        set:
 
-    @classmethod
-    def from_mergedict(cls, definitions, md):
-        """ Decompose a dictionary into multiple structures.
-
-        This is useful when loading a set of structures from an edited csv
-        using csv.DictReader.
+        auto: Automatically determine input type.
+        fobj: Initialize from a file object.
+        bitstr: Initialize from a bitstring object.
+        bytesobj: Initialize from a bytes object.
+        dictionary: Initialize from a dictionary. Dictionary keys
+                    may be either ids or labels.
         """
-        # Currently totally broken.
+        self.sdef = definition
+        self.data = OrderedDict()
 
-        out = []
-        for sdef in definitions:
-            # Build a dict mapping labels to their field id. Useful since our
-            # input will likely be labeled rather than id'd.
-            ofs = sdef._output_fields()
-            ids = [i[0] for i in ofs]
-            unlabel = {i[1]: i[0] for i in ofs}
+        # Check that no more than one initializer was provided
+        initializers = [auto, fileobj, bitstr, bytesobj, dictionary]
+        numinit = sum(1 for i in initializers if i is not None)
+        if numinit > 1:
+            raise TypeError("Multiple initializers provided, expected 1.")
 
-            # Build another dict containing only the data we want to insert.
-            # Handle both id and label mappings.
-            d = {k: md[k] for k in md
-                 if k in ids}
-            d.update({unlabel[k]: md[k] for k in md
-                      if k in unlabel})
+        # Several types are treated the same, get the one that was
+        # provided, if any.
+        fileesque = next((f for f in [fileobj, bitstr, bytesobj]
+                         if f is not None), None)
 
-            s = Struct(sdef)
-            s.data = sdef._datant(**d)
-            out.append(s)
-        return out
+        # Figure out what to do with auto if it was provided.
+        if isinstance(auto, dict):
+            dictionary = auto
+        elif isinstance(auto, object):
+            fileesque = auto
 
-    def read(self, data, offset=None):
-        """ Read data into a structure from a bitstream.
+        # Initialize. Note that if no initializers were given, this
+        # does nothing, and we end up with an empty structure.
+        if dictionary:
+            self._init_from_dict(dictionary)
+        if fileesque:
+            self._init_from_fileesque(fileesque, offset, dereference)
 
-        data is any kind of object that can be sanely converted to a
-        BitStream. Most commonly this will be a file opened in binary mode,
-        a bytes object, or another bitstream.
 
-        The offset is the location in the stream where the structure begins. If
-        the stream was created from a file, then it's the offset in the file.
-        If offset is None, the current stream position will be used.
+    def _init_from_fileesque(self, f, offset, dereference):
+        # This should work for bitstreams, files, or bytes, because
+        # of this initial conversion.
+        bs = ConstBitStream(f)
+        self.read(bs, offset)
+        if dereference:
+            self.dereference(bs)
 
-        Returns an object with attributes for each field of the structure.
-        """
-        stream = ConstBitStream(data)
+
+    def _init_from_dict(self, d):
+        lm = OrderedDict(self.sdef.labelmap)
+        for k, v in d.items():
+            # Convert labels to ids as needed.
+            if k in lm:
+                k = lm[k]
+            if k in self.sdef.attributes:
+                self.data[k] = v
+
+    def read(self, f, offset=None):
+        stream = ConstBitStream(f)
         if offset is not None:
             stream.pos = offset
-        fmt = ["{}:{}".format(f['type'], f['size'])
-               for f in self.definition.fields]
-        self.data = self.definition._datant(*stream.readlist(fmt))
+        for a in self.sdef.datafields:
+            fmt = "{}:{}".format(a.type, a.size)
+            self.data[a.id] = stream.read(fmt)
 
-    def to_od(self):
-        """ Create an ordered dict from the struct's properties.
+    def dereference(self, f):
+        """ Dereference pointers and load their values."""
 
-        The output will be human readable and suitable for saving to a csv
-        file. The name will come first, then regular properties in definition-
-        order, then computed properties in definition-order, then pointer
-        properties in definition-order.
-        """
-        out = OrderedDict()
-        for fid, label in self.definition._output_fields():
-            field = self.definition._get_field_by_id(fid)
-            value = getattr(self.data, fid,
-                            getattr(self.calculated, fid.lstrip('*'), ""))
-            out[label] = display.get(field["display"])(value, field)
-        return out
-
-    @classmethod
-    def to_merged_od(cls, structs):
-        """ Create an ordered dict from the properties of a list of structs.
-
-        The output will be human readable and suitable for saving to a csv
-        file. The name will come first. Remaining properties will be sorted
-        first as data/computed/pointer properties, then in order of the
-        original list.
-        """
-        # Find out what order to print fields in.
-        sdefs = [s.definition for s in structs]
-        outputfields = StructDef._output_fields_merged(sdefs)
-        out = OrderedDict()
-        for fid, label in outputfields:
-            value = None
-            for s in structs:
-                if fid in s.data.__dict__:
-                    value = getattr(s.data, fid)
-                elif s.calculated is not None and fid in s.calculated.__dict__:
-                    value = getattr(s.calculated, fid)
-            # assert value is not None
-            out[label] = value
-        return out
-
-    def to_bytes(self):
-        """ Generate a bytes object from the struct's properties.
-
-        The output will be suitable for writing back to the ROM or generating
-        a patch. Currently it outputs normal data fields only.
-        """
-        bitinit = []
-        for field in self.definition.fields:
-            tp = field['type']
-            size = field['size']
-            value = getattr(self.data, field['id'])
-            bitinit.append("{}:{}={}".format(tp, size, value))
-        return Bits(", ".join(bitinit)).bytes
-
-    def calculate(self, f):
-        """ Dereference pointers and populate calculated properties. """
-        for ptr in definition.pointers:
-            # Take off the asterisk to get the id of the pointer field. Convert
-            # that pointer to a ROM address, then read from that address.
-            fid = ptr['id'][1:]
-            archaddr = getattr(self.data, fid)
-            romaddr = Address(archaddr, ptr['ptype']).rom
-            if ptr['type'] == "strz":
-                ttable = self.tbl[ptr['display']]
+        # Loop over calcmap, convert the pointer's arch address to a rom
+        # address, then read in the value from that address.
+        for ptr, attr in self.sdef.pointermap:
+            archaddr = self.data[ptr.id]
+            romaddr = Address(archaddr, ptr.subtype).rom
+            if attr.type == "strz":
+                ttable = self.tbl[attr.display]
                 s = ttable.readstring(f, romaddr)
-                setattr(self.calculated, fid, s)
+                self.data[attr.id] = s
 
 
 class StructDef(object):
-    def __init__(self, name, fields, texttables=None):
+    Attribute = namedtuple("Attribute",
+                           "id label size type subtype "
+                           "display order info comment")
+
+    def __init__(self, name, fields, texttables=[]):
         """ Create a structure definition.
 
         name: The class name of this type of structure.
         fields: A list of dictionaries defining this structure's fields.
         texttables: A dictionary of text tables for decoding strings.
         """
+        self.name = name
         self.tbl = texttables
-        fields = list(fields)  # In case we were passed a generator
-        self.pointers = [f for f in fields if self.ispointer(f)]
-        self.fields = [f for f in fields if self.isdata(f)]
-        for f in self.fields:
-            f['size'] = tobits(f['size'])
+        self.attributes = OrderedDict()
+        for d in fields:
+            a = self._dict_to_attr(d)
+            self.attributes[a.id] = a
 
-        fids = [f['id'] for f in self.fields]
-        pids = [f['id'] for f in self.pointers]
-        self._datant = namedtuple(name + "data", ",".join(fids))
-        self._pointersnt = namedtuple(name + "ptr", ",".join(pids))
+    @property
+    def allfields(self):
+        return self.attributes.values()
+
+    @property
+    def datafields(self):
+        return (a for a in self.attributes.values()
+                if a.id.isalnum())
+
+    @property
+    def calcfields(self):
+        return (a for a in self.attributes.values()
+                if a.id.startswith("_"))
+
+    @property
+    def pointermap(self):
+        """ Get pairs of attributes mapping pointers to their attributes."""
+        return ((self.attributes[f.id[1:]], f)
+                 for f in self.calcfields)
+
+    @property
+    def labelmap(self):
+        """ Get a map of labels to ids."""
+        return ((a.label, a.id) for a in self.attributes.values())
+
+    @property
+    def namefield(self):
+        return next(a for a in self.attributes.values()
+                    if a.info.lower() == "name")
 
     @classmethod
     def from_file(cls, name, f):
-        return StructDef(name, OrderedDictReader(f))
+        return StructDef(name, util.OrderedDictReader(f))
 
     @classmethod
     def from_primitive_array(cls, arrayspec):
-        spec = OrderedDict()
-        spec['id'] = arrayspec['name']
-        spec['label'] = arrayspec['label']
-        spec['size'] = arrayspec['stride']
-        spec['type'] = arrayspec['type']
-        spec['display'] = arrayspec['display']
-        spec['tags'] = arrayspec['tags']
-        spec['comment'] = arrayspec['comment']
-        spec['order'] = ""
-        return StructDef(arrayspec['name'], [spec])
+        # Should this be implemented by the array class constructing a
+        # dict for the regular init method?
+        pass
 
-    def _get_field_by_id(self, fid):
-        out = None
+    @classmethod
+    def _dict_to_attr(cls, d):
+        """ Define a structure attribute from a dictionary.
+
+        This is intended to take input from a csv.DictReader or similar and
+        do any necessary string-to-whatever conversions, sanity checks, etc.
+        """
+        d = d.copy()
+        d['size'] = util.tobits(d['size'])
         try:
-            out = next(f for f in self.fields if f['id'] == fid)
-        except StopIteration:
-            out = next(f for f in self.pointers if f['id'] == fid)
-        finally:
-            if out is None:
-                raise KeyError("No field named {}.".format(fid))
-            return out
-
-    def _output_fields(self):
-        """ Get the ordering for data fields in csv output."""
-        allfields = self.fields + self.pointers
-        try:
-            name = [next(f for f in allfields if self.isname(f))]
-        except StopIteration:
-            name = []
-        normal = [f for f in self.fields if not self.isname(f)]
-        pointers = [f for f in self.pointers if not self.isname(f)]
-        return [(f['id'], f['label']) for f in name+normal+pointers]
-
-    @classmethod
-    def _output_fields_merged(cls, sdefs):
-        """ Order fields from multiple structdefs into a complete set."""
-        # ordering should be: name first, then data (in order), then pointers
-        # (in order).
-        # Probably simpler to order them all and then move the name to
-        # the front of the list.
-
-        allfields = [s.fields + s.pointers for s in sdefs]
-        allfields = chain.from_iterable(allfields)
-        out = []
-        name = None
-        try:
-            name = next(f for f in allfields if cls.isname(f))
-            out.append(name['id'], name['label'])
-        except StopIteration:
-            pass
-        for sdef in sdefs:
-            out += [(f['id'], f['label'])
-                    for f in sdef.fields
-                    if f != name]
-        for sdef in sdefs:
-            out += [(f['id'], f['label'])
-                    for f in sdef.pointers
-                    if f != name]
-        return out
-
-    @classmethod
-    def isdata(cls, field):
-        return field['id'].isalnum()
-
-    @classmethod
-    def ispointer(cls, field):
-        return field['id'][0] == "*"
-
-    @classmethod
-    def isname(cls, field):
-        return field['label'] == "Name"
-
-    @property
-    def bytes(self):
-        """ The size of this structure in bytes."""
-        return sum(f['size'] / 8 for f in self.fields)
-
-    @property
-    def bits(self):
-        """ The size of this structure in bits."""
-        return sum(f['size'] for f in self.fields)
-
-    def changeset(self, item, offset):
-        """ Get all changes made by item """
-        initializers = []
-        for fid, value in item.items():
-            size = self[fid]['size']
-            ftype = self[fid]['type']
-            # bitstring can't implicitly convert ints expressed as hex
-            # strings, so let's do it ourselves.
-            if "int" in ftype:
-                value = int(value, 0)
-            initializers.append("{}:{}={}".format(ftype, size, value))
-        itemdata = Bits(", ".join(initializers))
-        return {offset+i: b for i, b in enumerate(itemdata.bytes)}
-
-display = {
-    "hexify": lambda value, field: hexify(value, field['size']),
-    "hex": lambda value, field: hexify(value, field['size']),
-    "": lambda value, field: value
-}
+            d['order'] = int(d['order'])
+        except ValueError:
+            d['order'] = 0
+        return StructDef.Attribute(**d)

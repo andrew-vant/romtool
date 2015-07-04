@@ -2,7 +2,7 @@ import logging
 import unittest
 import io
 from bitstring import ConstBitStream
-from tempfile import TemporaryFile
+from tempfile import TemporaryFile, NamedTemporaryFile
 from collections import OrderedDict
 from pprint import pprint
 
@@ -47,38 +47,39 @@ class TestStruct(unittest.TestCase):
         with open(file1) as f1, open(file2) as f2:
             self.d1 = romlib.StructDef.from_file("good1", f1)
             self.d2 = romlib.StructDef.from_file("good2", f2)
-        self.s1 = romlib.Struct(self.d1)
-        self.s2 = romlib.Struct(self.d2)
         self.data = b'\x34\x56'
         self.bits = ConstBitStream(self.data)
 
-    def test_struct_read(self):
-        self.s1.read(self.bits)
-        self.assertEqual(self.s1.data.fld1, 0x34)
-        self.assertEqual(self.s1.data.fld3, "0110")
+    def test_struct_from_bits(self):
+        s = romlib.Struct(self.d1, self.bits)
+        self.assertEqual(s.data['fld1'], 0x34)
+        self.assertEqual(s.data['fld3'], "0110")
 
-    def test_struct_read_bytes(self):
-        self.s1.read(self.data)
-        self.assertEqual(self.s1.data.fld1, 0x34)
-        self.assertEqual(self.s1.data.fld3, "0110")
+    def test_struct_from_bytes(self):
+        s = romlib.Struct(self.d1, self.data)
+        self.assertEqual(s.data['fld1'], 0x34)
+        self.assertEqual(s.data['fld3'], "0110")
 
-    def test_struct_read_file(self):
-        f = io.BytesIO(self.data)
-        self.s1.read(self.data)
-        self.assertEqual(self.s1.data.fld1, 0x34)
-        self.assertEqual(self.s1.data.fld3, "0110")
+    def test_struct_from_file(self):
+        with NamedTemporaryFile("w+b") as ntf:
+            ntf.write(self.data)
+            ntf.seek(0)
+            with open(ntf.name, "rb") as f:
+                s = romlib.Struct(self.d1, f)
+                self.assertEqual(s.data['fld1'], 0x34)
+                self.assertEqual(s.data['fld3'], "0110")
 
-    def test_struct_from_dict(self):
+    def test_struct_from_iddict(self):
         d = {'fld1': 1,
              'fld2': 1,
              'fld3': "0110"}
-        s = romlib.Struct.from_dict(self.d1, d)
-        self.assertEqual(s.data.fld1, 1)
-        self.assertEqual(s.data.fld3, "0110")
+        s = romlib.Struct(self.d1, d)
+        self.assertEqual(s.data['fld1'], 1)
+        self.assertEqual(s.data['fld3'], "0110")
 
     def test_struct_to_od(self):
-        self.s1.read(self.bits, 0)
-        od = self.s1.to_od()
+        s = romlib.Struct(self.d1, self.bits)
+        od = s.to_od()
         self.assertEqual(od['Field 3'], "0110")
         self.assertEqual(od['Field 1'], "0x34")
 
@@ -90,8 +91,8 @@ class TestStruct(unittest.TestCase):
         self.assertEqual(od['Field 6'], "0110")
 
     def test_struct_to_bytes(self):
-        self.s1.read(self.bits, 0)
-        self.assertEqual(self.s1.to_bytes(), b'\x34\x56')
+        s = romlib.Struct(self.d1, self.bits)
+        self.assertEqual(s.to_bytes(), b'\x34\x56')
 
 """
 class TestStructDef(unittest.TestCase):
