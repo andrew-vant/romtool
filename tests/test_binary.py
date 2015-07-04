@@ -7,13 +7,13 @@ from tempfile import TemporaryFile, NamedTemporaryFile
 from collections import OrderedDict
 from pprint import pprint
 
+import io
 import romlib
 from romlib import util
 
-"""
+
 class TestArrayDef(unittest.TestCase):
     def setUp(self):
-        rp = romlib.ArrayDef.requiredproperties
         od = OrderedDict({"name": "arr1",
                           "label": "arr1",
                           "set": "",
@@ -22,25 +22,34 @@ class TestArrayDef(unittest.TestCase):
                           "length": "3",
                           "stride": "2",
                           "comment": ""})
-        self.typedict = {
-            "romstruct_good": romlib.StructDef.from_file(
-                              "tests/map/structs/romstruct_good.csv")}
 
-        self.array = romlib.ArrayDef(od, self.typedict)
+        with open("tests/map/structs/romstruct_good.csv") as f:
+            self.sdef = romlib.StructDef.from_file("good", f)
+        self.array = romlib.ArrayDef(od, self.sdef)
 
-    def test_rom_array_size_conversion(self):
-        self.assertEqual(self.array['offset'], 0x06*8)
-        self.assertEqual(self.array['stride'], 2*8)
+    def test_rom_array_init(self):
+        correct = {
+            "name": "arr1",
+            "length": 3,
+            "offset": 0x06*8,
+            "stride": 2*8,
+            "sdef": self.sdef
+        }
 
-    def test_rom_array_struct_attachment(self):
-        self.assertEqual(self.array.struct, self.typedict['romstruct_good'])
+        for k, v in correct.items():
+            self.assertEqual(getattr(self.array, k), v)
 
     def test_rom_array_read(self):
         # Twenty copies of a romstruct.
-        bits = ConstBitStream('0x3456') * 20
-        for entry in self.array.read(bits):
-            self.assertEqual(entry['fld3'], "0110")
-"""
+        data = b'\x34\x56' * 20
+        ntf = NamedTemporaryFile()
+        ntf.write(data)
+        ntf.seek(0)
+        with open(ntf.name, "rb") as f:
+            for s in self.array.read(f):
+                self.assertEqual(s.data['fld3'], "0110")
+
+
 class TestStruct(unittest.TestCase):
     def setUp(self):
         file1 = "tests/map/structs/romstruct_good.csv"
