@@ -14,18 +14,31 @@ from romlib import util
 
 class TestArrayDef(unittest.TestCase):
     def setUp(self):
-        od = OrderedDict({"name": "arr1",
-                          "label": "arr1",
-                          "set": "",
-                          "type": "romstruct_good",
-                          "offset": "0x06",
-                          "length": "3",
-                          "stride": "2",
-                          "comment": ""})
+        struct_od = OrderedDict({
+            "name": "arr1",
+            "label": "arr1",
+            "set": "",
+            "type": "romstruct_good",
+            "offset": "0x06",
+            "length": "3",
+            "stride": "2",
+            "comment": ""
+         })
+        primitive_od = OrderedDict({
+            "name": "arr1",
+            "label": "arr1",
+            "set": "",
+            "type": "uint",
+            "offset": "0x00",
+            "length": "1",
+            "stride": "1",
+            "comment": ""
+        })
 
         with open("tests/map/structs/romstruct_good.csv") as f:
             self.sdef = romlib.StructDef.from_file("good", f)
-        self.array = romlib.ArrayDef(od, self.sdef)
+        self.array = romlib.ArrayDef(struct_od, self.sdef)
+        self.parray = romlib.ArrayDef(primitive_od, None)
 
     def test_rom_array_init(self):
         correct = {
@@ -38,6 +51,21 @@ class TestArrayDef(unittest.TestCase):
 
         for k, v in correct.items():
             self.assertEqual(getattr(self.array, k), v)
+
+    def test_rom_array_init_primitive(self):
+        pa = self.parray
+        correct_attribute = {
+            "id": "value",
+            "label": "arr1",
+            "size": 8,
+            "type": "uint"
+        }
+        self.assertEqual(pa.name, pa.sdef.name)
+        self.assertEqual(len(pa.sdef.attributes), 1)
+        a = next(iter(pa.sdef.attributes.values()))
+        pprint(a)
+        for k, v in correct_attribute.items():
+            self.assertEqual(getattr(a, k), v)
 
     def test_rom_array_read(self):
         # Twenty copies of a romstruct.
