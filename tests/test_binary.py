@@ -96,10 +96,42 @@ class TestStruct(unittest.TestCase):
         s = romlib.Struct(self.d1, self.bits)
         self.assertEqual(s.to_bytes(), b'\x34\x56')
 
+
+
+class TestStructDef(unittest.TestCase):
+    def setUp(self):
+        sd1file = "tests/map/structs/romstruct_good.csv"
+        sd2file = "tests/map/structs/romstruct_good2.csv"
+        self.bits = ConstBitStream('0x3456')
+        with open(sd1file) as f1, open(sd2file) as f2:
+            self.sd1 = romlib.StructDef.from_file("good", f1)
+            self.sd2 = romlib.StructDef.from_file("good", f2)
+        self.sd = self.sd1
+
+    def test_malformed_romstruct_file(self):
+        badfile = "tests/binary/romstruct_malformed.csv"
+        self.assertRaises(Exception, romlib.StructDef, badfile)
+
+    def test_basic_initialization(self):
+        self.assertEqual(self.sd.name, "good")
+        self.assertEqual(self.sd.attributes['fld1'].label, "Field 1")
+        self.assertEqual(self.sd.attributes['fld3'].order, 1)
+
+    def test_size_conversion(self):
+        self.assertEqual(self.sd.attributes['fld2'].size, 4)
+        self.assertEqual(self.sd.attributes['fld1'].size, 8)
+
+    def test_correct_namefield(self):
+        self.assertEqual(self.sd.namefield.id, 'fld3')
+
+    def test_namefield_exception(self):
+        with self.assertRaises(AttributeError):
+            self.sd2.namefield
+
     def test_keyorder(self):
-        keys = itertools.chain(self.d1.attributes.keys(),
-                               self.d2.attributes.keys())
-        keys = romlib.StructDef.attribute_order(keys, [self.d1, self.d2])
+        keys = itertools.chain(self.sd1.attributes.keys(),
+                               self.sd2.attributes.keys())
+        keys = romlib.StructDef.attribute_order(keys, [self.sd1, self.sd2])
         correct = [
             'fld1',
             'fld4',
@@ -110,28 +142,8 @@ class TestStruct(unittest.TestCase):
         ]
         self.assertEqual(keys, correct)
 
-"""
-class TestStructDef(unittest.TestCase):
-    def setUp(self):
-        self.bits = ConstBitStream('0x3456')
-        self.struct = romlib.StructDef.from_file("tests/map/structs/romstruct_good.csv")
 
-    def test_malformed_romstruct_file(self):
-        badfile = "tests/binary/romstruct_malformed.csv"
-        self.assertRaises(Exception, romlib.StructDef, badfile)
-
-    def test_read_struct(self):
-        s = self.struct.read(self.bits, 0)
-        self.assertEqual(s['fld3'], "0110")
-
-    def test_read_struct_order(self):
-        s = self.struct.read(self.bits, 0)
-        self.assertEqual(list(s.keys()), ['fld1','fld3','fld2'])
-
-    def test_struct_hextag(self):
-        s = self.struct.read(self.bits, 0)
-        s = self.assertEqual(s['fld1'], "0x34")
-
+    @unittest.skip("Array not reimplemented yet.")
     def test_load_from_array(self):
         arraydict = OrderedDict({ "name": "arrprim",
                                   "label": "Primitive",
@@ -152,30 +164,7 @@ class TestStructDef(unittest.TestCase):
     def test_pointer_dereferencing(self):
         pass
 
-    def test_extract_fields_from_object(self):
-        fields = [("fld1", "something"),
-                  ("fld2", "something 2"),
-                  ("fld3", "something 3"),
-                  ("fld4", "something 4"),
-                  ("fld5", "something 5")]
-
-        me = OrderedDict(fields[0:3])
-        source = OrderedDict(fields)
-        self.assertEqual(self.struct.extract(source), me)
-
-    def test_extract_fields_by_label(self):
-        me = OrderedDict([("fld1", "something"),
-                          ("fld2", "something 2"),
-                          ("fld3", "something 3")])
-
-        source = OrderedDict([("Field 1", "something"),
-                              ("Field 2", "something 2"),
-                              ("Field 3", "something 3"),
-                              ("Field 4", "something 4"),
-                              ("Field 5", "something 5")])
-
-        self.assertEqual(self.struct.extract(source), me)
-
+"""
 class TestRomMap(unittest.TestCase):
     def setUp(self):
         self.map = romlib.RomMap("tests/map")
@@ -190,10 +179,6 @@ class TestRomMap(unittest.TestCase):
         s = self.map.structs['romstruct_good']
         self.assertTrue('fld1' in s)
         self.assertEqual(s['fld1']['label'], "Field 1")
-
-class TestFunctions(unittest.TestCase):
-    def test_hexify(self):
-        self.assertEqual(romlib.binary.hexify(4, 8), "0x04")
-        self.assertEqual(romlib.binary.hexify(4), "0x4")
-        self.assertEqual(romlib.binary.hexify(4, 12), "0x0004")
 """
+class TestFunctions(unittest.TestCase):
+    pass
