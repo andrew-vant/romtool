@@ -75,7 +75,7 @@ class Struct(object):
     def read(self, f, offset=None):
         stream = ConstBitStream(f)
         if offset is not None:
-            stream.bytepos = offset
+            stream.pos = offset
         for a in self.sdef.datafields:
             fmt = "{}:{}".format(a.type, a.size)
             self.data[a.id] = stream.read(fmt)
@@ -134,6 +134,8 @@ class StructDef(object):
         for d in fields:
             a = self._dict_to_attr(d)
             self.attributes[a.id] = a
+        self.label = {a.id: a.label for a in self.attributes.values()}
+        self.unlabel = {a.label: a.id for a in self.attributes.values()}
 
     @property
     def allfields(self):
