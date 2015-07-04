@@ -1,3 +1,5 @@
+import itertools
+import collections
 import bitstring
 
 from bitstring import Bits, ConstBitStream
@@ -69,6 +71,7 @@ class Struct(object):
             if k in self.sdef.attributes:
                 self.data[k] = v
 
+
     def read(self, f, offset=None):
         stream = ConstBitStream(f)
         if offset is not None:
@@ -103,6 +106,14 @@ class Struct(object):
             value = self.data[field.id]
             bitinit.append("{}:{}={}".format(tp, size, value))
         return Bits(", ".join(bitinit)).bytes
+
+
+    @classmethod
+    def to_mergedict(cls, structs):
+        # If we were given a single struct, make it a one-element list
+        if not hasattr(structs, "__iter__"):
+            structs = [structs]
+        return util.merge_dicts([s.data for s in structs])
 
 
 class StructDef(object):
@@ -151,8 +162,12 @@ class StructDef(object):
 
     @property
     def namefield(self):
-        return next(a for a in self.attributes.values()
-                    if a.info.lower() == "name")
+        try:
+            return next(a for a in self.attributes.values()
+                        if a.info.lower() == "name")
+        except StopIteration:
+            err = "No name field in {} spec.".format(self.name)
+            raise AttributeError(err)
 
     @classmethod
     def from_file(cls, name, f):
@@ -163,6 +178,52 @@ class StructDef(object):
         # Should this be implemented by the array class constructing a
         # dict for the regular init method?
         pass
+
+    @classmethod
+    def attribute_order(cls, keys, sdefs):
+        """ Determine column order for output.
+
+        This takes a list of keys from a mergedict and a structdef or list of
+        structdefs you're outputting. It sorts the keys first by the
+        corresponding attribute's explicit order, then by the type of data
+        (name, normal, calculated, pointers), then by the order of the
+        structure definitions given, then by the order within those structures.
+
+        Returns a reordered list of keys."""
+
+        keys = list(keys)  # Just in case we were passed an iterator.
+        chain = itertools.chain.from_iterable  # Convenience alias.
+
+        # Map all keys to their default position
+        all_attribute_ids = chain(sd.attributes.keys() for sd in sdefs)
+        posmap = {a: o for o, a in enumerate(all_attribute_ids)}
+
+        # Map all keys to their corresponding attributes
+        attrmap = util.merge_dicts([sd.attributes for sd in sdefs])
+
+        # Map all keys to their explicit attribute order
+        order = {k: attrmap[k].order for k in keys}
+
+        # Find out which fields are name, data, calculated, pointers
+        # and put them in order
+        typeorder = {}
+        for sd in sdefs:
+            try:
+                typeorder[sd.namefield.id] = 0
+            except AttributeError:
+                pass # Not every struct has a namefield.
+            for a in sd.datafields:
+                typeorder[a.id] = 1
+            for a in sd.calcfields:
+                typeorder[a.id] = 2
+
+        # Build a list of tuples with all the information we want to sort on.
+        keytuples = [(order[k], typeorder[k], posmap[k], k)
+                     for k in keys]
+
+        # Sort the tuples and return the reordered keys
+        return [kt[-1] for kt in sorted(keytuples)]
+
 
     @classmethod
     def _dict_to_attr(cls, d):

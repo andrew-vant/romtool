@@ -1,6 +1,7 @@
 import logging
 import unittest
 import io
+import itertools
 from bitstring import ConstBitStream
 from tempfile import TemporaryFile, NamedTemporaryFile
 from collections import OrderedDict
@@ -77,22 +78,37 @@ class TestStruct(unittest.TestCase):
         self.assertEqual(s.data['fld1'], 1)
         self.assertEqual(s.data['fld3'], "0110")
 
-    def test_struct_to_od(self):
-        s = romlib.Struct(self.d1, self.bits)
-        od = s.to_od()
-        self.assertEqual(od['Field 3'], "0110")
-        self.assertEqual(od['Field 1'], "0x34")
-
     def test_struct_to_merged_od(self):
-        self.s1.read(self.bits, 0)
-        self.s2.read(self.bits, 0)
-        od = romlib.Struct.to_merged_od([self.s1, self.s2])
-        self.assertEqual(od['Field 3'], "0110")
-        self.assertEqual(od['Field 6'], "0110")
+        s1 = romlib.Struct(self.d1, self.bits)
+        s2 = romlib.Struct(self.d2, self.bits)
+        od = romlib.Struct.to_mergedict([s1, s2])
+        correct = {
+            'fld1': 52,
+            'fld2': 5,
+            'fld3': '0110',
+            'fld4': 52,
+            'fld5': 5,
+            'fld6': '0110'
+        }
+        self.assertEqual(od, correct)
 
     def test_struct_to_bytes(self):
         s = romlib.Struct(self.d1, self.bits)
         self.assertEqual(s.to_bytes(), b'\x34\x56')
+
+    def test_keyorder(self):
+        keys = itertools.chain(self.d1.attributes.keys(),
+                               self.d2.attributes.keys())
+        keys = romlib.StructDef.attribute_order(keys, [self.d1, self.d2])
+        correct = [
+            'fld1',
+            'fld4',
+            'fld3',
+            'fld6',
+            'fld2',
+            'fld5'
+        ]
+        self.assertEqual(keys, correct)
 
 """
 class TestStructDef(unittest.TestCase):
