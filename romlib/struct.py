@@ -1,6 +1,6 @@
 import bitstring
 
-from bitstring import ConstBitStream
+from bitstring import Bits, ConstBitStream
 from collections import namedtuple, OrderedDict
 
 from . import util
@@ -72,7 +72,7 @@ class Struct(object):
     def read(self, f, offset=None):
         stream = ConstBitStream(f)
         if offset is not None:
-            stream.pos = offset
+            stream.bytepos = offset
         for a in self.sdef.datafields:
             fmt = "{}:{}".format(a.type, a.size)
             self.data[a.id] = stream.read(fmt)
@@ -89,6 +89,20 @@ class Struct(object):
                 ttable = self.tbl[attr.display]
                 s = ttable.readstring(f, romaddr)
                 self.data[attr.id] = s
+
+    def to_bytes(self):
+        """ Generate a bytes object from the struct's properties.
+
+        The output will be suitable for writing back to the ROM or generating
+        a patch. Currently it outputs normal data fields only.
+        """
+        bitinit = []
+        for field in self.sdef.datafields:
+            tp = field.type
+            size = field.size
+            value = self.data[field.id]
+            bitinit.append("{}:{}={}".format(tp, size, value))
+        return Bits(", ".join(bitinit)).bytes
 
 
 class StructDef(object):
