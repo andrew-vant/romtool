@@ -201,21 +201,21 @@ class TestStructDef(unittest.TestCase):
     def test_pointer_dereferencing(self):
         pass
 
-"""
+
 class TestRomMap(unittest.TestCase):
     def setUp(self):
         self.map = romlib.RomMap("tests/map")
 
     def test_rom_map_array_load(self):
         self.assertEqual(len(self.map.arrays), 4)
-        self.assertEqual(self.map.arrays['arr1']['name'], "arr1")
+        self.assertEqual(self.map.arrays['arr1'].name, "arr1")
 
     def test_rom_map_struct_load(self):
-        self.assertEqual(len(self.map.structs), 1)
-        self.assertTrue('romstruct_good' in self.map.structs)
-        s = self.map.structs['romstruct_good']
-        self.assertTrue('fld1' in s)
-        self.assertEqual(s['fld1']['label'], "Field 1")
-"""
+        self.assertEqual(len(self.map.sdefs), 2)
+        self.assertTrue('romstruct_good' in self.map.sdefs)
+        s = self.map.sdefs['romstruct_good']
+        self.assertTrue('fld1' in s.attributes)
+        self.assertEqual(s.attributes['fld1'].label, "Field 1")
+
 class TestFunctions(unittest.TestCase):
     pass

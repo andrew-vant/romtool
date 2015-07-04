@@ -1,10 +1,64 @@
+import os
 import romlib
 
 from collections import OrderedDict
 from . import util
+from pprint import pprint
 
 class RomMap(object):
-    pass
+    def __init__(self, root):
+        """ Create a ROM map.
+
+        root: The directory holding the map's spec files.
+        """
+        self.sdefs = OrderedDict()
+        self.texttables = OrderedDict()
+        self.arrays = OrderedDict()
+        self.arraysets = OrderedDict()
+
+        # Find all csv files in the structs directory and load them into
+        # a dictionary keyed by their base name.
+        for name, path in self._get_subfiles(root, "structs", ".csv"):
+            with open(path) as f:
+                sdef = romlib.StructDef.from_file(name, f)
+                self.sdefs[name] = sdef
+
+        # Repeat for text tables.
+        for name, path in self._get_subfiles(root, "texttables", ".tbl"):
+            with open(path) as f:
+                tbl = text.TextTable(name, f)
+                self.texttables[name] = tbl
+
+        # Now load the array definitions
+        with open("{}/arrays.csv".format(root)) as f:
+            reader = util.OrderedDictReader(f)
+            for spec in reader:
+                sdef = self.sdefs.get(spec['type'], None)
+                adef = ArrayDef(spec, sdef)
+                self.arrays[adef.name] = adef
+
+        # Construct array sets
+        sets = set([a.set for a in self.arrays.values()])
+        for s in sets:
+            self.arraysets[s] = []
+        for a in self.arrays.values():
+            self.arraysets[a.set].append(a)
+
+
+    def _get_subfiles(self, root, folder, extension):
+        try:
+            filenames = [filename for filename
+                         in os.listdir("{}/{}".format(root, folder))
+                         if filename.endswith(extension)]
+            names = [os.path.splitext(filename)[0]
+                     for filename in filenames]
+            paths = ["{}/{}/{}".format(root, folder, filename)
+                     for filename in filenames]
+            return zip(names, paths)
+        except FileNotFoundError:
+            # FIXME: Subfolder missing. Log warning here?
+            return []
+
 
 class ArrayDef(object):
     def __init__(self, spec, sdef=None):
