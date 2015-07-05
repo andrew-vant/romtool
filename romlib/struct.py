@@ -60,7 +60,7 @@ class Struct(object):
         bs = ConstBitStream(f)
         self.read(bs, offset)
         if dereference:
-            self.dereference(bs)
+            self.dereference(f)
 
 
     def _init_from_dict(self, d):
@@ -88,10 +88,10 @@ class Struct(object):
         # address, then read in the value from that address.
         for ptr, attr in self.sdef.pointermap:
             archaddr = self.data[ptr.id]
-            romaddr = Address(archaddr, ptr.subtype).rom
+            romaddr = util.Address(archaddr, ptr.subtype).rom
             if attr.type == "strz":
-                ttable = self.tbl[attr.display]
-                s = ttable.readstring(f, romaddr)
+                ttable = self.sdef.tbl[attr.display]
+                s = ttable.readstr(f, romaddr)
                 self.data[attr.id] = s
 
     def to_bytes(self):
@@ -184,7 +184,7 @@ class StructDef(object):
         texttables: A dictionary of text tables for decoding strings.
         """
         self.name = name
-        self.tbl = texttables
+        self.tbl = OrderedDict((tt.name, tt) for tt in texttables)
         self.attributes = OrderedDict()
         for d in fields:
             a = self._dict_to_attr(d)
@@ -204,7 +204,7 @@ class StructDef(object):
     @property
     def calcfields(self):
         return (a for a in self.attributes.values()
-                if a.id.startswith("_"))
+                if a.id.startswith("*"))
 
     @property
     def pointermap(self):
@@ -232,8 +232,8 @@ class StructDef(object):
             raise AttributeError(err)
 
     @classmethod
-    def from_file(cls, name, f):
-        return StructDef(name, util.OrderedDictReader(f))
+    def from_file(cls, name, f, texttables=[]):
+        return StructDef(name, util.OrderedDictReader(f), texttables)
 
     @classmethod
     def from_primitive_array(cls, arrayspec):

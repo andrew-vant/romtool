@@ -6,5 +6,5 @@
 "emt","Element",1,"uint",,,,"stats","0: No element (e.g. healing) | 1: Thunder | 2: Unused 1 | 3: Unused 2 | 4: Fire | 5: Ice | 6: Death | 7: Effect | 2 and 3 are unknown and probably unused. But usable."
 "unk1","Unknown 1",1,"bin",,,,"unknown",
 "unk2","Status?",1,"bin",,,,"unknown",
-"nmp","Name Pointer",3,"uintle",,"hexify",,"pointer",
-"*nmp","Name",,"strz","hirom","main",,,
+"nmp","Name Pointer",3,"uintle","hirom","hexify",,"pointer",
+"*nmp","Name",,"strz",,"main",,"name",

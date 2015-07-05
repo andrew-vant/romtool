@@ -33,5 +33,5 @@
 "drp","Dropset",1,"uintle",,,,"misc",
 "unk1","Unknown 1",1,"uintle",,"hexify",,"unknown","Appears to be used only by bosses. Purpose unknown."
 "boss","Boss Flag",1,"uintle",,,,"flag","Monster won't run, can't be run from, and is immune to effects."
-"nmp","Name Pointer",3,"uintle","hirom","hexify",,"name",
-"*nmp","Name",,"strz","hirom","main",,,"Name indicator?"
+"nmp","Name Pointer",3,"uintle","hirom","hexify",,"pointer",
+"*nmp","Name",,"strz",,"main",,"name",

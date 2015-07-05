@@ -18,20 +18,18 @@ class RomMap(object):
         self.arrays = OrderedDict()
         self.arraysets = OrderedDict()
 
-        # Find all csv files in the structs directory and load them into
+        # Find all csv files in the texttables directory and load them into
         # a dictionary keyed by their base name.
-        for name, path in self._get_subfiles(root, "structs", ".csv"):
-            with open(path) as f:
-                sdef = romlib.StructDef.from_file(name, f)
-                self.sdefs[name] = sdef
-
-        # Repeat for text tables.
         for name, path in self._get_subfiles(root, "texttables", ".tbl"):
             with open(path) as f:
-                # Fix this later
-                # tbl = text.TextTable(name, f)
-                tbl = text.TextTable(path)
+                tbl = text.TextTable(name, f)
                 self.texttables[name] = tbl
+
+        # Repeat for structs.
+        for name, path in self._get_subfiles(root, "structs", ".csv"):
+            with open(path) as f:
+                sdef = romlib.StructDef.from_file(name, f, self.texttables.values())
+                self.sdefs[name] = sdef
 
         # Now load the array definitions
         with open("{}/arrays.csv".format(root)) as f:

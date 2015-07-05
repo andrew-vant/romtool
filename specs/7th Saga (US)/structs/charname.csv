@@ -1,3 +1,3 @@
 "id","label","size","type","subtype","display","order","info","comment"
-"nmp","Name Pointer",3,"uintle",,"hexify",,,
-"*nmp","Name",,"strz","hirom","main",,,
+"nmp","Name Pointer",3,"uintle","hirom","hexify",,"pointer",
+"*nmp","Name",,"strz",,"main",,"name",
