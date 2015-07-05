@@ -65,20 +65,41 @@ class RomMap(object):
     def dump(self, rom, dest, allow_overwrite=False):
         mode = "w" if allow_overwrite else "x"
         for entity, adefs in self.arraysets.items():
+            # Convenience
+            chain = itertools.chain.from_iterable
+
+
             # Read the arrays in each set, then splice them.
             data = [ad.read(rom) for ad in adefs]
             data = romlib.Struct.splice(data)
 
-            # Now dump
-            filename = "{}/{}.csv".format(dest, entity)
+            # Run any necessary display conversions
+            hx = util.hexify
+            display_default = lambda value, attr: value
+            displayers = {
+                "hexify": lambda value, attr: hx(value, attr.size),
+                "hex": lambda value, attr: hx(value, attr.size),
+            }
+            for a in chain(ad.sdef.attributes.values() for ad in adefs):
+                for d in data:
+                    val = d[a.id]
+                    displayer = displayers.get(a.display, display_default)
+                    d[a.id] = displayer(val, a)
 
             # Get headers and turn them into labels
-            chain = itertools.chain.from_iterable
             labeler = dict(chain(ad.sdef.labelmap
                                  for ad in adefs))
             data = [util.remap_od(od, labeler) for od in data]
             headers = data[0].keys()
 
+            # Note the original order of items in data so it can be
+            # preserved when reading back in a file that has been re-
+            # sorted.
+            for i, d in enumerate(data):
+                d['_idx_'] = i
+
+            # Now dump
+            filename = "{}/{}.csv".format(dest, entity)
             with open(filename, mode, newline='') as f:
                 writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
                 writer.writeheader()
