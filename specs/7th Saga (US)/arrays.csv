@@ -8,4 +8,4 @@
 "spellset",,"characters","spellset","0x62BD",7,32,,,
 "itemstats",,,"item","0x6C94",100,9,,,
 "dropsets",,,"dropset","0x8A18",16,16,,,
-"spellfuncs","Spell Routine","spells","uintle","0x4b155",64,3,"hexify","pointer","Table of pointers to spell behavior routines. "
+"spellfuncs","Spell Routine","spells","uintle","0x4b155",61,3,"hexify","pointer","Table of pointers to spell behavior routines. "

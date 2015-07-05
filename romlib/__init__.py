@@ -1,8 +1,7 @@
+from . import util, patch, rommap, struct, text
 from .rommap import RomMap, ArrayDef
 from .struct import Struct, StructDef
+from .patch import Patch
 from .text import TextTable
-from .exceptions import SpecFieldMismatch
-from . import util
-from . import patch
 
 __all__ = []

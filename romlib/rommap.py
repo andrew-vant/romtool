@@ -5,6 +5,7 @@ import romlib
 
 from collections import OrderedDict
 from . import util, text
+from .struct import Struct
 from pprint import pprint
 
 class RomMap(object):
@@ -107,6 +108,52 @@ class RomMap(object):
                     writer.writerow(item)
 
 
+    def changeset(self, modfolder):
+        """ Get all possible changes from files in modfolder.
+
+        This is something of a misnomer; no-op "changes" get returned too.
+        The results of this are intended as input to Patch().
+        """
+
+        # def changeset(romfile, modfolder) only get changes, don't write file?
+        # Load all expected data
+        dataset = OrderedDict()
+        for entity in self.arraysets.keys():
+            try:
+                with open("{}/{}.csv".format(modfolder, entity)) as f:
+                    data = list(util.OrderedDictReader(f))
+            except FileNotFoundError:
+                pass  # Ignore missing files. FIXME: Log warning?
+            # Sort by magic _idx_ field, if present.
+            data.sort(key=lambda od: od['_idx_'])
+            dataset[entity] = data
+
+        # Form structs from the input. This is moderately ugly, but
+        # really all its doing is going through our input and unzipping
+        # it into lists of structs keyed by array name.
+        structs = {}
+        for entity, data in dataset.items():
+            for ad in self.arraysets[entity]:
+                structs[ad.name] = [Struct(ad.sdef, od) for od in data]
+
+        # Return the changesets for every struct.
+        changed = {}
+        for arrayname, contents in structs.items():
+            adef = self.arrays[arrayname]
+            numstructs = len(contents)
+            if numstructs != adef.length:
+                e = "{} input length mismatch, expected {}, got {}."
+                e = e.format(arrayname, adef.length, numstructs)
+                raise ValueError(e)
+            for i, struct in enumerate(contents):
+                # adef offsets are in bits, but we need bytes here.
+                offset = (adef.offset // 8) + (i * adef.stride // 8)
+                changed.update(struct.changeset(offset))
+
+        # Done.
+        return changed
+
+
 class ArrayDef(object):
     def __init__(self, spec, sdef=None):
         # Record some basics, convert as needed.
@@ -128,11 +175,11 @@ class ArrayDef(object):
     def _init_primitive_structdef(self, spec):
         sdef_single_field = {
             "id":       "value",
-            "label":    spec['name'],
+            "label":    spec['label'],
             "size":     spec['stride'],
             "type":     spec['type'],
             "subtype":  "",
-            "display":  "",
+            "display":  spec['display'],
             "order":    "",
             "info":     "",
             "comment":  ""

@@ -113,6 +113,7 @@ class Struct(object):
         """ Get an offset-to-byte-value dict.
 
         offset: where the struct should start when written back to a file.
+                This offset should be given in bytes.
         """
         # FIXME: This should include changes for pointer values if present.
 
@@ -125,7 +126,7 @@ class Struct(object):
                 value = int(value, 0)
             initializers.append("{}:{}={}".format(df.type, df.size, value))
         data = Bits(", ".join(initializers))
-        return {offset+i: b for i, b in enumerate(itemdata.bytes)}
+        return {offset+i: b for i, b in enumerate(data.bytes)}
 
 
     @classmethod

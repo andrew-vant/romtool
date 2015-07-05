@@ -22,6 +22,7 @@ class TestArrayDef(unittest.TestCase):
             "offset": "0x06",
             "length": "3",
             "stride": "2",
+            "display": "",
             "comment": ""
          })
         primitive_od = OrderedDict({
@@ -32,6 +33,7 @@ class TestArrayDef(unittest.TestCase):
             "offset": "0x00",
             "length": "1",
             "stride": "1",
+            "display": "",
             "comment": ""
         })
 
@@ -133,6 +135,10 @@ class TestStruct(unittest.TestCase):
         s = romlib.Struct(self.d1, self.bits)
         self.assertEqual(s.to_bytes(), b'\x34\x56')
 
+    @unittest.expectedFailure
+    def test_changeset(self):
+        self.assertEqual(0, 1)
+
 
 
 class TestStructDef(unittest.TestCase):
@@ -216,6 +222,10 @@ class TestRomMap(unittest.TestCase):
         s = self.map.sdefs['romstruct_good']
         self.assertTrue('fld1' in s.attributes)
         self.assertEqual(s.attributes['fld1'].label, "Field 1")
+
+    @unittest.expectedFailure
+    def test_changeset(self):
+        self.assertEqual(0, 1)
 
 class TestFunctions(unittest.TestCase):
     pass
