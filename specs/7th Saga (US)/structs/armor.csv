@@ -1,4 +1,4 @@
-"id","label","size","type","ptype","display","order","tags","comment"
+"id","label","size","type","subtype","display","order","info","comment"
 "grd","Guard+",2,"uintle",,,,"stat",
 "cst","Cost",2,"uintle",,,,"stat",
 "usr","Users",1,"bin",,,,"bitfield","Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil"

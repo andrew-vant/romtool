@@ -1,8 +1,8 @@
-"id","label","size","type","ptype","display","order","tags","comment"
+"id","label","size","type","subtype","display","order","info","comment"
 "pow","Power",2,"uintle",,,,"stat",
 "cst","Cost",2,"uintle",,,,"stat",
 "usr","Users",1,"bin",,,,"bitfield","Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil"
-"nmp","Name Pointer",3,"uintle",,"hexify",,"pointer",
+"nmp","Name Pointer",3,"uintle","hirom","hexify",,"pointer",
 "unk1","Unknown 1",1,"uint",,"hexify",,"unknown",
 "unk2","Unknown 2",1,"uint",,"hexify",,"unknown",
-"*nmp","Name",,"strz","hirom","main",,,
+"*nmp","Name",,"strz",,"main",,"name",

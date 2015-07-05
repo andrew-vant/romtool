@@ -99,11 +99,24 @@ def merge_dicts(dicts, allow_overlap=False):
     return out
 
 
-def tobits(size):
-    """ Convert a size specifier to number of bits. """
+def tobits(size, default=None):
+    """ Convert a size specifier to number of bits.
+
+    size should be a string containing a size specifier. e.g. 4 (4 bytes),
+    or b4 (4 bits). If size is not a valid size specifier and default is
+    not set, ValueError will be raised. If default is set, it will be returned
+    for strings that are invalid sizes, such as empty strings.
+    """
+
     isbits = size.startswith('b')
-    if isbits:
-        bits = int(size[1:])
-    else:
-        bits = int(size, 0) * 8
+    try:
+        if isbits:
+            bits = int(size[1:])
+        else:
+            bits = int(size, 0) * 8
+    except ValueError:
+        if default is not None:
+            bits = default
+        else:
+            raise
     return bits

@@ -1,4 +1,4 @@
-"id","label","size","type","ptype","display","order","tags","comment"
+"id","label","size","type","subtype","display","order","info","comment"
 "tgt","Target",1,"uint",,,,,"0: Single Enemy | 1: All Enemies | 2: Single Ally | 3: Unknown | 4: Map"
 "con","Consumable",1,"uint",,,,,"0: No | 1: Yes"
 "cost","Cost",2,"uintle",,,,,

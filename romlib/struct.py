@@ -4,6 +4,7 @@ import bitstring
 
 from bitstring import Bits, ConstBitStream
 from collections import namedtuple, OrderedDict
+from pprint import pprint
 
 from . import util
 
@@ -108,6 +109,25 @@ class Struct(object):
         return Bits(", ".join(bitinit)).bytes
 
 
+    def changeset(self, offset):
+        """ Get an offset-to-byte-value dict.
+
+        offset: where the struct should start when written back to a file.
+        """
+        # FIXME: This should include changes for pointer values if present.
+
+        initializers = []
+        for df in self.sdef.datafields:
+            value = self.data[df.id]
+            # bitstring can't implicitly convert ints expressed as hex
+            # strings, so let's do it ourselves.
+            if "int" in df.type:
+                value = int(value, 0)
+            initializers.append("{}:{}={}".format(df.type, df.size, value))
+        data = Bits(", ".join(initializers))
+        return {offset+i: b for i, b in enumerate(itemdata.bytes)}
+
+
     @classmethod
     def to_mergedict(cls, structs):
         # If we were given a single struct, make it a one-element list
@@ -115,6 +135,41 @@ class Struct(object):
             structs = [structs]
         return util.merge_dicts([s.data for s in structs])
 
+    @classmethod
+    def splice(cls, dataset):
+        """ Merge a 2D list of structures.
+
+        dataset: a list of lists of structs. The lists should be of equal
+                 length. The corresponding elements of each list will be
+                 merged and returned as an OrderedDict, with the OD keys
+                 sorted by StructDef.attribute_order.
+        """
+        # This feels like black magic and I've no idea if it's in the "correct"
+        # place in the code, but it has to go somewhere.
+
+        # We might get passed generators in either list dimension, which is
+        # an issue because I need to iterate over the dataset twice. This
+        # should deal with it until I can figure out how to not need to
+        # reuse anything.
+        dataset = list(list(a) for a in dataset)
+
+        # Get a list of merged dictionaries.
+        elements = [Struct.to_mergedict(element)
+                    for element in zip(*dataset)]
+
+        # Get the union of the keys in all elements and find out what
+        # order they should be in.
+        chain = itertools.chain.from_iterable
+        keys = set(chain(s.keys() for s in elements))
+        sdefs = [s.sdef for s in next(zip(*dataset))]
+        keys = StructDef.attribute_order(keys, sdefs)
+
+        # Now re-order the keys in our returned list. There has to be
+        # a better way to do this. :-(
+
+        spliced = [OrderedDict((k, e.get(k, "")) for k in keys)
+                   for e in elements]
+        return spliced
 
 class StructDef(object):
     Attribute = namedtuple("Attribute",
@@ -235,7 +290,7 @@ class StructDef(object):
         do any necessary string-to-whatever conversions, sanity checks, etc.
         """
         d = d.copy()
-        d['size'] = util.tobits(d['size'])
+        d['size'] = util.tobits(d['size'], 0)
         try:
             d['order'] = int(d['order'])
         except ValueError:

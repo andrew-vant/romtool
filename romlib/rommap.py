@@ -1,8 +1,9 @@
 import os
+import csv
 import romlib
 
 from collections import OrderedDict
-from . import util
+from . import util, text
 from pprint import pprint
 
 class RomMap(object):
@@ -26,7 +27,9 @@ class RomMap(object):
         # Repeat for text tables.
         for name, path in self._get_subfiles(root, "texttables", ".tbl"):
             with open(path) as f:
-                tbl = text.TextTable(name, f)
+                # Fix this later
+                # tbl = text.TextTable(name, f)
+                tbl = text.TextTable(path)
                 self.texttables[name] = tbl
 
         # Now load the array definitions
@@ -58,6 +61,23 @@ class RomMap(object):
         except FileNotFoundError:
             # FIXME: Subfolder missing. Log warning here?
             return []
+
+
+    def dump(self, rom, dest, allow_overwrite=False):
+        mode = "w" if allow_overwrite else "x"
+        for entity, adefs in self.arraysets.items():
+            # Read the arrays in each set, then splice them.
+            data = [ad.read(rom) for ad in adefs]
+            data = romlib.Struct.splice(data)
+
+            # Now dump
+            filename = "{}/{}.csv".format(dest, entity)
+            headers = data[0].keys()
+            with open(filename, mode, newline='') as f:
+                writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
+                writer.writeheader()
+                for item in data:
+                    writer.writerow(item)
 
 
 class ArrayDef(object):

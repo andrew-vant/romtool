@@ -1,4 +1,4 @@
-"id","label","size","type","ptype","display","order","tags","comment"
+"id","label","size","type","subtype","display","order","info","comment"
 "lvl","Level",1,"uintle",,,,"stats","Does nothing of importance? "
 "hp","HP",2,"uintle",,,,"stats",
 "mp","MP",2,"uintle",,,,"stats",
