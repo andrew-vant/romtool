@@ -64,7 +64,7 @@ class Struct(object):
 
 
     def _init_from_dict(self, d):
-        lm = OrderedDict(self.sdef.labelmap)
+        lm = OrderedDict(self.sdef.unlabelmap)
         for k, v in d.items():
             # Convert labels to ids as needed.
             if k in lm:
@@ -214,6 +214,11 @@ class StructDef(object):
 
     @property
     def labelmap(self):
+        """ Get a map of ids to labels."""
+        return ((a.id, a.label) for a in self.attributes.values())
+
+    @property
+    def unlabelmap(self):
         """ Get a map of labels to ids."""
         return ((a.label, a.id) for a in self.attributes.values())
 

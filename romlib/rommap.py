@@ -1,5 +1,6 @@
 import os
 import csv
+import itertools
 import romlib
 
 from collections import OrderedDict
@@ -72,7 +73,14 @@ class RomMap(object):
 
             # Now dump
             filename = "{}/{}.csv".format(dest, entity)
+
+            # Get headers and turn them into labels
+            chain = itertools.chain.from_iterable
+            labeler = dict(chain(ad.sdef.labelmap
+                                 for ad in adefs))
+            data = [util.remap_od(od, labeler) for od in data]
             headers = data[0].keys()
+
             with open(filename, mode, newline='') as f:
                 writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
                 writer.writeheader()

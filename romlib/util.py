@@ -79,6 +79,16 @@ def hexify(i, length=None):
     return fmtstr.format(i)
 
 
+def remap_od(od, keymap):
+    """ Rename the keys in an ordereddict while preserving their order.
+
+    keymap: A dictionary mapping old key names to new key names.
+
+    keys not in keymap will be left alone.
+    """
+    newkeys = (keymap.get(k, k) for k in od.keys())
+    return OrderedDict(zip(newkeys, od.values()))
+
 def merge_dicts(dicts, allow_overlap=False):
     if not dicts:
         return {}
