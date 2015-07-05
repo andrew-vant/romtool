@@ -6,7 +6,9 @@ from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        self.tbl = text.TextTable("specs/7th Saga (US)/texttables/main.tbl")
+        filename = "specs/7th Saga (US)/texttables/main.tbl"
+        with open(filename) as f:
+            self.tbl = text.TextTable("main", f)
 
     def test_basic_encode(self):
         text = "Esuna"

@@ -202,6 +202,11 @@ class StructDef(object):
                 if a.id.isalnum())
 
     @property
+    def pointers(self):
+        return (a for a in self.attributes.values()
+                if a.info == "pointer")
+
+    @property
     def calcfields(self):
         return (a for a in self.attributes.values()
                 if a.id.startswith("*"))
@@ -267,17 +272,21 @@ class StructDef(object):
         order = {k: attrmap[k].order for k in keys}
 
         # Find out which fields are name, data, calculated, pointers
-        # and put them in order
+        # and put them in order. Some fields may show up in more than
+        # one list (e.g. a namefield that is also a calcfield) so
+        # these are assigned in reverse order of priority. Last wins.
         typeorder = {}
         for sd in sdefs:
-            try:
-                typeorder[sd.namefield.id] = 0
-            except AttributeError:
-                pass # Not every struct has a namefield.
             for a in sd.datafields:
                 typeorder[a.id] = 1
             for a in sd.calcfields:
                 typeorder[a.id] = 2
+            for a in sd.pointers:
+                typeorder[a.id] = 3
+            try:
+                typeorder[sd.namefield.id] = 0
+            except AttributeError:
+                pass # Not every struct has a namefield.
 
         # Build a list of tuples with all the information we want to sort on.
         keytuples = [(order[k], typeorder[k], posmap[k], k)

@@ -152,7 +152,7 @@ class TestStructDef(unittest.TestCase):
     def test_basic_initialization(self):
         self.assertEqual(self.sd.name, "good")
         self.assertEqual(self.sd.attributes['fld1'].label, "Field 1")
-        self.assertEqual(self.sd.attributes['fld3'].order, 1)
+        self.assertEqual(self.sd.attributes['fld2'].order, -1)
 
     def test_size_conversion(self):
         self.assertEqual(self.sd.attributes['fld2'].size, 4)
@@ -170,12 +170,12 @@ class TestStructDef(unittest.TestCase):
                                self.sd2.attributes.keys())
         keys = romlib.StructDef.attribute_order(keys, [self.sd1, self.sd2])
         correct = [
-            'fld1',
-            'fld4',
-            'fld3',
-            'fld6',
             'fld2',
-            'fld5'
+            'fld3',
+            'fld5',
+            'fld6',
+            'fld4',
+            'fld1'
         ]
         self.assertEqual(keys, correct)
 
