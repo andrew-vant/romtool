@@ -8,6 +8,7 @@ from . import util, text
 from .struct import Struct
 from pprint import pprint
 
+
 class RomMap(object):
     def __init__(self, root):
         """ Create a ROM map.
@@ -29,7 +30,8 @@ class RomMap(object):
         # Repeat for structs.
         for name, path in self._get_subfiles(root, "structs", ".csv"):
             with open(path) as f:
-                sdef = romlib.StructDef.from_file(name, f, self.texttables.values())
+                tts = self.texttables.values()
+                sdef = romlib.StructDef.from_file(name, f, tts)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
@@ -47,7 +49,6 @@ class RomMap(object):
         for a in self.arrays.values():
             self.arraysets[a.set].append(a)
 
-
     def _get_subfiles(self, root, folder, extension):
         try:
             filenames = [filename for filename
@@ -62,13 +63,11 @@ class RomMap(object):
             # FIXME: Subfolder missing. Log warning here?
             return []
 
-
     def dump(self, rom, dest, allow_overwrite=False):
         mode = "w" if allow_overwrite else "x"
         for entity, adefs in self.arraysets.items():
             # Convenience
             chain = itertools.chain.from_iterable
-
 
             # Read the arrays in each set, then splice them.
             data = [ad.read(rom) for ad in adefs]
@@ -106,7 +105,6 @@ class RomMap(object):
                 writer.writeheader()
                 for item in data:
                     writer.writerow(item)
-
 
     def changeset(self, modfolder):
         """ Get all possible changes from files in modfolder.
@@ -194,4 +192,3 @@ class ArrayDef(object):
         for i in range(self.length):
             pos = self.offset + (i * self.stride)
             yield romlib.Struct(self.sdef, rom, offset=pos)
-

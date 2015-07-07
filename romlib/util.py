@@ -89,6 +89,7 @@ def remap_od(od, keymap):
     newkeys = (keymap.get(k, k) for k in od.keys())
     return OrderedDict(zip(newkeys, od.values()))
 
+
 def merge_dicts(dicts, allow_overlap=False):
     if not dicts:
         return {}

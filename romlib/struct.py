@@ -8,6 +8,7 @@ from pprint import pprint
 
 from . import util
 
+
 class Struct(object):
     def __init__(self, definition, auto=None,
                  fileobj=None, bitstr=None, bytesobj=None, dictionary=None,
@@ -53,7 +54,6 @@ class Struct(object):
         if fileesque:
             self._init_from_fileesque(fileesque, offset, dereference)
 
-
     def _init_from_fileesque(self, f, offset, dereference):
         # This should work for bitstreams, files, or bytes, because
         # of this initial conversion.
@@ -61,7 +61,6 @@ class Struct(object):
         self.read(bs, offset)
         if dereference:
             self.dereference(f)
-
 
     def _init_from_dict(self, d):
         lm = OrderedDict(self.sdef.unlabelmap)
@@ -71,7 +70,6 @@ class Struct(object):
                 k = lm[k]
             if k in self.sdef.attributes:
                 self.data[k] = v
-
 
     def read(self, f, offset=None):
         stream = ConstBitStream(f)
@@ -108,7 +106,6 @@ class Struct(object):
             bitinit.append("{}:{}={}".format(tp, size, value))
         return Bits(", ".join(bitinit)).bytes
 
-
     def changeset(self, offset):
         """ Get an offset-to-byte-value dict.
 
@@ -124,14 +121,13 @@ class Struct(object):
             # strings, so let's do it ourselves.
             if "int" in df.type:
                 try:
-                    value = int(value, 0) # For strings
+                    value = int(value, 0)  # For strings
                 except TypeError:
-                    value = int(value) # for numbers
+                    value = int(value)  # for numbers
 
             initializers.append("{}:{}={}".format(df.type, df.size, value))
         data = Bits(", ".join(initializers))
         return {offset+i: b for i, b in enumerate(data.bytes)}
-
 
     @classmethod
     def to_mergedict(cls, structs):
@@ -175,6 +171,7 @@ class Struct(object):
         spliced = [OrderedDict((k, e.get(k, "")) for k in keys)
                    for e in elements]
         return spliced
+
 
 class StructDef(object):
     Attribute = namedtuple("Attribute",
@@ -220,7 +217,7 @@ class StructDef(object):
     def pointermap(self):
         """ Get pairs of attributes mapping pointers to their attributes."""
         return ((self.attributes[f.id[1:]], f)
-                 for f in self.calcfields)
+                for f in self.calcfields)
 
     @property
     def labelmap(self):
@@ -291,7 +288,7 @@ class StructDef(object):
             try:
                 typeorder[sd.namefield.id] = 0
             except AttributeError:
-                pass # Not every struct has a namefield.
+                pass  # Not every struct has a namefield.
 
         # Build a list of tuples with all the information we want to sort on.
         keytuples = [(order[k], typeorder[k], posmap[k], k)
@@ -299,7 +296,6 @@ class StructDef(object):
 
         # Sort the tuples and return the reordered keys
         return [kt[-1] for kt in sorted(keytuples)]
-
 
     @classmethod
     def _dict_to_attr(cls, d):
