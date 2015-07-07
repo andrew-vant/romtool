@@ -47,8 +47,8 @@ def makepatch(args):
     changes = rmap.changeset(args.datafolder)
     with open(args.rom, "rb") as rom:
         patch = romlib.Patch(changes, rom)
-    with open(args.patchfile, "w") as patchfile:
-        patch.to_ipst(patchfile)
+    with open(args.patchfile, "wb") as patchfile:
+        patch.to_ips(patchfile)
     logging.info("Patch created at {}.".format(args.patchfile))
     logging.info("There were {} changes.".format(len(patch.changes)))
 
