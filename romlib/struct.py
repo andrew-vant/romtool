@@ -123,7 +123,11 @@ class Struct(object):
             # bitstring can't implicitly convert ints expressed as hex
             # strings, so let's do it ourselves.
             if "int" in df.type:
-                value = int(value, 0)
+                try:
+                    value = int(value, 0) # For strings
+                except TypeError:
+                    value = int(value) # for numbers
+
             initializers.append("{}:{}={}".format(df.type, df.size, value))
         data = Bits(", ".join(initializers))
         return {offset+i: b for i, b in enumerate(data.bytes)}

@@ -125,7 +125,7 @@ class RomMap(object):
             except FileNotFoundError:
                 pass  # Ignore missing files. FIXME: Log warning?
             # Sort by magic _idx_ field, if present.
-            data.sort(key=lambda od: od['_idx_'])
+            data.sort(key=lambda od: int(od['_idx_']))
             dataset[entity] = data
 
         # Form structs from the input. This is moderately ugly, but

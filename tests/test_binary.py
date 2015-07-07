@@ -65,7 +65,6 @@ class TestArrayDef(unittest.TestCase):
         self.assertEqual(pa.name, pa.sdef.name)
         self.assertEqual(len(pa.sdef.attributes), 1)
         a = next(iter(pa.sdef.attributes.values()))
-        pprint(a)
         for k, v in correct_attribute.items():
             self.assertEqual(getattr(a, k), v)
 
@@ -135,10 +134,24 @@ class TestStruct(unittest.TestCase):
         s = romlib.Struct(self.d1, self.bits)
         self.assertEqual(s.to_bytes(), b'\x34\x56')
 
-    @unittest.expectedFailure
     def test_changeset(self):
-        self.assertEqual(0, 1)
+        s = romlib.Struct(self.d1, self.data)
+        cs = s.changeset(0)
+        correct = {
+            0: 0x34,
+            1: 0x56
+        }
+        self.assertEqual(cs, correct)
 
+    def test_changeset_at_offset(self):
+        s = romlib.Struct(self.d1, self.data)
+        o = 0x666
+        cs = s.changeset(o)
+        correct = {
+            o: 0x34,
+            o+1: 0x56
+        }
+        self.assertEqual(cs, correct)
 
 
 class TestStructDef(unittest.TestCase):
@@ -223,9 +236,10 @@ class TestRomMap(unittest.TestCase):
         self.assertTrue('fld1' in s.attributes)
         self.assertEqual(s.attributes['fld1'].label, "Field 1")
 
-    @unittest.expectedFailure
     def test_changeset(self):
-        self.assertEqual(0, 1)
+        cs = self.map.changeset("tests/out")
+        correct = {i: 0x66 for i in range(18)}
+        self.assertEqual(cs, correct)
 
 class TestFunctions(unittest.TestCase):
     pass
