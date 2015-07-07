@@ -6,7 +6,9 @@ from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        self.tbl = text.TextTable("specs/7th Saga (US)/texttables/main.tbl")
+        filename = "specs/7th Saga (US)/texttables/main.tbl"
+        with open(filename) as f:
+            self.tbl = text.TextTable("main", f)
 
     def test_basic_encode(self):
         text = "Esuna"
@@ -34,6 +36,8 @@ class TestTextTable(unittest.TestCase):
         self.assertEqual(self.tbl.decode(binary), text)
 
     @unittest.skip("Test not implemented yet.")
+    # Note to self, separately test for raw hex encode (which should work)
+    # and no valid encoding (which should fail)
     def test_encode_miss(self):
         pass
 

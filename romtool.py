@@ -7,6 +7,8 @@ import romlib
 import logging
 import os
 
+from pprint import pprint
+
 class RomDetectionError(Exception):
     pass
 
@@ -42,8 +44,13 @@ def makepatch(args):
     rmap = romlib.RomMap(args.map)
     logging.info("Creating patch for {} from data at {} using map {}.".format(
                 args.rom, args.datafolder, args.map))
-    rmap.makepatch(args.rom, args.datafolder, args.patchfile)
+    changes = rmap.changeset(args.datafolder)
+    with open(args.rom, "rb") as rom:
+        patch = romlib.Patch(changes, rom)
+    with open(args.patchfile, "wb") as patchfile:
+        patch.to_ips(patchfile)
     logging.info("Patch created at {}.".format(args.patchfile))
+    logging.info("There were {} changes.".format(len(patch.changes)))
 
 def textualize(args):
     if not args.output:

@@ -17,8 +17,17 @@ class PatchValueError(Exception):
 
 
 class Patch(object):
-    def __init__(self, data={}):
+    def __init__(self, data={}, rom=None):
+        """ Create a Patch.
+
+        data: A dictionary of changes to be made.
+        rom: A rom to filter the changes against. Any changes that are
+             no-ops will be removed. Note that this is optional and can
+             also be done manually with Patch.filter.
+        """
         self.changes = data.copy()
+        if rom:
+            self.filter(rom)
 
     @classmethod
     def _blockify(cls, changes):

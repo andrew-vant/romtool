@@ -2,17 +2,17 @@ from patricia import trie
 
 
 class TextTable(object):
-    def __init__(self, filename):
+    def __init__(self, name, f):
         self.id = None
+        self.name = name
         self.enc = trie()
         self.dec = trie()
         self.eos = []
 
-        with open(filename) as f:
-            # Skip blank lines when reading.
-            lines = [line for line
-                     in f.read().split("\n")
-                     if line]
+        # Skip blank lines when reading.
+        lines = [line for line
+                 in f.read().split("\n")
+                 if line]
 
         for line in lines:
             prefix = line[0]
