@@ -131,3 +131,11 @@ def tobits(size, default=None):
         else:
             raise
     return bits
+
+
+def filebytes(f):
+    """ Get an iterator over the bytes in a file."""
+    b = f.read(1)
+    while b:
+        yield b[0]
+        b = f.read(1)

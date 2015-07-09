@@ -1,6 +1,8 @@
 import struct
 import codecs
+import itertools
 
+from . import util
 
 _ips_header = "PATCH"
 _ips_footer = "EOF"
@@ -140,6 +142,22 @@ class Patch(object):
                 raise PatchFormatError(msg.format(line_number))
 
         return Patch(changes)
+
+    @classmethod
+    def from_diff(cls, original, modified):
+        """ Create a patch by diffing a modded rom against the original.
+
+        original: The original ROM, opened in binary mode.
+        modified: A verion of the ROM containing the desired modifications.
+        """
+        zl = itertools.zip_longest  # convenience
+        iter1 = util.filebytes(original)
+        iter2 = util.filebytes(modified)
+        p = Patch()
+        for i, (b1, b2) in enumerate(zl(iter1, iter2, fillvalue=0)):
+            if b2 != b1:
+                p.changes[i] = b2
+        return p
 
     def _ips_sanitize_changes(self, bogobyte=None):
         """ Check for bogoaddr issues and return merged/fixed changes.

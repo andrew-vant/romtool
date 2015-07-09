@@ -52,6 +52,12 @@ def makepatch(args):
     logging.info("Patch created at {}.".format(args.patchfile))
     logging.info("There were {} changes.".format(len(patch.changes)))
 
+def diffpatch(args):
+    with open(args.original, "rb") as f1, open(args.modified, "rb") as f2:
+        patch = romlib.Patch.from_diff(f1, f2)
+    with open(args.patchfile, "wt") as pf:
+        patch.to_ipst(pf)
+
 def textualize(args):
     if not args.output:
         args.output = args.file + ".txt"
@@ -97,6 +103,14 @@ if __name__ == "__main__":
     parser_patch.add_argument("patchfile", help="Patch filename")
     parser_patch.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
 
+    # Arguments for diffpatch subcommand.
+    parser_dpatch = subparsers.add_parser('diffpatch',
+                                          description="Diff two files and generate a patch between the two.")
+    parser_dpatch.set_defaults(func=diffpatch)
+    parser_dpatch.add_argument("original", help="Original ROM")
+    parser_dpatch.add_argument("modified", help="Modified ROM")
+    parser_dpatch.add_argument("patchfile", help="Patch filename")
+
     # Arguments for textualize/detextualize.
     parser_textualize = subparsers.add_parser('textualize', aliases=['decompile'],
                                               description='Textualize a patch file for editing.')
@@ -112,7 +126,7 @@ if __name__ == "__main__":
 
     # Universal arguments.
     for subparser in [parser_dump, parser_patch, parser_textualize,
-                      parser_detextualize]:
+                      parser_detextualize, parser_dpatch]:
         subparser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
         subparser.add_argument("--debug", action="store_true", help="Print debug information")
 
@@ -124,7 +138,7 @@ if __name__ == "__main__":
     if args.verbose is True:
         logging.basicConfig(level=logging.INFO)
     if args.debug is True:
-	    logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG)
 
     # If no subcommand supplied, print help.
     if not hasattr(args, 'func'):

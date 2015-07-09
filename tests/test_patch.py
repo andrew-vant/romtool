@@ -169,3 +169,10 @@ class TestPatch(unittest.TestCase):
             rom.seek(0)
             p.filter(rom)
         self.assertEqual(p.changes, filtered)
+
+    def test_patch_diff(self):
+        changes = {1: 0xFF}
+        f1 = BytesIO(b'\xDD\xEE')
+        f2 = BytesIO(b'\xDD\xFF')
+        p = patch.Patch.from_diff(f1, f2)
+        self.assertEqual(p.changes, changes)
