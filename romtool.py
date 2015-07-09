@@ -47,16 +47,33 @@ def makepatch(args):
     changes = rmap.changeset(args.datafolder)
     with open(args.rom, "rb") as rom:
         patch = romlib.Patch(changes, rom)
-    with open(args.patchfile, "wb") as patchfile:
-        patch.to_ips(patchfile)
+    patchfunc = _patch_func(args.patchfile, patch, True)
+    mode = _patch_mode(args.patchfile, True)
+    with open(args.patchfile, mode) as patchfile:
+        patchfunc(patchfile)
     logging.info("Patch created at {}.".format(args.patchfile))
     logging.info("There were {} changes.".format(len(patch.changes)))
 
 def diffpatch(args):
     with open(args.original, "rb") as f1, open(args.modified, "rb") as f2:
         patch = romlib.Patch.from_diff(f1, f2)
-    with open(args.patchfile, "wt") as pf:
-        patch.to_ipst(pf)
+    patchfunc = _patch_func(args.patchfile, patch, True)
+    mode = _patch_mode(args.patchfile, True)
+    with open(args.patchfile, mode) as pf:
+        patchfunc(pf)
+
+def _patch_func(path, patch=None, writing=False):
+    """ Figure out what function to use to convert to/from a given format."""
+    prefix = "to" if writing else "from"
+    filename, extension = os.path.splitext(path)
+    func = "{}_{}".format(prefix, extension.lstrip("."))
+    return getattr(patch, func) if writing else getattr(romlib.Patch, func)
+
+def _patch_mode(path, writing=False):
+    """ Figure out what file mode to use for a given format."""
+    mode = "w" if writing else "r"
+    mode += "t" if path.endswith("t") else "b"
+    return mode
 
 def textualize(args):
     if not args.output:
