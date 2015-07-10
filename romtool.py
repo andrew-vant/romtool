@@ -9,8 +9,10 @@ import os
 
 from pprint import pprint
 
+
 class RomDetectionError(Exception):
     pass
+
 
 def detect(romfile):
     with open("hashdb.txt") as hashdb, open(romfile, "rb") as rom:
@@ -28,22 +30,24 @@ def detect(romfile):
         logging.info("ROM map found: {}".format(name))
         return "specs/{}".format(name)
 
+
 def dump(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    logging.info("Dumping data from {} to {} using map {}.".format(
-                args.rom, args.datafolder, args.map))
+    s = "Dumping data from {} to {} using map {}."
+    logging.info(s.format(args.rom, args.datafolder, args.map))
     with open(args.rom, "rb") as rom:
         rmap.dump(rom, args.datafolder, allow_overwrite=args.force)
     logging.info("Dump finished.")
+
 
 def makepatch(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    logging.info("Creating patch for {} from data at {} using map {}.".format(
-                args.rom, args.datafolder, args.map))
+    s = "Creating patch for {} from data at {} using map {}."
+    logging.info(s.format(args.rom, args.datafolder, args.map))
     changes = rmap.changeset(args.datafolder)
     with open(args.rom, "rb") as rom:
         patch = romlib.Patch(changes, rom)
@@ -54,6 +58,7 @@ def makepatch(args):
     logging.info("Patch created at {}.".format(args.patchfile))
     logging.info("There were {} changes.".format(len(patch.changes)))
 
+
 def diffpatch(args):
     with open(args.original, "rb") as f1, open(args.modified, "rb") as f2:
         patch = romlib.Patch.from_diff(f1, f2)
@@ -62,6 +67,7 @@ def diffpatch(args):
     with open(args.patchfile, mode) as pf:
         patchfunc(pf)
 
+
 def _patch_func(path, patch=None, writing=False):
     """ Figure out what function to use to convert to/from a given format."""
     prefix = "to" if writing else "from"
@@ -69,11 +75,13 @@ def _patch_func(path, patch=None, writing=False):
     func = "{}_{}".format(prefix, extension.lstrip("."))
     return getattr(patch, func) if writing else getattr(romlib.Patch, func)
 
+
 def _patch_mode(path, writing=False):
     """ Figure out what file mode to use for a given format."""
     mode = "w" if writing else "r"
     mode += "t" if path.endswith("t") else "b"
     return mode
+
 
 def textualize(args):
     if not args.output:
@@ -84,6 +92,7 @@ def textualize(args):
     }[ext]
     with open(args.file, "rb") as infile, open(args.output, "w") as outfile:
         patchclass.textualize(infile, outfile)
+
 
 def detextualize(args):
     prefix, txt = os.path.splitext(args.file)
@@ -144,9 +153,9 @@ if __name__ == "__main__":
     # Universal arguments.
     for subparser in [parser_dump, parser_patch, parser_textualize,
                       parser_detextualize, parser_dpatch]:
-        subparser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-        subparser.add_argument("--debug", action="store_true", help="Print debug information")
-
+        saa = subparser.add_argument
+        saa("-v", "--verbose", action="store_true", help="Verbose output")
+        saa("--debug", action="store_true", help="Print debug information")
 
     # Parse whatever came in.
     args = parser.parse_args()
@@ -164,4 +173,3 @@ if __name__ == "__main__":
 
     # Pass the args on as appropriate
     args.func(args)
-
