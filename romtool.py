@@ -99,7 +99,9 @@ def main():
     # the source, so argument details are loaded from a yaml file that's
     # easier to maintain. See args.yaml for the actual available arguments.
     _add_yaml_omap()
-    with open("args.yaml") as f:
+    op = os.path
+    youarehere = op.dirname(op.realpath(__file__))
+    with open(op.join(youarehere, "args.yaml")) as f:
         argdetails = yaml.load(f)
 
     def argument_setup(parser, details):
