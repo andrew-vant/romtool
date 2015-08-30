@@ -123,7 +123,7 @@ def main():
     topparser = argparse.ArgumentParser(**topdetails.get('spec', {}))
     subparsers = topparser.add_subparsers(title="commands")
     argument_setup(topparser, topdetails)
-    for command, details in argdetails.items():
+    for command, details in sorted(argdetails.items()):
         sp = subparsers.add_parser(command,
                                    conflict_handler='resolve',
                                    **details.get("spec", {}))
