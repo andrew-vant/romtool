@@ -3,12 +3,14 @@
 import argparse
 import sys
 import hashlib
-import romlib
 import logging
 import os
-
 from pprint import pprint
+from itertools import chain
+from collections import OrderedDict
+import yaml
 
+import romlib
 
 class RomDetectionError(Exception):
     pass
@@ -83,93 +85,66 @@ def _patch_mode(path, writing=False):
     return mode
 
 
-def textualize(args):
-    if not args.output:
-        args.output = args.file + ".txt"
-    prefix, ext = os.path.splitext(args.file)
-    patchclass = {
-        '.ips': romlib.patch.IPSPatch
-    }[ext]
-    with open(args.file, "rb") as infile, open(args.output, "w") as outfile:
-        patchclass.textualize(infile, outfile)
+def convert(args):
+    raise NotImplementedError("Patch conversion subcommand not ready yet.")
 
 
-def detextualize(args):
-    prefix, txt = os.path.splitext(args.file)
-    prefix, ext = os.path.splitext(prefix)
-    if not args.output:
-        args.output = prefix + ext
-    patchclass = {
-        '.ips': romlib.patch.IPSPatch
-    }[ext]
-    with open(args.file) as infile, open(args.output, "wb") as outfile:
-        patchclass.compile(infile, outfile)
+def _add_yaml_omap():
+    def omap_constructor(loader, node):
+        return OrderedDict(loader.construct_pairs(node))
+    yaml.add_constructor("!omap", omap_constructor)
+
+def main():
+    # It's irritating to keep all the help information as string literals in
+    # the source, so argument details are loaded from a yaml file that's
+    # easier to maintain. See args.yaml for the actual available arguments.
+    _add_yaml_omap()
+    with open("args.yaml") as f:
+        argdetails = yaml.load(f)
+
+    def argument_setup(parser, details):
+        # This utility function takes an argument set and adds it to a
+        # parser. It's split out like this to make it easy to add the global
+        # set to itself and each subparser.
+        for name, desc in details.get("args", {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, help=desc)
+        for name, desc in details.get("opts", {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, help=desc)
+        for name, desc in details.get("flags", {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, help=desc, action="store_true")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Tool for examining and modifying ROMs")
-    subparsers = parser.add_subparsers(title="subcommands")
-
-    # Arguments for dump subcommand.
-    parser_dump = subparsers.add_parser('dump',
-                                        description="Dump all known data to csv files.")
-    parser_dump.set_defaults(func=dump)
-    parser_dump.add_argument("rom", help="ROM file to dump from")
-    parser_dump.add_argument("datafolder", help="Send output to this folder")
-    parser_dump.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
-    parser_dump.add_argument("-f", "--force", action='store_true',
-                             help="overwrite existing destination files")
-
-    # Arguments for makepatch subcommand.
-    parser_patch = subparsers.add_parser('makepatch',
-                                         description="Construct IPS patch from modified files.")
-    parser_patch.set_defaults(func=makepatch)
-    parser_patch.add_argument("rom", help="ROM to generate patch against")
-    parser_patch.add_argument("datafolder", help="Get input from this folder")
-    parser_patch.add_argument("patchfile", help="Patch filename")
-    parser_patch.add_argument("-m", "--map", help="Specify ROM map instead of autodetecting")
-
-    # Arguments for diffpatch subcommand.
-    parser_dpatch = subparsers.add_parser('diffpatch',
-                                          description="Diff two files and generate a patch between the two.")
-    parser_dpatch.set_defaults(func=diffpatch)
-    parser_dpatch.add_argument("original", help="Original ROM")
-    parser_dpatch.add_argument("modified", help="Modified ROM")
-    parser_dpatch.add_argument("patchfile", help="Patch filename")
-
-    # Arguments for textualize/detextualize.
-    parser_textualize = subparsers.add_parser('textualize', aliases=['decompile'],
-                                              description='Textualize a patch file for editing.')
-    parser_textualize.set_defaults(func=textualize)
-    parser_textualize.add_argument("file", help="File to convert")
-    parser_textualize.add_argument("-o", "--output", help="Filename to write to")
-
-    parser_detextualize = subparsers.add_parser('detextualize', aliases=['compile'],
-                                                description='Compile a patch for use.')
-    parser_detextualize.set_defaults(func=detextualize)
-    parser_detextualize.add_argument("file", help="File to convert")
-    parser_detextualize.add_argument("-o", "--output", help="Filename to write to")
-
-    # Universal arguments.
-    for subparser in [parser_dump, parser_patch, parser_textualize,
-                      parser_detextualize, parser_dpatch]:
-        saa = subparser.add_argument
-        saa("-v", "--verbose", action="store_true", help="Verbose output")
-        saa("--debug", action="store_true", help="Print debug information")
+    topdetails = argdetails.pop("global")
+    topparser = argparse.ArgumentParser(**topdetails.get('spec', {}))
+    subparsers = topparser.add_subparsers(title="commands")
+    argument_setup(topparser, topdetails)
+    for command, details in argdetails.items():
+        sp = subparsers.add_parser(command,
+                                   conflict_handler='resolve',
+                                   **details.get("spec", {}))
+        sp.set_defaults(func=globals()[command])
+        argument_setup(sp, details)
+        argument_setup(sp, topdetails)
 
     # Parse whatever came in.
-    args = parser.parse_args()
+    args = topparser.parse_args()
 
     # Set up logging.
-    if args.verbose is True:
+    if getattr(args, "verbose", False):
         logging.basicConfig(level=logging.INFO)
-    if args.debug is True:
+    if getattr(args, "debug", False):
         logging.basicConfig(level=logging.DEBUG)
 
     # If no subcommand supplied, print help.
     if not hasattr(args, 'func'):
-        parser.print_help()
+        topparser.print_help()
         sys.exit(1)
 
     # Pass the args on as appropriate
     args.func(args)
+
+if __name__ == "__main__":
+    main()

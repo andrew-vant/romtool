@@ -1,0 +1,43 @@
+global:
+  spec:
+    description: Tool for examining and modifying ROMs
+  flags: !omap
+    -v|--verbose: Verbose output
+    --debug: Print debug information
+
+dump:
+  spec:
+    description: Dump all known data to csv files.
+  args: !omap
+    rom: ROM file to dump from
+    datafolder: Send output to this folder
+  opts: !omap
+    -m|--map: Specify ROM map instead of autodetecting
+  flags: !omap
+    -f|--force: Overwrite existing destination files
+
+makepatch:
+  spec:
+    description: Construct IPS patch from modified files
+  args: !omap
+    rom: ROM to generate patch against
+    datafolder: Get input from this folder
+    patchfile: Patch filename
+  opts: !omap
+    -m|--map: Specify ROM map instead of autodetecting
+
+diffpatch:
+  spec:
+    description: Diff two files and generate a patch between the two
+  args: !omap
+    original: Original ROM
+    modified: Modified ROM
+    patchfile: Patch filename
+
+convert:
+  spec:
+    description: Convert a patch from one format to another
+  args: !omap
+    input: File to convert
+    output: File to create
+
