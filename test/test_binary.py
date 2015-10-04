@@ -36,8 +36,8 @@ class TestArrayDef(unittest.TestCase):
             "display": "",
             "comment": ""
         })
-
-        with open("tests/map/structs/romstruct_good.csv") as f:
+        self.maproot = "test/map"
+        with open(self.maproot + "/structs/romstruct_good.csv") as f:
             self.sdef = romlib.StructDef.from_file("good", f)
         self.array = romlib.ArrayDef(struct_od, self.sdef)
         self.parray = romlib.ArrayDef(primitive_od, None)
@@ -81,8 +81,9 @@ class TestArrayDef(unittest.TestCase):
 
 class TestStruct(unittest.TestCase):
     def setUp(self):
-        file1 = "tests/map/structs/romstruct_good.csv"
-        file2 = "tests/map/structs/romstruct_good2.csv"
+        self.maproot = "test/map"
+        file1 = self.maproot + "/structs/romstruct_good.csv"
+        file2 = self.maproot + "/structs/romstruct_good2.csv"
         with open(file1) as f1, open(file2) as f2:
             self.d1 = romlib.StructDef.from_file("good1", f1)
             self.d2 = romlib.StructDef.from_file("good2", f2)
@@ -156,8 +157,9 @@ class TestStruct(unittest.TestCase):
 
 class TestStructDef(unittest.TestCase):
     def setUp(self):
-        sd1file = "tests/map/structs/romstruct_good.csv"
-        sd2file = "tests/map/structs/romstruct_good2.csv"
+        self.maproot = "test/map"
+        sd1file = self.maproot + "/structs/romstruct_good.csv"
+        sd2file = self.maproot + "/structs/romstruct_good2.csv"
         self.bits = ConstBitStream('0x3456')
         with open(sd1file) as f1, open(sd2file) as f2:
             self.sd1 = romlib.StructDef.from_file("good", f1)
@@ -165,7 +167,7 @@ class TestStructDef(unittest.TestCase):
         self.sd = self.sd1
 
     def test_malformed_romstruct_file(self):
-        badfile = "tests/binary/romstruct_malformed.csv"
+        badfile = self.maproot + "/binary/romstruct_malformed.csv"
         self.assertRaises(Exception, romlib.StructDef, badfile)
 
     def test_basic_initialization(self):
@@ -223,7 +225,8 @@ class TestStructDef(unittest.TestCase):
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
-        self.map = romlib.RomMap("tests/map")
+        self.maproot = "test/map"
+        self.map = romlib.RomMap(self.maproot)
 
     def test_rom_map_array_load(self):
         self.assertEqual(len(self.map.arrays), 4)
@@ -237,7 +240,7 @@ class TestRomMap(unittest.TestCase):
         self.assertEqual(s.attributes['fld1'].label, "Field 1")
 
     def test_changeset(self):
-        cs = self.map.changeset("tests/out")
+        cs = self.map.changeset("test/out")
         correct = {i: 0x66 for i in range(18)}
         self.assertEqual(cs, correct)
 

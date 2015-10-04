@@ -6,7 +6,7 @@ from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        filename = "specs/7th Saga (US)/texttables/main.tbl"
+        filename = "data/maps/7th Saga (US)/texttables/main.tbl"
         with open(filename) as f:
             self.tbl = text.TextTable("main", f)
 
