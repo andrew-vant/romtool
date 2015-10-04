@@ -200,19 +200,18 @@ class TestStructDef(unittest.TestCase):
         ]
         self.assertEqual(keys, correct)
 
-
     @unittest.skip("Array not reimplemented yet.")
     def test_load_from_array(self):
-        arraydict = OrderedDict({ "name": "arrprim",
-                                  "label": "Primitive",
-                                  "set": "none",
-                                  "type": "uintle",
-                                  "offset": "0x06",
-                                  "length": "3",
-                                  "stride": "2",
-                                  "display": "",
-                                  "tags": "",
-                                  "comment": ""})
+        arraydict = OrderedDict({"name": "arrprim",
+                                 "label": "Primitive",
+                                 "set": "none",
+                                 "type": "uintle",
+                                 "offset": "0x06",
+                                 "length": "3",
+                                 "stride": "2",
+                                 "display": "",
+                                 "tags": "",
+                                 "comment": ""})
         s = romlib.StructDef.from_primitive_array(arraydict)
         self.assertEqual(s['arrprim']['id'], arraydict['name'])
         self.assertEqual(s['arrprim']['type'], arraydict['type'])
@@ -243,6 +242,7 @@ class TestRomMap(unittest.TestCase):
         cs = self.map.changeset("test/out")
         correct = {i: 0x66 for i in range(18)}
         self.assertEqual(cs, correct)
+
 
 class TestFunctions(unittest.TestCase):
     pass
