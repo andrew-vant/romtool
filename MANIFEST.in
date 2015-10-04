@@ -3,4 +3,5 @@ graft src
 graft docs
 graft test
 include README.md
+include tox.ini
 global-exclude *.py[cod] __pycache__ *.so
