@@ -1,0 +1,5 @@
+graft data
+graft src
+graft docs
+graft test
+global-exclude *.py[cod] __pycache__ *.so
