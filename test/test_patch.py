@@ -6,6 +6,7 @@ from io import BytesIO, StringIO
 import romlib
 from romlib import patch
 
+
 class TestPatch(unittest.TestCase):
     def test_from_blocks(self):
         changes = {0x00: b"\x00\x00",

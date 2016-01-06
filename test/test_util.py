@@ -5,6 +5,7 @@ from tempfile import TemporaryFile, NamedTemporaryFile
 import romlib
 from romlib import util
 
+
 class TestUtilFuncs(unittest.TestCase):
     def test_tobits_bytes(self):
         s = "8"
@@ -44,6 +45,7 @@ class TestUtilFuncs(unittest.TestCase):
     def test_hexify_partial_byte(self):
         self.assertEqual(util.hexify(4, 5), "0x04")
 
+
 class TestOrderedDictReader(unittest.TestCase):
     def test_read_ordereddict_field_order(self):
         with TemporaryFile("w+") as f:
@@ -55,6 +57,7 @@ class TestOrderedDictReader(unittest.TestCase):
             f.seek(0)
             reader = util.OrderedDictReader(f)
             self.assertEqual(list(next(reader).keys()), keys)
+
 
 class TestAddress(unittest.TestCase):
     def test_offset_to_hirom(self):

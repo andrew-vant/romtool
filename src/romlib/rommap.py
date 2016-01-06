@@ -75,15 +75,17 @@ class RomMap(object):
 
             # Run any necessary display conversions
             hx = util.hexify
-            display_default = lambda value, attr: value
+
             displayers = {
+                "default": lambda value, attr: value,
                 "hexify": lambda value, attr: hx(value, attr.size),
                 "hex": lambda value, attr: hx(value, attr.size),
             }
             for a in chain(ad.sdef.attributes.values() for ad in adefs):
                 for d in data:
                     val = d[a.id]
-                    displayer = displayers.get(a.display, display_default)
+                    displayer = displayers.get(a.display,
+                                               displayers["default"])
                     d[a.id] = displayer(val, a)
 
             # Get headers and turn them into labels

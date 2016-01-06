@@ -12,6 +12,7 @@ import yaml
 
 import romlib
 
+
 class RomDetectionError(Exception):
     pass
 
@@ -26,7 +27,8 @@ def detect(romfile):
         try:
             line = next(line for line in hashdb if line.startswith(romhash))
         except StopIteration:
-            raise RomDetectionError("sha1 hash for {} not in hashdb.".format(romfile))
+            msg = "sha1 hash for {} not in hashdb.".format(romfile)
+            raise RomDetectionError(msg)
 
         name = line.split(maxsplit=1)[1].strip()
         logging.info("ROM map found: {}".format(name))
@@ -94,6 +96,7 @@ def _add_yaml_omap():
         return OrderedDict(loader.construct_pairs(node))
     yaml.add_constructor("!omap", omap_constructor)
 
+
 def main():
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
@@ -117,7 +120,6 @@ def main():
         for name, desc in details.get("flags", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc, action="store_true")
-
 
     topdetails = argdetails.pop("global")
     topparser = argparse.ArgumentParser(**topdetails.get('spec', {}))
