@@ -1,5 +1,7 @@
 import bitstring
 
+# No package for python3 bunch in debian/ubuntu, preferable not to depend on it.
+
 from bunch import *
 from collections import namedtuple
 
