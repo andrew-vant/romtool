@@ -46,13 +46,13 @@ class RomStruct(object):
         position set via seek() or .pos before calling this.
         """
         bs = ConstBitStream(source)
-        d = {field.id: field.read(bs)
-             for field in cls._data}
+        data = {field.id: field.read(bs)
+                for field in cls._data}
         for field in cls._links:
             pointer = cls._fields[field.pointer]
-            bs.pos = (d[pointer.id] + pointer.mod) * 8
-            d[field.id] = field.read(bs)
-        return RomStruct(d)
+            bs.pos = (data[pointer.id] + pointer.mod) * 8
+            data[field.id] = field.read(bs)
+        return RomStruct(data)
 
     @staticmethod
     def dictify(*structures):
@@ -96,8 +96,9 @@ class Field(object):
         self.comment = odict['comment']
 
         # Utility properties not in input
-        self.bytesize = util.tobytes(self.size)
-        self.bitsize = util.tobits(self.size)
+        self.bitsize = util.tobits(odict['size'])
+        # FIXME: Triple check that this does what I want.
+        self.bytesize = self.bitsize + (-self.bitsize % 8) // 8
 
     def read(self, source):
         """ Read a field from some data source and return its value.
@@ -112,15 +113,15 @@ class Field(object):
         if self.type == "strz":
             return text.tables[self.display].readstr(bs)
         elif hasattr(type_registry, self.type):
-            o = getattr(type_registry, self.type)
-            return o.read(bs)
+            cls = getattr(type_registry, self.type)
+            return cls.read(bs)
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
                 return bs.read(fmt)
             except ValueError:
-                s = "Field '{}' of type '{}' isn't a valid type?"
-                raise ValueError(s, self.id, self.type)
+                msg = "Field '{}' of type '{}' isn't a valid type?"
+                raise ValueError(msg, self.id, self.type)
 
     def write(self, dest, value):
         """ Write a field to some data destination.
