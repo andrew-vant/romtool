@@ -1,9 +1,6 @@
-import bitstring
+from collections import OrderedDict
 
-# No package for python3 bunch in debian/ubuntu, preferable not to depend on
-# it.
-
-from collections import namedtuple
+from bitstring import ConstBitStream, BitStream, Bits
 
 from . import text
 from . import util
@@ -37,10 +34,10 @@ class RomStruct(object):
         are ignored. If the values are strings of non-string types, as when
         read from a .csv, they will be converted.
         """
-        for field in _fields.values():
+        for field in self._fields.values():
             # Look for fields both by id and by label.
             value = d.get(field.id, d[field.label])
-            if ifinstance(value, str) and 'int' in field.type:
+            if isinstance(value, str) and 'int' in field.type:
                 value = int(value, 0)
             setattr(self, field.id, value)
 
@@ -48,9 +45,9 @@ class RomStruct(object):
     def read(cls, source):
         bs = ConstBitStream(source)
         d = {field.id: field.read(bs)
-             for field in _data}
-        for field in _links:
-            pointer = _fields[field.pointer]
+             for field in cls._data}
+        for field in cls._links:
+            pointer = cls._fields[field.pointer]
             bs.pos = (d[pointer.id] + pointer.mod) * 8
             d[field.id] = field.read(bs)
         return RomStruct(d)
@@ -59,7 +56,7 @@ class RomStruct(object):
     def dictify(*structures):
         """ Turn a set of structures into an ordereddict for serialization.
 
-        The dict will contain all their values and be ordered in a sane manner
+        The odict will contain all their values and be ordered in a sane manner
         for outputting to (for example) csv). All values will be converted to
         string.
 
@@ -75,11 +72,8 @@ class RomStruct(object):
                 ordering = field.fullorder(i)
                 data.append(key, value, ordering)
 
-        data = sorted(data, lambda d: d[-1])
+        data.sort(key=lambda d: d[-1])
         return OrderedDict(d[:2] for d in data)
-
-    def dictify(self):
-        pass
 
 
 class Field(object):
@@ -90,7 +84,6 @@ class Field(object):
         self.type = odict['type']
         self.display = odict['display']
         self.order = int(odict['order'])
-        # Still don't know how pzero should be done...
         self.pointer = odict['pointer'] if odict['pointer'] else None
         self.mod = int(odict['mod'])
         self.info = odict['info']
@@ -112,13 +105,13 @@ class Field(object):
         bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
             return text.tables[self.display].readstr(bs)
-        elif self.type in _type_registry:
-            o = _type_registry[self.type]
+        elif hasattr(_type_registry, self.type):
+            o = getattr(_type_registry, self.type)
             return o.read(bs)
         else:
             try:
-                fmtstr = "{}:{}".format(self.type, self.bitsize)
-                return stream.read(fmt)
+                fmt = "{}:{}".format(self.type, self.bitsize)
+                return bs.read(fmt)
             except ValueError:
                 s = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(s, self.id, self.type)
@@ -133,7 +126,7 @@ class Field(object):
         bs = BitStream(dest)
         if self.type == "strz":
             bs.overwrite(Bits(text.tables[self.display].encode(value)))
-        elif self.type in _type_registry:
+        elif hasattr(_type_registry, self.type):
             raise NotImplementedError("Nested structs not implemented yet.")
         else:
             bits = Bits('{}:{}={}'.format(self.type, self.size, value))
@@ -146,7 +139,7 @@ class Field(object):
         typeorder = 1 if self.id.startswith("*") else 0
         return nameorder, self.order, typeorder, origin_sequence_order
 
-    def stringify(value):
+    def stringify(self, value):
         # FIXME: doesn't work for substructs, but we don't have those yet.
         formats = {
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
@@ -155,7 +148,7 @@ class Field(object):
         fstr = formats.get(self.display, '{}')
         return fstr.format(value)
 
-    def unstringify(s):
+    def unstringify(self, s):
         try:
             return int(s, 0)
         except ValueError:
@@ -175,10 +168,10 @@ def define(name, auto):
     fields = [Field(a) if not isinstance(a, Field) else a
               for a in auto]
     clsvars = {
-            '_fields': fields,
-            '_links': [f for f in fields if f.pointer],
-            '_data': [f for f in fields if not f.pointer]
-            }
+        '_fields': fields,
+        '_links': [f for f in fields if f.pointer],
+        '_data': [f for f in fields if not f.pointer]
+        }
 
     cls = type(name, (RomStruct,), clsvars)
     _type_registry._register(cls)
