@@ -15,6 +15,7 @@ class RomStruct(object):
     _fields = OrderedDict()  # All fields in the struct.
     _data = OrderedDict()    # Fields that are physically part of the struct.
     _links = OrderedDict()   # Fields that are pointed to by another field.
+    _codecs = dict()         # Text tables to be used for string conversions.
 
     def __init__(self, d):
         """Create a new structure from a dictionary.
@@ -95,7 +96,7 @@ class Field(object):
         # FIXME: Triple check that this does what I want.
         self.bytesize = self.bitsize + (-self.bitsize % 8) // 8
 
-    def read(self, source):
+    def read(self, source, ttables=None, default_tt=text.ascii_tt):
         """ Read a field from some data source and return its value.
 
         `source` may be any type that can be used to initialize a
@@ -104,9 +105,12 @@ class Field(object):
         file.seek() or bs.pos). The object returned will be an integer or
         string, as appropriate.
         """
+        if ttables is None:
+            ttables = {}
         bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
-            return text.tables[self.display].readstr(bs)
+            ttable = ttables.get(self.display, default_tt)
+            return ttable.readstr(bs)
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -115,16 +119,19 @@ class Field(object):
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
 
-    def write(self, dest, value):
+    def write(self, dest, value, ttables=None, default_tt=text.ascii_tt):
         """ Write a field to some data destination.
 
         `dest` may be any type that can be used to initialize a BitStream. If
         it is a file object or bitstream, it must be set to the appropriate
         start position before this method is called.
         """
+        if ttables is None:
+            ttables = {}
         bs = BitStream(dest)
         if self.type == "strz":
-            bs.overwrite(Bits(text.tables[self.display].encode(value)))
+            ttable = ttables.get(self.display, default_tt)
+            bs.overwrite(Bits(ttable.encode(value)))
         else:
             bits = Bits('{}:{}={}'.format(self.type, self.size, value))
             bs.overwrite(bits)
@@ -165,19 +172,20 @@ class Field(object):
         else:
             return s
 
-def define(name, auto):
+def define(name, fdefs, texttables):
     """ Create a new structure type.
 
-    `auto` should be an iterable. It may contain either Field objects or any
+    `fdefs` should be an iterable. It may contain either Field objects or any
     type that can be used to initialize a Field object (usually dicts).
     """
 
-    fields = [Field(a) if not isinstance(a, Field) else a
-              for a in auto]
+    fields = [Field(fd) if not isinstance(fd, Field) else fd
+              for fd in fdefs]
     clsvars = {
         '_fields': fields,
         '_links': [f for f in fields if f.pointer],
-        '_data': [f for f in fields if not f.pointer]
+        '_data': [f for f in fields if not f.pointer],
+        '_codecs': {tt.name: tt for tt in texttables}
         }
 
     cls = type(name, (RomStruct,), clsvars)
