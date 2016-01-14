@@ -5,11 +5,6 @@ from bitstring import ConstBitStream, BitStream, Bits
 from . import text
 from . import util
 
-class Box(object):
-    """ Just a placeholder."""
-    pass
-
-type_registry = Box()
 
 class RomStruct(object):
     """ Base class for ROM structures -- mostly table entries.
@@ -106,15 +101,12 @@ class Field(object):
         `source` may be any type that can be used to initialize a
         CostBitStream. If it is a file object or bitstream, it must be set to
         the appropriate start position before this method is called (e.g. with
-        file.seek() or bs.pos). The object returned will be an integer, string,
-        or struct, as appropriate.
+        file.seek() or bs.pos). The object returned will be an integer or
+        string, as appropriate.
         """
         bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
             return text.tables[self.display].readstr(bs)
-        elif hasattr(type_registry, self.type):
-            cls = getattr(type_registry, self.type)
-            return cls.read(bs)
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -133,8 +125,6 @@ class Field(object):
         bs = BitStream(dest)
         if self.type == "strz":
             bs.overwrite(Bits(text.tables[self.display].encode(value)))
-        elif hasattr(type_registry, self.type):
-            raise NotImplementedError("Nested structs not implemented yet.")
         else:
             bits = Bits('{}:{}={}'.format(self.type, self.size, value))
             bs.overwrite(bits)
@@ -176,13 +166,10 @@ class Field(object):
             return s
 
 def define(name, auto):
-    """ Define a new structure type.
+    """ Create a new structure type.
 
     `auto` should be an iterable. It may contain either Field objects or any
     type that can be used to initialize a Field object (usually dicts).
-
-    The new type will be registered and can be accessed with
-    romlib.structures.<typename>
     """
 
     fields = [Field(a) if not isinstance(a, Field) else a
@@ -194,5 +181,4 @@ def define(name, auto):
         }
 
     cls = type(name, (RomStruct,), clsvars)
-    setattr(type_registry, name, cls)
     return cls
