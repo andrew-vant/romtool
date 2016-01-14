@@ -1,46 +1,59 @@
 import bitstring
 
-# No package for python3 bunch in debian/ubuntu, preferable not to depend on it.
+# No package for python3 bunch in debian/ubuntu, preferable not to depend on
+# it.
 
-from bunch import *
 from collections import namedtuple
 
 from . import text
 from . import util
 
+class Registry():
+    # Note, functions are all prepended with _, and structure names may not
+    # start with _. This is to prevent accidentally overwriting methods.
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def _register(self, stype):
+        name = stype.__name__
+        if name.startswith('_'):
+            raise ValueError("Struct names may not start with '_'. Don't be evil.")
+        setattr(self, name, stype)
 
-_type_registry = Bunch()
-
+_type_registry = Registry()
 
 class RomStruct(object):
-    # Subclasses should override this.
-    _fields = OrderedDict()
-    def __init__(self, d):
-        self.links = Bunch()
-        self._datafields = [f for f in _fields if not f.id.startswith('*')]
-        self._linkfields = [f for f in _fields if f.id.startswith('*')]
+    # Subclasses should override this. Data and links might be a good use case
+    # for a metaclass.
+    _fields = OrderedDict()  # All fields in the struct.
+    _data = OrderedDict()    # Fields that are physically part of the struct.
+    _links = OrderedDict()   # Fields that are pointed to by another field.
 
-        for field in self._datafields:
+    def __init__(self, d):
+        """Create a new structure from a dictionary.
+
+        The structure's fields will be initialized from the corresponding items
+        in the dictionary. They dictionary may be keyed by either the field id
+        or the field label. The field id is checked first. Superfluous items
+        are ignored. If the values are strings of non-string types, as when
+        read from a .csv, they will be converted.
+        """
+        for field in _fields.values():
+            # Look for fields both by id and by label.
             value = d.get(field.id, d[field.label])
+            if ifinstance(value, str) and 'int' in field.type:
+                value = int(value, 0)
             setattr(self, field.id, value)
-        for field in self._linkfields:
-            value = d.get(field.id, d[field.label])
-            self.links[field.id[1:]] = value
 
     @classmethod
-    def from_bs(cls, bs, bitoffset=None):
-        if bitoffset is not None:
-            bs.pos = bitoffset
-        d = {field.id: field.read_bs(bs, None)
-             for field in _fields
-             if not fid.startswith('*')}
-        for field in _fields:
-            if field.id.startswith('*'):
-                pointer = field[fid[1:]]
-                pos = d[pointer.id] - pointer.pzero * 8
-                d[field.id] = field.read_bs(bs, pos)
+    def read(cls, source):
+        bs = ConstBitStream(source)
+        d = {field.id: field.read(bs)
+             for field in _data}
+        for field in _links:
+            pointer = _fields[field.pointer]
+            bs.pos = (d[pointer.id] + pointer.mod) * 8
+            d[field.id] = field.read(bs)
         return RomStruct(d)
-
 
     @staticmethod
     def dictify(*structures):
@@ -78,7 +91,8 @@ class Field(object):
         self.display = odict['display']
         self.order = int(odict['order'])
         # Still don't know how pzero should be done...
-        self.pzero = int(odict['pzero'])
+        self.pointer = odict['pointer'] if odict['pointer'] else None
+        self.mod = int(odict['mod'])
         self.info = odict['info']
         self.comment = odict['comment']
 
@@ -86,25 +100,44 @@ class Field(object):
         self.bytesize = util.tobytes(self.size)
         self.bitsize = util.tobits(self.size)
 
-    def read_bs(self, bs, bitoffset=None):
+    def read(self, source):
+        """ Read a field from some data source and return its value.
+
+        `source` may be any type that can be used to initialize a
+        CostBitStream. If it is a file object or bitstream, it must be set to
+        the appropriate start position before this method is called (e.g. with
+        file.seek() or bs.pos). The object returned will be an integer, string,
+        or struct, as appropriate.
+        """
+        bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
-            return text.tables[self.display].readstr_bs(bs, bitoffset)
+            return text.tables[self.display].readstr(bs)
         elif self.type in _type_registry:
             o = _type_registry[self.type]
-            return o.from_bs(bs, bitoffset)
+            return o.read(bs)
         else:
             try:
-                if bitoffset is not None:
-                    bs.pos = bitoffset
                 fmtstr = "{}:{}".format(self.type, self.bitsize)
                 return stream.read(fmt)
             except ValueError:
                 s = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(s, self.id, self.type)
 
-    def read_fileesque(self, f, byteoffset=None):
-        bitoffset = None if byteoffset is None else byteoffset*8
-        self.read_bs(ConstBitStream(f), bitoffset)
+    def write(self, dest, value):
+        """ Write a field to some data destination.
+
+        `dest` may be any type that can be used to initialize a BitStream. If
+        it is a file object or bitstream, it must be set to the appropriate
+        start position before this method is called.
+        """
+        bs = BitStream(dest)
+        if self.type == "strz":
+            bs.overwrite(Bits(text.tables[self.display].encode(value)))
+        elif self.type in _type_registry:
+            raise NotImplementedError("Nested structs not implemented yet.")
+        else:
+            bits = Bits('{}:{}={}'.format(self.type, self.size, value))
+            bs.overwrite(bits)
 
     def fullorder(self, origin_sequence_order=0):
         # Sort order priority is name, order given in definition,
@@ -114,6 +147,7 @@ class Field(object):
         return nameorder, self.order, typeorder, origin_sequence_order
 
     def stringify(value):
+        # FIXME: doesn't work for substructs, but we don't have those yet.
         formats = {
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
             'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
@@ -127,6 +161,7 @@ class Field(object):
         except ValueError:
             return s
 
+
 def define(name, auto):
     """ Define a new structure type.
 
@@ -138,8 +173,13 @@ def define(name, auto):
     """
 
     fields = [Field(a) if not isinstance(a, Field) else a
-             for a in auto]
-    fields = [Field(od) for od in odicts]
-    cls = type(name, (RomStruct,), {'_fields': fields})
-    _type_registry[name] = cls
+              for a in auto]
+    clsvars = {
+            '_fields': fields,
+            '_links': [f for f in fields if f.pointer],
+            '_data': [f for f in fields if not f.pointer]
+            }
+
+    cls = type(name, (RomStruct,), clsvars)
+    _type_registry._register(cls)
     return cls
