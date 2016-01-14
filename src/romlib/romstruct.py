@@ -5,22 +5,18 @@ from bitstring import ConstBitStream, BitStream, Bits
 from . import text
 from . import util
 
-class Registry():
-    # Note, functions are all prepended with _, and structure names may not
-    # start with _. This is to prevent accidentally overwriting methods.
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-    def _register(self, stype):
-        name = stype.__name__
-        if name.startswith('_'):
-            raise ValueError("Struct names may not start with '_'. Don't be evil.")
-        setattr(self, name, stype)
+class Box(object):
+    """ Just a placeholder."""
+    pass
 
-_type_registry = Registry()
+type_registry = Box()
 
 class RomStruct(object):
-    # Subclasses should override this. Data and links might be a good use case
-    # for a metaclass.
+    """ Base class for ROM structures -- mostly table entries.
+
+    Subclasses should override the three class variables below; they specify
+    the fields of a given structure type.
+    """
     _fields = OrderedDict()  # All fields in the struct.
     _data = OrderedDict()    # Fields that are physically part of the struct.
     _links = OrderedDict()   # Fields that are pointed to by another field.
@@ -43,6 +39,12 @@ class RomStruct(object):
 
     @classmethod
     def read(cls, source):
+        """ Read in a new structure from a given source.
+
+        `source` may be a ConstBitStream or any type that can be used to
+        initialize one. If it is a file or bitstream, it must have the read
+        position set via seek() or .pos before calling this.
+        """
         bs = ConstBitStream(source)
         d = {field.id: field.read(bs)
              for field in cls._data}
@@ -77,6 +79,10 @@ class RomStruct(object):
 
 
 class Field(object):
+    """ An individual field of a structure.
+
+    For example, a 3-byte integer or a delimiter-terminated string.
+    """
     def __init__(self, odict):
         self.id = odict['id']
         self.label = odict['label']
@@ -105,8 +111,8 @@ class Field(object):
         bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
             return text.tables[self.display].readstr(bs)
-        elif hasattr(_type_registry, self.type):
-            o = getattr(_type_registry, self.type)
+        elif hasattr(type_registry, self.type):
+            o = getattr(type_registry, self.type)
             return o.read(bs)
         else:
             try:
@@ -126,21 +132,34 @@ class Field(object):
         bs = BitStream(dest)
         if self.type == "strz":
             bs.overwrite(Bits(text.tables[self.display].encode(value)))
-        elif hasattr(_type_registry, self.type):
+        elif hasattr(type_registry, self.type):
             raise NotImplementedError("Nested structs not implemented yet.")
         else:
             bits = Bits('{}:{}={}'.format(self.type, self.size, value))
             bs.overwrite(bits)
 
     def fullorder(self, origin_sequence_order=0):
-        # Sort order priority is name, order given in definition,
-        # pointer/nonpointer, binary order of field.
+        """ Get the sort order of this field.
+
+        This returns a tuple containing several properties relevant to sorting.
+        Sort order is name, order given in definition, pointer/nonpointer
+        (pointers go last), and the binary order of the field.
+
+        This is done with a function rather than greater/less than because the
+        field object doesn't actually know its binary order and needs to have
+        it provided.
+        """
         nameorder = 0 if self.label == "Name" else 1
         typeorder = 1 if self.id.startswith("*") else 0
         return nameorder, self.order, typeorder, origin_sequence_order
 
     def stringify(self, value):
-        # FIXME: doesn't work for substructs, but we don't have those yet.
+        """ Convert `value` to a string.
+
+        Note that we don't use the `str` builtin for this because some fields
+        ought to have specific formatting in the output -- e.g. pointers should
+        be a hex string padded to cover their width.
+        """
         formats = {
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
             'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
@@ -149,11 +168,11 @@ class Field(object):
         return fstr.format(value)
 
     def unstringify(self, s):
-        try:
+        """ Convert the string `s` to an appropriate value type."""
+        if 'int' in self.type:
             return int(s, 0)
-        except ValueError:
+        else:
             return s
-
 
 def define(name, auto):
     """ Define a new structure type.
@@ -174,5 +193,5 @@ def define(name, auto):
         }
 
     cls = type(name, (RomStruct,), clsvars)
-    _type_registry._register(cls)
+    setattr(type_registry, name, cls)
     return cls
