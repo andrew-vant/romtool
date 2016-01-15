@@ -1,6 +1,8 @@
+"""This module contains classes for manipulating binary structures in ROMs."""
+
 from collections import OrderedDict
 
-from bitstring import ConstBitStream, BitStream, Bits
+from bitstring import Bits
 
 from . import util
 
@@ -33,14 +35,15 @@ class RomStruct(object):
             setattr(self, field.id, value)
 
     @classmethod
-    def read(cls, source):
-        """ Read in a new structure from a given source.
+    def read(cls, bs):
+        """ Read in a new structure from a bitstream.
 
-        `source` may be a ConstBitStream or any type that can be used to
-        initialize one. If it is a file or bitstream, it must have the read
-        position set via seek() or .pos before calling this.
+            `bs` must be a BitStream or ConstBitStream. bs.pos must be set
+            before calling this function.
+
+            In particular, anything indexed by bytes rather than bits, such as
+            a file object, will not do what you want.
         """
-        bs = ConstBitStream(source)
         data = {field.id: field.read(bs)
                 for field in cls._data}
         for field in cls._links:
@@ -72,13 +75,13 @@ class RomStruct(object):
         return OrderedDict(d[:2] for d in data)
 
 
-class Field(object):
+class Field(object):  # pylint: disable=too-many-instance-attributes
     """ An individual field of a structure.
 
     For example, a 3-byte integer or a delimiter-terminated string.
     """
     def __init__(self, odict):
-        self.id = odict['id']
+        self.id = odict['id']  # pylint: disable=invalid-name
         self.label = odict['label']
         self.size = util.tobits(odict['size'])
         self.type = odict['type']
@@ -93,18 +96,15 @@ class Field(object):
         self.bitsize = util.tobits(odict['size'])
         self.bytesize = util.divup(self.bitsize, 8)
 
-    def read(self, source, ttables=None, default_tt=None):
+    def read(self, bs, ttables=None, default_tt=None):
         """ Read a field from some data source and return its value.
 
-        `source` may be any type that can be used to initialize a
-        CostBitStream. If it is a file object or bitstream, it must be set to
-        the appropriate start position before this method is called (e.g. with
-        file.seek() or bs.pos). The object returned will be an integer or
+        `bs` should be a BitStream or ConstBitStream. bs.pos must be set before
+        calling this function. The object returned will be an integer or
         string, as appropriate.
         """
         if ttables is None:
             ttables = {}
-        bs = ConstBitStream(source)  # FIXME: Does this lose a file's seek pos?
         if self.type == "strz":
             ttable = ttables.get(self.display, default_tt)
             return ttable.readstr(bs)
@@ -116,16 +116,17 @@ class Field(object):
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
 
-    def write(self, dest, value, ttables=None, default_tt=None):
+    def write(self, bs, value, ttables=None, default_tt=None):
         """ Write a field to some data destination.
 
-        `dest` may be any type that can be used to initialize a BitStream. If
-        it is a file object or bitstream, it must be set to the appropriate
-        start position before this method is called.
+        `bs` must be a BitStream, and bs.pos must be set before calling this
+        function.
+
+        In particular, if you pass a file object, it will not do what you
+        expect.
         """
         if ttables is None:
             ttables = {}
-        bs = BitStream(dest)
         if self.type == "strz":
             ttable = ttables.get(self.display, default_tt)
             bs.overwrite(Bits(ttable.encode(value)))
