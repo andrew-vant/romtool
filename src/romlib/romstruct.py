@@ -2,7 +2,6 @@ from collections import OrderedDict
 
 from bitstring import ConstBitStream, BitStream, Bits
 
-from . import text
 from . import util
 
 
@@ -93,10 +92,9 @@ class Field(object):
 
         # Utility properties not in input
         self.bitsize = util.tobits(odict['size'])
-        # FIXME: Triple check that this does what I want.
-        self.bytesize = self.bitsize + (-self.bitsize % 8) // 8
+        self.bytesize = util.divup(self.bitsize, 8)
 
-    def read(self, source, ttables=None, default_tt=text.ascii_tt):
+    def read(self, source, ttables=None, default_tt=None):
         """ Read a field from some data source and return its value.
 
         `source` may be any type that can be used to initialize a
@@ -119,7 +117,7 @@ class Field(object):
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
 
-    def write(self, dest, value, ttables=None, default_tt=text.ascii_tt):
+    def write(self, dest, value, ttables=None, default_tt=None):
         """ Write a field to some data destination.
 
         `dest` may be any type that can be used to initialize a BitStream. If
