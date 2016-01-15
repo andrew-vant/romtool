@@ -139,3 +139,9 @@ def filebytes(f):
     while b:
         yield b[0]
         b = f.read(1)
+
+
+def divup(a, b):
+    """ Divide A by B with integer division, rounding up instead of down."""
+    # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839
+    return (a + (-a % b)) // b
