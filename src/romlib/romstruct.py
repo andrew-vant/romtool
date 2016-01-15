@@ -146,7 +146,7 @@ class Field(object):
         it provided.
         """
         nameorder = 0 if self.label == "Name" else 1
-        typeorder = 1 if self.id.startswith("*") else 0
+        typeorder = 1 if self.info == "pointer" else 0
         return nameorder, self.order, typeorder, origin_sequence_order
 
     def stringify(self, value):
@@ -160,15 +160,21 @@ class Field(object):
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
             'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
             }
+        if self.mod:
+            value += self.mod
         fstr = formats.get(self.display, '{}')
         return fstr.format(value)
 
-    def unstringify(self, s):
+    def unstringify(self, s):  # pylint: disable=invalid-name
         """ Convert the string `s` to an appropriate value type."""
+        value = None
         if 'int' in self.type:
-            return int(s, 0)
+            value = int(s, 0)
         else:
-            return s
+            value = s
+        if self.mod:
+            value -= self.mod
+        return value
 
 def define(name, fdefs, texttables):
     """ Create a new structure type.
