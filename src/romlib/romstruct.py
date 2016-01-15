@@ -50,7 +50,7 @@ class RomStruct(object):
         return RomStruct(data)
 
     @staticmethod
-    def dictify(*structures):
+    def dictify(*romstructs):
         """ Turn a set of structures into an ordereddict for serialization.
 
         The odict will contain all their values and be ordered in a sane manner
@@ -61,11 +61,10 @@ class RomStruct(object):
         """
 
         data = []
-        for i, s in enumerate(structures):
-            for field in s._fields:
-                target = s if field in s._datafields else s.links
+        for i, rst in enumerate(romstructs):
+            for field in rst._fields:
                 key = field.label if field.label else field.id
-                value = field.stringify(getattr(target, field.id))
+                value = field.stringify(getattr(rst, field.id))
                 ordering = field.fullorder(i)
                 data.append(key, value, ordering)
 
