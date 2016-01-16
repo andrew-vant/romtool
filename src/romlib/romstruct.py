@@ -88,15 +88,14 @@ class Struct(object):
         for i, byte in enumerate(bs.bytes):
             changes[offset+i] = byte
 
-        # Deal with pointers.
+        # Deal with pointers. For now pointers require whole-byte values.
         for field in self._links:
             value = getattr(self, field.id)
             offset = getattr(self, field.pointer)
-            bits = field.to_bits(value)
-            for i, byte in enumerate(bits.bytes):
+            for i, byte in enumerate(field.to_bytes(value)):
                 changes[offset+i] = byte
 
-        # Filter the changes against *f* if necessary.
+        # Filter the changes against f if necessary.
         if f is not None:
             for offset, byte in changes.items():
                 f.seek(offset)
@@ -112,7 +111,7 @@ class Struct(object):
         """ Turn a set of structures into an ordereddict for serialization.
 
         The odict will contain all their values and be ordered in a sane manner
-        for outputting to (for example) csv). All values will be converted to
+        for outputting to (for example) csv. All values will be converted to
         string.
 
         They must not have overlapping ids/labels.
@@ -122,7 +121,7 @@ class Struct(object):
         for i, rst in enumerate(romstructs):
             for field in rst._fields:
                 key = field.label if field.label else field.id
-                value = field.stringify(getattr(rst, field.id))
+                value = field.to_string(getattr(rst, field.id))
                 ordering = field.fullorder(i)
                 data.append(key, value, ordering)
 
@@ -133,7 +132,9 @@ class Struct(object):
 class Field(object):  # pylint: disable=too-many-instance-attributes
     """ An individual field of a structure.
 
-    For example, a 3-byte integer or a delimiter-terminated string.
+    For example, a 3-byte integer or a delimiter-terminated string. Most of the
+    methods of Field are intended to transport value types to and from strings,
+    bitstreams, file objects, etc.
     """
     def __init__(self, odict, ttable=None, available_tts=None):
         self.id = odict['id']  # pylint: disable=invalid-name
@@ -154,6 +155,12 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if ttable is None and available_tts is not None:
             ttable = available_tts[self.display]
         self.ttable = ttable
+
+    def from_bytes(self, data, offset=0):
+        """ Read a field from within a bunch of bytes."""
+        bitoffset = offset * 8
+        bs = ConstBitStream(data)
+        return self.from_bitstream(bs, bitoffset)
 
     def from_file(self, f, offset=None):
         """ Read a field from a byte offset within a file.
@@ -192,6 +199,17 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
 
+    def from_string(self, s):  # pylint: disable=invalid-name
+        """ Convert the string *s* to an appropriate value type."""
+        value = None
+        if 'int' in self.type:
+            value = int(s, 0)
+        else:
+            value = s
+        if self.mod:
+            value -= self.mod
+        return value
+
     def to_bits(self, value):
         """ Convert a value to a Bits object."""
         if self.type == "strz":
@@ -206,22 +224,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """
         return self.to_bits(value).bytes
 
-    def fullorder(self, origin_sequence_order=0):
-        """ Get the sort order of this field.
-
-        This returns a tuple containing several properties relevant to sorting.
-        Sort order is name, order given in definition, pointer/nonpointer
-        (pointers go last), and the binary order of the field.
-
-        This is done with a function rather than greater/less than because the
-        field object doesn't actually know its binary order and needs to have
-        it provided.
-        """
-        nameorder = 0 if self.label == "Name" else 1
-        typeorder = 1 if self.info == "pointer" else 0
-        return nameorder, self.order, typeorder, origin_sequence_order
-
-    def stringify(self, value):
+    def to_string(self, value):
         """ Convert *value* to a string.
 
         Note that we don't use the *str* builtin for this because some fields
@@ -237,16 +240,20 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         fstr = formats.get(self.display, '{}')
         return fstr.format(value)
 
-    def unstringify(self, s):  # pylint: disable=invalid-name
-        """ Convert the string *s* to an appropriate value type."""
-        value = None
-        if 'int' in self.type:
-            value = int(s, 0)
-        else:
-            value = s
-        if self.mod:
-            value -= self.mod
-        return value
+    def fullorder(self, origin_sequence_order=0):
+        """ Get the sort order of this field.
+
+        This returns a tuple containing several properties relevant to sorting.
+        Sort order is name, order given in definition, pointer/nonpointer
+        (pointers go last), and the binary order of the field.
+
+        This is done with a function rather than greater/less than because the
+        field object doesn't actually know its binary order and needs to have
+        it provided.
+        """
+        nameorder = 0 if self.label == "Name" else 1
+        typeorder = 1 if self.info == "pointer" else 0
+        return nameorder, self.order, typeorder, origin_sequence_order
 
 
 def define(name, fdefs, texttables):
