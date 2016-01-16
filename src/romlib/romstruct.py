@@ -1,23 +1,37 @@
 """This module contains classes for manipulating binary structures in ROMs."""
 
 from collections import OrderedDict
+from types import SimpleNamespace
 
 from bitstring import *
 
 from . import util
 
 
-class Struct(object):
-    """ Base class for ROM structures -- mostly table entries.
+class StructDef(object):
+    def __init__(self, name, fdefs, texttables=None):
+        """ Create a new structure type.
 
-    Subclasses should override the class variables below; they specify
-    the fields of a given structure type.
-    """
-    _fields = OrderedDict()  # All fields in the struct.
-    _data = OrderedDict()    # Fields that are physically part of the struct.
-    _links = OrderedDict()   # Fields that are pointed to by another field.
+        *fdefs* should be an iterable. It may contain either Field objects or any
+        type that can be used to initialize a Field object (usually dicts).
+        """
+        # FIXME: raise an exception for a structure for which the main data
+        # members don't sum to a whole-byte size.
+        if texttables is None:
+            texttables = {}
 
-    def __init__(self, d):
+        fields = OrderedDict()
+        for fdef in fdefs:
+            if not isinstance(fdef, Field):
+                fdef = Field(fdef, available_tts=texttables)
+            fields[fdef.id] = fdef
+
+        self.fields = fields
+        self.links = [f for f in fields if f.pointer]
+        self.data = [f for f in fields if not f.pointer]
+        self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
+
+    def from_dict(self, d):  # pylint: disable=invalid-name
         """Create a new structure from a dictionary.
 
         The structure's fields will be initialized from the corresponding items
@@ -26,33 +40,33 @@ class Struct(object):
         are ignored. If the values are strings of non-string types, as when
         read from a .csv, they will be converted.
         """
-        for field in self._fields.values():
+        initializers = dict()
+        for field in self.fields.values():
             # Look for fields both by id and by label.
             value = d.get(field.id, d[field.label])
-            if isinstance(value, str) and 'int' in field.type:
-                value = int(value, 0)
-            setattr(self, field.id, value)
+            if isinstance(value, str):
+                value = field.from_string(value)
+            initializers[field.id] = value
+        return self.cls(**initializers)
 
-    @classmethod
-    def from_bitstream(cls, bs, offset=None):
+    def from_bitstream(self, bs, offset=None):
         """ Read in a new structure from a bitstream.
 
-            *bs* must be a BitStream or ConstBitStream. If offset is provided,
+            bs must be a BitStream or ConstBitStream. If offset is provided,
             it must be specified in bits and reading will begin from there.
             Otherwise, reading will begin from bs.pos.
         """
         if offset is not None:
             bs.pos = offset
         data = {field.id: field.from_bitstream(bs)
-                for field in cls._data}
-        for field in cls._links:
-            pointer = cls._fields[field.pointer]
+                for field in self.data}
+        for field in self.links:
+            pointer = self.fields[field.pointer]
             bs.pos = (data[pointer.id] + pointer.mod) * 8
             data[field.id] = field.from_bitstream(bs)
-        return Struct(data)
+        return self.cls(**data)
 
-    @classmethod
-    def from_file(cls, f, offset=None):
+    def from_file(self, f, offset=None):
         """ Read in a new structure from a file object
 
         *f* must be a file object opened in binary mode. If offset is provided,
@@ -63,65 +77,64 @@ class Struct(object):
             offset = f.tell()
         bit_offset = offset * 8
         bs = ConstBitStream(f)
-        return cls.from_bitstream(bs, bit_offset)
+        return self.from_bitstream(bs, bit_offset)
 
-    def changeset(self, f=None, offset=None):
+    def to_bytemap(self, struct, offset=0):
         """ Get an offset-to-byte-value dict.
 
-        If file object *f* is provided, the dict will be filtered such that
-        bytes that do not need to be changed will not be included.
-
-        *offset* indicates the starting point of the structure. If omitted, it
-        will default to f.tell() if f was provided or 0 if it was not.
+        Offset indicates the start point of the structure.
         """
-
         changes = {}
         # Deal with regular data fields first. These are expected to all be
         # bitstring-supported types because I've yet to see a ROM that wasn't
-        # that way.
-        if offset is None:
-            offset = f.tell() if f is not None else 0
+        # that way. For now the main data of the structure must be of
+        # whole-byte size.
         bs = BitStream()
-        for field in self._data:
-            value = getattr(self, field.id)
+        for field in self.data:
+            value = getattr(struct, field.id)
             bs.append(field.to_bits(value))
         for i, byte in enumerate(bs.bytes):
             changes[offset+i] = byte
 
         # Deal with pointers. For now pointers require whole-byte values.
-        for field in self._links:
-            value = getattr(self, field.id)
-            offset = getattr(self, field.pointer)
+        # Note that we no longer care about the struct's start point so we can
+        # reuse offset.
+        for field in self.links:
+            value = getattr(struct, field.id)
+            offset = getattr(struct, field.pointer)
             for i, byte in enumerate(field.to_bytes(value)):
                 changes[offset+i] = byte
-
-        # Filter the changes against f if necessary.
-        if f is not None:
-            for offset, byte in changes.items():
-                f.seek(offset)
-                oldval = int.from_bytes(f.read(1), 'little')
-                if oldval == byte:
-                    del changes[offset]
 
         # Done
         return changes
 
+    def to_odict(self, struct, stringify=True, use_labels=True):
+        """ Get an ordered dictionary of the structure's data.
+
+        By default, the field labels will be used as keys if available, and all
+        values will be converted to strings. The returned OrderedDict is
+        suitable for sending to a csv or similar.
+        """
+        return StructDef.to_mergedict([struct], stringify, use_labels)
+
     @staticmethod
-    def dictify(*romstructs):
-        """ Turn a set of structures into an ordereddict for serialization.
+    def to_mergedict(structures, stringify=True, use_labels=True):
+        """ Turn a list of structures into an ordereddict for serialization.
 
         The odict will contain all their values and be ordered in a sane manner
-        for outputting to (for example) csv. All values will be converted to
-        string.
+        for outputting to (for example) csv. By default, field labels will be
+        used as keys if available, and values will be converted to strings.
 
-        They must not have overlapping ids/labels.
+        None of the structures may have overlapping field ids/labels.
         """
 
         data = []
-        for i, rst in enumerate(romstructs):
-            for field in rst._fields:
-                key = field.label if field.label else field.id
-                value = field.to_string(getattr(rst, field.id))
+        for i, struct in enumerate(structures):
+            for field in struct._sdef.fields:
+                key = field.label if field.label and use_labels else field.id
+                value = getattr(struct, field.id)
+                if stringify:
+                    value = field.to_string(value)
                 ordering = field.fullorder(i)
                 data.append(key, value, ordering)
 
@@ -146,7 +159,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.display = odict['display']
         self.order = int(odict['order'])
         self.pointer = odict['pointer'] if odict['pointer'] else None
-        self.mod = int(odict['mod'])
+        self.mod = int(odict['mod'], 0) if odict['mod'] else 0
         self.info = odict['info']
         self.comment = odict['comment']
 
@@ -186,7 +199,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if offset is not None:
             bs.pos = offset
 
-        if self.type == "strz":
+        if 'str' in self.type:
             maxbits = self.bitsize if self.bitsize else 1024*8
             pos = bs.pos
             data = bs[pos:pos+maxbits]
@@ -201,21 +214,23 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 
     def from_string(self, s):  # pylint: disable=invalid-name
         """ Convert the string *s* to an appropriate value type."""
-        value = None
-        if 'int' in self.type:
-            value = int(s, 0)
+        if self.type in ['str', 'strz', 'bin', 'hex']:
+            return s
+        elif 'int' in self.type:
+            return int(s, 0) - self.mod
+        elif 'float' in self.type:
+            return float(s) - self.mod
         else:
-            value = s
-        if self.mod:
-            value -= self.mod
-        return value
+            msg = "Destringification of '{}' not implemented."
+            raise NotImplementedError(msg, self.type)
 
     def to_bits(self, value):
         """ Convert a value to a Bits object."""
-        if self.type == "strz":
+        if 'str' in self.type:
             return Bits(self.ttable.encode(value))
         else:
-            return Bits("{}:{}={}".format(self.type, self.size, value))
+            init = {self.type: value, 'length': self.bitsize}
+            return Bits(**init)
 
     def to_bytes(self, value):
         """ Convert a value to a bytes object.
@@ -235,10 +250,18 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
             'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
             }
-        if self.mod:
+        if 'int' in self.type:
             value += self.mod
-        fstr = formats.get(self.display, '{}')
-        return fstr.format(value)
+            fstr = formats.get(self.display, '{}')
+            return fstr.format(value)
+        if 'float' in self.type:
+            value += self.mod
+            return str(value)
+        if self.type in ['str', 'strz', 'bin', 'hex']:
+            return value
+        # If we get here something is wrong.
+        msg = "Stringification of '{}' not implemented."
+        raise NotImplementedError(msg, self.type)
 
     def fullorder(self, origin_sequence_order=0):
         """ Get the sort order of this field.
@@ -256,24 +279,3 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         return nameorder, self.order, typeorder, origin_sequence_order
 
 
-def define(name, fdefs, texttables):
-    """ Create a new structure type.
-
-    *fdefs* should be an iterable. It may contain either Field objects or any
-    type that can be used to initialize a Field object (usually dicts).
-    """
-    fields = []
-    for fdef in fdefs:
-        if isinstance(fdef, Field):
-            fields.append(fdef)
-        else:
-            fields.append(Field(fdef, available_tts=texttables))
-
-    clsvars = {
-        '_fields': fields,
-        '_links': [f for f in fields if f.pointer],
-        '_data': [f for f in fields if not f.pointer],
-        }
-
-    cls = type(name, (Struct,), clsvars)
-    return cls
