@@ -139,6 +139,8 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.id = odict['id']  # pylint: disable=invalid-name
         self.label = odict['label']
         self.size = util.tobits(odict['size'])
+        self.bitsize = util.tobits(odict['size'])
+        self.bytesize = util.divup(self.bitsize, 8)
         self.type = odict['type']
         self.display = odict['display']
         self.order = int(odict['order'])
@@ -147,9 +149,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.info = odict['info']
         self.comment = odict['comment']
 
-        # Utility properties not in input
-        self.bitsize = util.tobits(odict['size'])
-        self.bytesize = util.divup(self.bitsize, 8)
         # FIXME: should probably raise an exception if someone asks for a
         # string type without a text table.
         if ttable is None and available_tts is not None:
@@ -181,8 +180,10 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             bs.pos = offset
 
         if self.type == "strz":
-            # FIXME: Pretty sure this won't work.
-            return self.ttable.readstr(bs)
+            maxbits = self.bitsize if self.bitsize else 1024*8
+            pos = bs.pos
+            data = bs[pos:pos+maxbits]
+            return self.ttable.decode(data.bytes)
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -190,7 +191,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             except ValueError:
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
-
 
     def to_bits(self, value):
         """ Convert a value to a Bits object."""
