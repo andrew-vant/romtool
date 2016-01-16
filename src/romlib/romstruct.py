@@ -37,7 +37,7 @@ class Struct(object):
     def from_bitstream(cls, bs, offset=None):
         """ Read in a new structure from a bitstream.
 
-            `bs` must be a BitStream or ConstBitStream. If offset is provided,
+            *bs* must be a BitStream or ConstBitStream. If offset is provided,
             it must be specified in bits and reading will begin from there.
             Otherwise, reading will begin from bs.pos.
         """
@@ -55,7 +55,7 @@ class Struct(object):
     def from_file(cls, f, offset=None):
         """ Read in a new structure from a file object
 
-        `f` must be a file object opened in binary mode. If offset is provided,
+        *f* must be a file object opened in binary mode. If offset is provided,
         it must be specified in bytes and reading will begin from there.
         Otherwise, reading will begin from f.tell()
         """
@@ -68,10 +68,10 @@ class Struct(object):
     def changeset(self, f=None, offset=None):
         """ Get an offset-to-byte-value dict.
 
-        If file object `f` is provided, the dict will be filtered such that
+        If file object *f* is provided, the dict will be filtered such that
         bytes that do not need to be changed will not be included.
 
-        `offset` indicates the starting point of the structure. If omitted, it
+        *offset* indicates the starting point of the structure. If omitted, it
         will default to f.tell() if f was provided or 0 if it was not.
         """
 
@@ -96,7 +96,7 @@ class Struct(object):
             for i, byte in enumerate(bits.bytes):
                 changes[offset+i] = byte
 
-        # Filter the changes against `f` if necessary.
+        # Filter the changes against *f* if necessary.
         if f is not None:
             for offset, byte in changes.items():
                 f.seek(offset)
@@ -160,7 +160,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """ Read a field from a byte offset within a file.
 
         Obviously this only works if a field starts somewhere byte-aligned. If
-        `offset` is not provided, it will be read from f.tell().
+        *offset* is not provided, it will be read from f.tell().
 
         The returned value will be a string or an int, as appropriate.
         """
@@ -173,7 +173,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     def from_bitstream(self, bs, offset=None):
         """ Read a field from a bit offset within a bitstream.
 
-        If `offset` is not provided, bs.pos will be used.
+        If *offset* is not provided, bs.pos will be used.
 
         The returned value will be a string or an int, as appropriate.
         """
@@ -222,9 +222,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         return nameorder, self.order, typeorder, origin_sequence_order
 
     def stringify(self, value):
-        """ Convert `value` to a string.
+        """ Convert *value* to a string.
 
-        Note that we don't use the `str` builtin for this because some fields
+        Note that we don't use the *str* builtin for this because some fields
         ought to have specific formatting in the output -- e.g. pointers should
         be a hex string padded to cover their width.
         """
@@ -238,7 +238,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         return fstr.format(value)
 
     def unstringify(self, s):  # pylint: disable=invalid-name
-        """ Convert the string `s` to an appropriate value type."""
+        """ Convert the string *s* to an appropriate value type."""
         value = None
         if 'int' in self.type:
             value = int(s, 0)
@@ -252,7 +252,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 def define(name, fdefs, texttables):
     """ Create a new structure type.
 
-    `fdefs` should be an iterable. It may contain either Field objects or any
+    *fdefs* should be an iterable. It may contain either Field objects or any
     type that can be used to initialize a Field object (usually dicts).
     """
     fields = []
