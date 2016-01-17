@@ -1,9 +1,10 @@
 import os
 import csv
-import itertools
 import romlib
 
 from collections import OrderedDict
+from itertools import chain, groupby
+
 from . import util, text
 from .struct import Struct
 from pprint import pprint
@@ -20,7 +21,6 @@ class RomMap(object):
         self.sdefs = OrderedDict()
         self.texttables = OrderedDict()
         self.arrays = OrderedDict()
-        self.arraysets = OrderedDict()
 
         # Find all csv files in the texttables directory and load them into
         # a dictionary keyed by their base name.
@@ -33,7 +33,8 @@ class RomMap(object):
         for name, path in self._get_subfiles(root, "structs", ".csv"):
             with open(path) as f:
                 tts = self.texttables.values()
-                sdef = romlib.StructDef.from_file(name, f, tts)
+                reader = util.OrderedDictReader(f)
+                sdef = romlib.StructDef(name, reader, self.texttables)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
@@ -43,13 +44,6 @@ class RomMap(object):
                 sdef = self.sdefs.get(spec['type'], None)
                 adef = ArrayDef(spec, sdef)
                 self.arrays[adef.name] = adef
-
-        # Construct array sets
-        sets = set([a.set for a in self.arrays.values()])
-        for s in sets:
-            self.arraysets[s] = []
-        for a in self.arrays.values():
-            self.arraysets[a.set].append(a)
 
     def _get_subfiles(self, root, folder, extension):
         try:
@@ -65,95 +59,73 @@ class RomMap(object):
             # FIXME: Subfolder missing. Log warning here?
             return []
 
-    def dump(self, rom, dest, allow_overwrite=False):
-        mode = "w" if allow_overwrite else "x"
-        for entity, adefs in self.arraysets.items():
-            # Convenience
-            chain = itertools.chain.from_iterable
+    def read(self, rom):
+        """ Read all known data in a ROM.
 
-            # Read the arrays in each set, then splice them.
-            data = [ad.read(rom) for ad in adefs]
-            data = romlib.Struct.splice(data)
+        rom should be a file object opened in binary mode. The returned object
+        is a simple namespace where the contents of each array are stored as a
+        list in a property.
+        """
+        data = SimpleNamespace()
+        for arr in self.arrays.values():
+            setattr(data, arr.name, list(arr.read(rom)))
 
-            # Run any necessary display conversions
-            hx = util.hexify
+    def dump(self, data, dest, allow_overwrite=False):
+        """ Dump ROM data to a collection of csv files.
 
-            displayers = {
-                "default": lambda value, attr: value,
-                "hexify": lambda value, attr: hx(value, attr.size),
-                "hex": lambda value, attr: hx(value, attr.size),
-            }
-            for a in chain(ad.sdef.attributes.values() for ad in adefs):
-                for d in data:
-                    val = d[a.id]
-                    displayer = displayers.get(a.display,
-                                               displayers["default"])
-                    d[a.id] = displayer(val, a)
+        This produces one file for each array set.
 
-            # Get headers and turn them into labels
-            labeler = dict(chain(ad.sdef.labelmap
-                                 for ad in adefs))
-            data = [util.remap_od(od, labeler) for od in data]
-            headers = data[0].keys()
+        FIXME: Perhaps this should actually produce a dict of lists of
+        orderedicts, and leave file output up to the caller? and have a
+        top-level function for doing the Right Thing?
+        """
 
-            # Note the original order of items in data so it can be
-            # preserved when reading back in a file that has been re-
-            # sorted.
-            for i, d in enumerate(data):
+        # Group arrays by set.
+        arrays = sorted(self.arrays.values(), lambda a: a['set'])
+        arraysets = itertools.groupby(arrays, lambda a: a['set'])
+
+        for aset in arraysets:
+            # Get a bunch of merged dictionaries representing the data in the
+            # set.
+            data_subset = zip(getattr(data, arr.name) for arr in aset)
+            odicts = [StructDef.to_mergedict(stuff) for stuff in data_subset]
+
+            # Note the original order of items so it can be preserved when
+            # reading back a re-sorted file.
+            for i, d in enumerate(odicts):
                 d['_idx_'] = i
 
             # Now dump
             filename = "{}/{}.csv".format(dest, entity)
+            mode = "w" if allow_overwrite else "x"
+            headers = odicts[0].keys()
             with open(filename, mode, newline='') as f:
                 writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
                 writer.writeheader()
                 for item in data:
                     writer.writerow(item)
 
-    def changeset(self, modfolder):
-        """ Get all possible changes from files in modfolder.
-
-        This is something of a misnomer; no-op "changes" get returned too.
-        The results of this are intended as input to Patch().
-        """
-
-        # def changeset(romfile, modfolder) only get changes, don't write file?
-        # Load all expected data
-        dataset = OrderedDict()
-        for entity in self.arraysets.keys():
+    def load(self, modfolder):
+        """ Reload the data from a previous dump."""
+        data = SimpleNamespace()
+        for entity in set(arr.set for arr in self.arrays.values()):
+            filename = "{}/{}.csv".format(modfolder, entity)
+            arrays = (a for a in self.arrays.values() if a.set == entity)
             try:
-                with open("{}/{}.csv".format(modfolder, entity)) as f:
-                    data = list(util.OrderedDictReader(f))
+                with open(filename) as f:
+                    dicts = list(util.OrderedDictReader(f))
+                    for arr in arrays:
+                        setattr(data, arr.name, arr.load(dicts))
             except FileNotFoundError:
-                pass  # Ignore missing files. FIXME: Log warning?
-            # Sort by magic _idx_ field, if present.
-            data.sort(key=lambda od: int(od['_idx_']))
-            dataset[entity] = data
+                pass # Ignore missing files. FIXME: Log warning?
+        return data
 
-        # Form structs from the input. This is moderately ugly, but
-        # really all its doing is going through our input and unzipping
-        # it into lists of structs keyed by array name.
-        structs = {}
-        for entity, data in dataset.items():
-            for ad in self.arraysets[entity]:
-                structs[ad.name] = [Struct(ad.sdef, od) for od in data]
-
-        # Return the changesets for every struct.
-        changed = {}
-        for arrayname, contents in structs.items():
-            adef = self.arrays[arrayname]
-            numstructs = len(contents)
-            if numstructs != adef.length:
-                e = "{} input length mismatch, expected {}, got {}."
-                e = e.format(arrayname, adef.length, numstructs)
-                raise ValueError(e)
-            for i, struct in enumerate(contents):
-                # adef offsets are in bits, but we need bytes here.
-                offset = (adef.offset // 8) + (i * adef.stride // 8)
-                changed.update(struct.changeset(offset))
-
-        # Done.
-        return changed
+    def bytemap(self, data):
+        """ Get all possible changes from a data set."""
+        bmap = {}
+        for name, arr in self.arrays.items():
+            bmap.update(arr.bytemap(getattr(data, name))
+        return bmap
 
 
 class ArrayDef(object):
@@ -195,6 +167,8 @@ class ArrayDef(object):
 
         The file must be opened in text mode.
         """
+        # FIXME: Means having to re-open or at least re-seek the file for files
+        # containing mergedicts. Not sure what the right thing to do there is.
         for item in csv.DictReader(csvfile):
             yield self.sdef.from_dict(item)
 
@@ -215,6 +189,15 @@ class ArrayDef(object):
             pos = self.offset + (i * self.stride)
             yield self.sdef.from_bitstream(bs, pos)
 
+    def bytemap(self, structs):
+        """ Return a bytemap
+        """
+        bmap = {}
+        for i, struct in enumerate(structs):
+            offset = self.offset + self.stride * i
+            bmap.update(self.sdef.to_bytemap(struct, offset))
+        return bmap
+
     @staticmethod
     def multidump(outfile, *arrays):
         """ Splice and dump multiple arrays that are part of a set. """
@@ -223,9 +206,3 @@ class ArrayDef(object):
         writer.writeheader()
         for odict in odicts:
             writer.writerow(odict)
-
-    @staticmethod
-    def smartdump(directory, *arrays):
-        """ Group arrays by set and multidump them to individual files."""
-        # FIXME: Should this be in here or handled by clients?
-        raise NotImplementedError("Oops.")
