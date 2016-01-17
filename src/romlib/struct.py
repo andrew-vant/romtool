@@ -149,6 +149,8 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     methods of Field are intended to transport value types to and from strings,
     bitstreams, file objects, etc.
     """
+    # FIXME: doesn't need an odict input, regular dict works and shouldn't this
+    # use individual values and have a from_dict constructor instead?
     def __init__(self, odict, ttable=None, available_tts=None):
         self.id = odict['id']  # pylint: disable=invalid-name
         self.label = odict['label']

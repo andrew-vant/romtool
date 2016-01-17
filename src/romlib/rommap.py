@@ -15,6 +15,8 @@ class RomMap(object):
 
         root: The directory holding the map's spec files.
         """
+        # FIXME: Order matters now, texttables are required to build
+        # structdefs.
         self.sdefs = OrderedDict()
         self.texttables = OrderedDict()
         self.arrays = OrderedDict()
@@ -180,17 +182,50 @@ class ArrayDef(object):
             "type":     spec['type'],
             "subtype":  "",
             "display":  spec['display'],
+            "mod":      spec['mod'],
             "order":    "",
             "info":     "",
             "comment":  ""
         }
         return romlib.StructDef(spec['name'], [sdef_single_field])
 
+
+    def load(self, csvfile):
+        """ Initialize a list of structures from a csv file.
+
+        The file must be opened in text mode.
+        """
+        for item in csv.DictReader(csvfile):
+            yield self.sdef.from_dict(item)
+
+    def dump(self, outfile, structures):
+        """ Dump an array to a csv file.
+
+        outfile must be opened in writable text mode.
+        """
+        self.multidump(outfile, [structures])
+
     def read(self, rom):
         """ Read a rom and yield structures from this array.
 
         rom: A file object opened in binary mode.
         """
+        bs = BitStream(rom)
         for i in range(self.length):
             pos = self.offset + (i * self.stride)
-            yield romlib.Struct(self.sdef, rom, offset=pos)
+            yield self.sdef.from_bitstream(bs, pos)
+
+    @staticmethod
+    def multidump(outfile, *arrays):
+        """ Splice and dump multiple arrays that are part of a set. """
+        odicts = [StructDef.to_mergedict(structs) for structs in zip(arrays)]
+        writer = csv.DictWriter(outfile, odicts[0].keys())
+        writer.writeheader()
+        for odict in odicts:
+            writer.writerow(odict)
+
+    @staticmethod
+    def smartdump(directory, *arrays):
+        """ Group arrays by set and multidump them to individual files."""
+        # FIXME: Should this be in here or handled by clients?
+        raise NotImplementedError("Oops.")
