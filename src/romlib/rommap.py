@@ -1,13 +1,14 @@
 import os
 import csv
-import romlib
-
+import itertools
 from collections import OrderedDict
-from itertools import chain, groupby
+from types import SimpleNamespace
 
+from bitstring import BitStream
+
+import romlib
+from .struct import StructDef, Field
 from . import util, text
-from .struct import Struct
-from pprint import pprint
 
 
 class RomMap(object):
@@ -24,40 +25,48 @@ class RomMap(object):
 
         # Find all csv files in the texttables directory and load them into
         # a dictionary keyed by their base name.
-        for name, path in self._get_subfiles(root, "texttables", ".tbl"):
+        for name, path in _get_subfiles(root, "texttables", ".tbl"):
             with open(path) as f:
                 tbl = text.TextTable(name, f)
                 self.texttables[name] = tbl
 
         # Repeat for structs.
-        for name, path in self._get_subfiles(root, "structs", ".csv"):
+        for name, path in _get_subfiles(root, "structs", ".csv"):
             with open(path) as f:
-                tts = self.texttables.values()
                 reader = util.OrderedDictReader(f)
                 sdef = romlib.StructDef(name, reader, self.texttables)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
         with open("{}/arrays.csv".format(root)) as f:
-            reader = util.OrderedDictReader(f)
-            for spec in reader:
-                sdef = self.sdefs.get(spec['type'], None)
-                adef = ArrayDef(spec, sdef)
-                self.arrays[adef.name] = adef
+            specs = list(util.OrderedDictReader(f))
 
-    def _get_subfiles(self, root, folder, extension):
-        try:
-            filenames = [filename for filename
-                         in os.listdir("{}/{}".format(root, folder))
-                         if filename.endswith(extension)]
-            names = [os.path.splitext(filename)[0]
-                     for filename in filenames]
-            paths = ["{}/{}/{}".format(root, folder, filename)
-                     for filename in filenames]
-            return zip(names, paths)
-        except FileNotFoundError:
-            # FIXME: Subfolder missing. Log warning here?
-            return []
+        indexes = [spec for spec in specs
+                   if any(otherspec['index'] == spec['name'] for otherspec in
+                       specs)
+        for spec in specs:
+            sdef = self.sdefs.get(spec['type'], None)
+            if sdef is None:
+                sdef = StructDef.from_primitive(
+                        _id='value',
+                        _type=spec['type'],
+                        label=spec['label'],
+                        bits=util.tobits(spec['stride']),
+                        mod=util.intify(spec['mod']),
+                        display=spec['display'],
+                        ttable=self.texttables.get(spec['ttable'], None)
+                        )
+            adef = ArrayDef(
+                    name=spec['name'],
+                    _set=spec['set'],
+                    offset=util.intify(spec['offset']),
+                    length=util.intify(spec['length']),
+                    stride=util.intify(spec['stride']),
+                    sdef=sdef,
+                    index=self.arrays.get(spec['index'], None)
+                    )
+            self.arrays[adef.name] = adef
+
 
     def read(self, rom):
         """ Read all known data in a ROM.
@@ -96,6 +105,7 @@ class RomMap(object):
                 d['_idx_'] = i
 
             # Now dump
+            entity = aset[0].name
             filename = "{}/{}.csv".format(dest, entity)
             mode = "w" if allow_overwrite else "x"
             headers = odicts[0].keys()
@@ -124,42 +134,102 @@ class RomMap(object):
         """ Get all possible changes from a data set."""
         bmap = {}
         for name, arr in self.arrays.items():
-            bmap.update(arr.bytemap(getattr(data, name))
+            bmap.update(arr.bytemap(getattr(data, name)))
         return bmap
 
 
 class ArrayDef(object):
-    def __init__(self, spec, sdef=None):
-        # Record some basics, convert as needed.
-        self.name = spec['name']
-        self.type = spec['type']
-        self.length = int(spec['length'])
-        self.offset = util.tobits(spec['offset'])
-        self.stride = util.tobits(spec['stride'])
+    def __init__(self, name, _set, offset, length, stride, sdef, index=None):
+        """ Define an array.
 
-        # If no set ID is provided, use our name. Same thing for labels.
-        # The somewhat awkward use of get here is because we want to treat
-        # an empty string the same as a missing element.
-        self.set = spec['set'] if spec.get('set', None) else self.name
-        self.label = spec['label'] if spec.get('label', None) else self.name
+        name -- The name of the objects in the array.
+        _set -- The set to which the array belongs.
+        offset -- The offset at which the array starts, in bytes.
+        length -- the number of items in the array.
+        stride -- The offset from the beginning of one item to the beginning of
+                  the next.
+        sdef -- The structure definition for items in the array.
+        index -- An optional list of integers representing the offset of each
+                 item within the rom.
 
-        # If no sdef is provided, assume we're an array of primitives.
-        self.sdef = sdef if sdef else self._init_primitive_structdef(spec)
+        If index is provided, it will be used to locate and order items in the
+        array. If not provided, offset, length, and stride will be used
+        instead.
+        """
+        if not index and not all(offset, stride, length):
+            msg = "Array {} requires either an index or offset/length/stride."
+            raise ValueError(msg, name)
+        self.name = name
+        self.set = _set if _set else name
+        self.offset = offset
+        self.length = length
+        self.stride = stride
+        self.sdef = sdef
+        if index is not None:
+            self.index = index.copy()
+        else:
+            self.index = [offset + i * stride
+                          for i in range(length)]
 
-    def _init_primitive_structdef(self, spec):
-        sdef_single_field = {
-            "id":       "value",
-            "label":    spec['label'],
-            "size":     spec['stride'],
-            "type":     spec['type'],
-            "subtype":  "",
-            "display":  spec['display'],
-            "mod":      spec['mod'],
-            "order":    "",
-            "info":     "",
-            "comment":  ""
-        }
-        return romlib.StructDef(spec['name'], [sdef_single_field])
+    @classmethod
+    def from_primitive(cls, name, _type, offset=0, length=0, size=0, mod=0,
+                       _set=None, display=None, label=None,
+                       index=None, ttable=None):
+        """ Define an array of primitive values.
+
+        This is for values that don't have an existing structdef, e.g. bare
+        ints.
+        """
+        sdef = StructDef.from_primitive(_id='value',
+                                        _type=_type,
+                                        bits=size*8,
+                                        label=label if label else name,
+                                        mod=mod,
+                                        display=display,
+                                        ttable=ttable)
+        return cls(name, _set, offset, length, size, sdef, index)
+
+    @classmethod
+    def from_stringdict(cls, spec, sdefs=None, ttables=None, indexes=None):
+        """ Create an arraydef from a dictionary of strings.
+
+        Mostly this is to make it convenient to get from a .csv to an arraydef.
+        """
+        spec = spec.copy()
+        casters = {
+                'offset': util.intify,
+                'length': util.intify,
+                'stride': util.intify
+                'mod': util.intify
+                }
+        for key, caster in casters:
+            spec[key] = caster(spec[key])
+
+        sdef = sdefs.get(spec['type'], None)
+        ttable = ttables.get(spec['display'], None)
+        index = indexes.get(spec['index'], None)
+
+        if sdef is not None:
+            return ArrayDef(name=spec['name'],
+                            _set=spec['set'],
+                            offset=spec['offset'],
+                            length=spec['length'],
+                            stride=spec['stride'],
+                            mod=spec['mod'],
+                            sdef=sdef,
+                            index=index)
+
+        else:
+            return cls.from_primitive(name=spec['name'],
+                                      _type=spec['type'],
+                                      offset=spec['offset'],
+                                      length=spec['length'],
+                                      size=spec['stride'],
+                                      _set=spec['set'],
+                                      display=spec['display'],
+                                      label=spec['label'],
+                                      index=index,
+                                      ttable=ttable)
 
 
     def load(self, csvfile):
@@ -184,19 +254,15 @@ class ArrayDef(object):
 
         rom: A file object opened in binary mode.
         """
-        bs = BitStream(rom)
-        for i in range(self.length):
-            pos = self.offset + (i * self.stride)
-            yield self.sdef.from_bitstream(bs, pos)
+        for offset in self.index:
+            yield self.sdef.from_file(rom, offset)
 
     def bytemap(self, structs):
         """ Return a bytemap
         """
         bmap = {}
-        for i, struct in enumerate(structs):
-            offset = self.offset + self.stride * i
+        for offset, struct in zip(index, structs):
             bmap.update(self.sdef.to_bytemap(struct, offset))
-        return bmap
 
     @staticmethod
     def multidump(outfile, *arrays):
@@ -206,3 +272,18 @@ class ArrayDef(object):
         writer.writeheader()
         for odict in odicts:
             writer.writerow(odict)
+
+
+def _get_subfiles(root, folder, extension):
+    try:
+        filenames = [filename for filename
+                     in os.listdir("{}/{}".format(root, folder))
+                     if filename.endswith(extension)]
+        names = [os.path.splitext(filename)[0]
+                 for filename in filenames]
+        paths = ["{}/{}/{}".format(root, folder, filename)
+                 for filename in filenames]
+        return zip(names, paths)
+    except FileNotFoundError:
+        # FIXME: Subfolder missing. Log warning here?
+        return []

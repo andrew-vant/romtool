@@ -145,3 +145,11 @@ def divup(a, b):
     """ Divide A by B with integer division, rounding up instead of down."""
     # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839
     return (a + (-a % b)) // b
+
+
+def intify(x):
+    """ A forgiving int() cast; returns zero for non-int strings."""
+    try:
+        return int(x, 0)
+    except ValueError:
+        return 0

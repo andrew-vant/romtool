@@ -9,29 +9,50 @@ from . import util
 
 
 class StructDef(object):
-    def __init__(self, name, fdefs, texttables=None):
-        """ Create a new structure type.
-
-        *fdefs* should be an iterable. It may contain either Field objects or any
-        type that can be used to initialize a Field object (usually dicts).
-        """
+    def __init__(self, name, fdefs):
+        """ Create a new structure type containing the fields *fdefs*."""
         # FIXME: raise an exception for a structure for which the main data
-        # members don't sum to a whole-byte size.
+        # members don't sum to a whole-byte size?
         if texttables is None:
             texttables = {}
 
-        fields = OrderedDict()
-        for fdef in fdefs:
-            if not isinstance(fdef, Field):
-                fdef = Field(fdef, available_tts=texttables)
-            fields[fdef.id] = fdef
-
-        self.fields = fields
-        self.links = [f for f in fields if f.pointer]
-        self.data = [f for f in fields if not f.pointer]
+        self.fields = OrderedDict(fdef.id: fdef for fdef in fdefs)
+        self.links = [f for f in fields.values() if f.pointer]
+        self.data =  [f for f in fields.values() if not f.pointer]
         self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
 
-    def from_dict(self, d):  # pylint: disable=invalid-name
+    @classmethod
+    def from_stringdicts(cls, name, fdef_dicts, ttables=None):
+        """ Create a new structure from a list of dictionaries.
+
+        The dictionaries must be valid input to Field.from_stringdict.
+        *ttables* should be a dictionary of text tables to use for decoding
+        string fields. String fields will be mapped to text tables by the
+        'display' key.
+        """
+        if ttables is None:
+            ttables = {}
+        fdefs = []
+        for d in fdef_dicts:
+            display = d.get('display', None)
+            ttable = ttables.get(display, None)
+            fdef = Field.from_stringdict(d, ttable)
+            fdefs.append(fdef)
+        return StructDef(name, fdefs)
+
+    @classmethod
+    def from_primitive(cls, _id, _type, bits,
+                       label=None, mod=0, display=None, ttable=None):
+        field = Field(_id=_id,
+                      _type=_type,
+                      label=label,
+                      bits=bits,
+                      mod=mod,
+                      display=display,
+                      ttable=ttable)
+        return StructDef(_id, [field])
+
+    def load(self, d):  # pylint: disable=invalid-name
         """Create a new structure from a dictionary.
 
         The structure's fields will be initialized from the corresponding items
@@ -49,7 +70,7 @@ class StructDef(object):
             initializers[field.id] = value
         return self.cls(**initializers)
 
-    def from_bitstream(self, bs, offset=None):
+    def read_bitstream(self, bs, offset=None):
         """ Read in a new structure from a bitstream.
 
             bs must be a BitStream or ConstBitStream. If offset is provided,
@@ -66,7 +87,7 @@ class StructDef(object):
             data[field.id] = field.from_bitstream(bs)
         return self.cls(**data)
 
-    def from_file(self, f, offset=None):
+    def read(self, f, offset=None):
         """ Read in a new structure from a file object
 
         *f* must be a file object opened in binary mode. If offset is provided,
@@ -79,7 +100,7 @@ class StructDef(object):
         bs = ConstBitStream(f)
         return self.from_bitstream(bs, bit_offset)
 
-    def to_bytemap(self, struct, offset=0):
+    def bytemap(self, struct, offset=0):
         """ Get an offset-to-byte-value dict.
 
         Offset indicates the start point of the structure.
@@ -108,7 +129,7 @@ class StructDef(object):
         # Done
         return changes
 
-    def to_odict(self, struct, stringify=True, use_labels=True):
+    def dump(self, struct, stringify=True, use_labels=True):
         """ Get an ordered dictionary of the structure's data.
 
         By default, the field labels will be used as keys if available, and all
@@ -118,7 +139,7 @@ class StructDef(object):
         return StructDef.to_mergedict([struct], stringify, use_labels)
 
     @staticmethod
-    def to_mergedict(structures, stringify=True, use_labels=True):
+    def multidump(structures, stringify=True, use_labels=True):
         """ Turn a list of structures into an ordereddict for serialization.
 
         The odict will contain all their values and be ordered in a sane manner
@@ -149,35 +170,39 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     methods of Field are intended to transport value types to and from strings,
     bitstreams, file objects, etc.
     """
-    # FIXME: doesn't need an odict input, regular dict works and shouldn't this
-    # use individual values and have a from_dict constructor instead?
-    def __init__(self, odict, ttable=None, available_tts=None):
-        self.id = odict['id']  # pylint: disable=invalid-name
-        self.label = odict['label']
-        self.size = util.tobits(odict['size'])
-        self.bitsize = util.tobits(odict['size'])
-        self.bytesize = util.divup(self.bitsize, 8)
-        self.type = odict['type']
-        self.display = odict['display']
-        self.order = int(odict['order'])
-        self.pointer = odict['pointer'] if odict['pointer'] else None
-        self.mod = int(odict['mod'], 0) if odict['mod'] else 0
-        self.info = odict['info']
-        self.comment = odict['comment']
+    def __init__(self, _id, label, _type, bits,
+                 order=0, mod=0, comment="",
+                 display=None, pointer=None, ttable=None)
+        self.id = _id
+        self.label = label
+        self.type = _type
+        self.bitsize = bits
+        self.bytesize = util.divup(bits, 8)
+        self.order = order
+        self.mod = mod
+        self.comment = comment
+        self.display = display
+        self.pointer = pointer
+        self.ttable = ttable
 
         # FIXME: should probably raise an exception if someone asks for a
         # string type without a text table.
+
+    def from_stringdict(cls, odict, ttable=None, available_tts=None):
         if ttable is None and available_tts is not None:
-            ttable = available_tts[self.display]
-        self.ttable = ttable
+            ttable = available_tts.get(odict['display'], None)
+        return Field(_id=odict['id'],
+                     label=odict['label'],
+                     _type=odict['type'],
+                     bitsize=util.tobits(odict['size']),
+                     order=int(odict['order']) if odict['order'] else 0,
+                     mod=int(odict['mod']) if odict['mod'] else 0,
+                     comment=odict['comment'],
+                     display=odict['display'],
+                     pointer=odict['pointer'],
+                     ttable=ttable)
 
-    def from_bytes(self, data, offset=0):
-        """ Read a field from within a bunch of bytes."""
-        bitoffset = offset * 8
-        bs = ConstBitStream(data)
-        return self.from_bitstream(bs, bitoffset)
-
-    def from_file(self, f, offset=None):
+    def read(self, f, offset=None):
         """ Read a field from a byte offset within a file.
 
         Obviously this only works if a field starts somewhere byte-aligned. If
@@ -191,7 +216,13 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         bs = ConstBitStream(f)
         return self.from_bitstream(bs, bitoffset)
 
-    def from_bitstream(self, bs, offset=None):
+    def read_bytes(self, data, offset=0):
+        """ Read a field from within a bunch of bytes."""
+        bitoffset = offset * 8
+        bs = ConstBitStream(data)
+        return self.from_bitstream(bs, bitoffset)
+
+    def read_bitstream(self, bs, offset=None):
         """ Read a field from a bit offset within a bitstream.
 
         If *offset* is not provided, bs.pos will be used.
@@ -214,7 +245,22 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
                 msg = "Field '{}' of type '{}' isn't a valid type?"
                 raise ValueError(msg, self.id, self.type)
 
-    def from_string(self, s):  # pylint: disable=invalid-name
+    def bits(self, value):
+        """ Convert a value to a Bits object."""
+        if 'str' in self.type:
+            return Bits(self.ttable.encode(value))
+        else:
+            init = {self.type: value, 'length': self.bitsize}
+            return Bits(**init)
+
+    def bytes(self, value):
+        """ Convert a value to a bytes object.
+
+        This may fail if the field is not a whole number of bytes long.
+        """
+        return self.to_bits(value).bytes
+
+    def load(self, s):  # pylint: disable=invalid-name
         """ Convert the string *s* to an appropriate value type."""
         if self.type in ['str', 'strz', 'bin', 'hex']:
             return s
@@ -226,22 +272,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             msg = "Destringification of '{}' not implemented."
             raise NotImplementedError(msg, self.type)
 
-    def to_bits(self, value):
-        """ Convert a value to a Bits object."""
-        if 'str' in self.type:
-            return Bits(self.ttable.encode(value))
-        else:
-            init = {self.type: value, 'length': self.bitsize}
-            return Bits(**init)
-
-    def to_bytes(self, value):
-        """ Convert a value to a bytes object.
-
-        This may fail if the field is not a whole number of bytes long.
-        """
-        return self.to_bits(value).bytes
-
-    def to_string(self, value):
+    def dump(self, value):
         """ Convert *value* to a string.
 
         Note that we don't use the *str* builtin for this because some fields
