@@ -16,7 +16,7 @@ class StructDef(object):
         if texttables is None:
             texttables = {}
 
-        self.fields = OrderedDict(fdef.id: fdef for fdef in fdefs)
+        self.fields = OrderedDict((fdef.id, fdef) for fdef in fdefs)
         self.links = [f for f in fields.values() if f.pointer]
         self.data =  [f for f in fields.values() if not f.pointer]
         self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
@@ -177,7 +177,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     """
     def __init__(self, _id, label, _type, bits,
                  order=0, mod=0, comment="",
-                 display=None, pointer=None, ttable=None)
+                 display=None, pointer=None, ttable=None):
         self.id = _id
         self.label = label
         self.type = _type

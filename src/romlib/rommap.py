@@ -41,9 +41,11 @@ class RomMap(object):
         with open("{}/arrays.csv".format(root)) as f:
             specs = list(util.OrderedDictReader(f))
 
-        indexes = [spec for spec in specs
-                   if any(otherspec['index'] == spec['name'] for otherspec in
-                       specs)
+        # Make sure unindexed specs get loaded first to ensure that indexes get
+        # loaded before the arrays that require them. This assumes no recursive
+        # indexes, so it may break some day. FIXME: Do empty strings get sorted
+        # before all other strings?
+        specs.sort(key=lambda spec: spec['index'])
         for spec in specs:
             sdef = self.sdefs.get(spec['type'], None)
             if sdef is None:
@@ -139,18 +141,17 @@ class RomMap(object):
 
 
 class ArrayDef(object):
-    def __init__(self, name, _set, offset, length, stride, sdef, index=None):
+    def __init__(self, name, _set, sdef, offset=0, length=0, stride=0, index=None):
         """ Define an array.
 
         name -- The name of the objects in the array.
         _set -- The set to which the array belongs.
+        sdef -- The structure definition for items in the array.
         offset -- The offset at which the array starts, in bytes.
         length -- the number of items in the array.
         stride -- The offset from the beginning of one item to the beginning of
                   the next.
-        sdef -- The structure definition for items in the array.
-        index -- An optional list of integers representing the offset of each
-                 item within the rom.
+        index -- an optional ArrayDef describing an array of pointers.
 
         If index is provided, it will be used to locate and order items in the
         array. If not provided, offset, length, and stride will be used
@@ -160,16 +161,25 @@ class ArrayDef(object):
             msg = "Array {} requires either an index or offset/length/stride."
             raise ValueError(msg, name)
         self.name = name
-        self.set = _set if _set else name
+        self.set = _set or name
         self.offset = offset
         self.length = length
         self.stride = stride
         self.sdef = sdef
-        if index is not None:
-            self.index = index.copy()
+        self.index = index
+        if index:
+            if self.set != index.set:
+                # If the array and its index don't share a set, they won't be
+                # dumped in the same csv and the offsets can't be reaquired on
+                # load.
+                msg = "Array {} uses index {} but they don't share a set."
+                raise ValueError(msg, self.name, index.name)
+            # Indexes should only have one field so this should work...
+            self._indexer = next(index.sdef.fields.values())
+            self._indices = None
         else:
-            self.index = [offset + i * stride
-                          for i in range(length)]
+            self._indexer = None
+            self._indices = [offset+i*stride for i in range(length)]
 
     @classmethod
     def from_primitive(cls, name, _type, offset=0, length=0, size=0, mod=0,
@@ -199,7 +209,7 @@ class ArrayDef(object):
         casters = {
                 'offset': util.intify,
                 'length': util.intify,
-                'stride': util.intify
+                'stride': util.intify,
                 'mod': util.intify
                 }
         for key, caster in casters:
@@ -239,8 +249,15 @@ class ArrayDef(object):
         """
         # FIXME: Means having to re-open or at least re-seek the file for files
         # containing mergedicts. Not sure what the right thing to do there is.
+        if self.index:
+            self._indices = []
+
+        # The value in the csvfile should be a rom offset rather than raw so we
+        # don't need to mod it here...
         for item in csv.DictReader(csvfile):
-            yield self.sdef.from_dict(item)
+            if self.index:
+                self._indices.append(int(item[self._indexer.id], 0))
+            yield self.sdef.load(item)
 
     def dump(self, outfile, structures):
         """ Dump an array to a csv file.
@@ -254,14 +271,28 @@ class ArrayDef(object):
 
         rom: A file object opened in binary mode.
         """
-        for offset in self.index:
-            yield self.sdef.from_file(rom, offset)
+        if self._indices is None:
+            mod = self.indexer.mod
+            attr = self.indexer.id
+            self._indices = [getattr(struct, attr) + mod
+                             for struct in self.index.read(rom)]
 
-    def bytemap(self, structs):
-        """ Return a bytemap
+        for offset in self._indices:
+            # FIXME: bits vs. bytes Should really grep for offset.
+            yield self.sdef.read(rom, offset*8)
+
+    def bytemap(self, structs, indices=None):
+        """ Return a bytemap.
+
+        Indices need only be provided for indexed arrays that have been built
+        "from scratch" i.e. not from .load or .read. This should happen
+        approximately never.
         """
+
+        if indices is None:
+            indices = self._indices
         bmap = {}
-        for offset, struct in zip(index, structs):
+        for offset, struct in zip(indices, structs):
             bmap.update(self.sdef.to_bytemap(struct, offset))
 
     @staticmethod
