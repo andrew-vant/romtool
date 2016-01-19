@@ -70,35 +70,40 @@ class StructDef(object):
             initializers[field.id] = value
         return self.cls(**initializers)
 
-    def read_bitstream(self, bs, offset=None):
-        """ Read in a new structure from a bitstream.
+    def read(self, source, bit_offset=None):
+        """ Read in a new structure
 
-            bs must be a BitStream or ConstBitStream. If offset is provided,
-            it must be specified in bits and reading will begin from there.
-            Otherwise, reading will begin from bs.pos.
+        source -- The data source to read from. This may be a bitstring or any
+                  object that can be converted to one, e.g a file object.
+
+        bit_offset -- The offset to start reading from.
+
+        If the offset is not provided, it will try to use the read position of
+        *source* by looking for f.tell() (on file objects) or bs.pos (for
+        bitstrings). Otherwise it will default to zero.
+
+        If *source* is a file object, it must be opened in binary mode.
         """
-        if offset is not None:
-            bs.pos = offset
+        if bit_offset is None:
+            # Don't like this if chain but try/except comes out worse...
+            if hasattr(source, 'tell'):
+                bit_offset = source.tell() * 8
+            elif hasattr(source, 'pos'):
+                bit_offset = source.pos
+            else:
+                bit_offset = 0
+
+        bs = ConstBitStream(source)
+        bs.pos = bit_offset
+
         data = {field.id: field.from_bitstream(bs)
                 for field in self.data}
+
         for field in self.links:
             pointer = self.fields[field.pointer]
             bs.pos = (data[pointer.id] + pointer.mod) * 8
             data[field.id] = field.from_bitstream(bs)
         return self.cls(**data)
-
-    def read(self, f, offset=None):
-        """ Read in a new structure from a file object
-
-        *f* must be a file object opened in binary mode. If offset is provided,
-        it must be specified in bytes and reading will begin from there.
-        Otherwise, reading will begin from f.tell()
-        """
-        if offset is None:
-            offset = f.tell()
-        bit_offset = offset * 8
-        bs = ConstBitStream(f)
-        return self.from_bitstream(bs, bit_offset)
 
     def bytemap(self, struct, offset=0):
         """ Get an offset-to-byte-value dict.
