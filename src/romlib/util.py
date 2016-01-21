@@ -141,6 +141,21 @@ def filebytes(f):
         b = f.read(1)
 
 
+def bit_offset(source):
+    """ Find the current read position of *source*, in bits.
+
+    Used for cases where *source* may be a file, a bitstring, or a bytes.
+    Returns f.tell(), bs.pos, or 0 respectively.
+    """
+    # Don't like this if chain but try/except comes out worse...
+    if hasattr(source, 'tell'):
+        return source.tell() * 8
+    elif hasattr(source, 'pos'):
+        return source.pos
+    else:
+        return 0
+
+
 def divup(a, b):
     """ Divide A by B with integer division, rounding up instead of down."""
     # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839

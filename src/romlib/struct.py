@@ -85,24 +85,17 @@ class StructDef(object):
         If *source* is a file object, it must be opened in binary mode.
         """
         if bit_offset is None:
-            # Don't like this if chain but try/except comes out worse...
-            if hasattr(source, 'tell'):
-                bit_offset = source.tell() * 8
-            elif hasattr(source, 'pos'):
-                bit_offset = source.pos
-            else:
-                bit_offset = 0
-
+            bit_offset = util.bit_offset(source)
         bs = ConstBitStream(source)
         bs.pos = bit_offset
 
-        data = {field.id: field.from_bitstream(bs)
+        data = {field.id: field.read(bs)
                 for field in self.data}
 
         for field in self.links:
             pointer = self.fields[field.pointer]
             bs.pos = (data[pointer.id] + pointer.mod) * 8
-            data[field.id] = field.from_bitstream(bs)
+            data[field.id] = field.read(bs)
         return self.cls(**data)
 
     def bytemap(self, struct, offset=0):
@@ -161,7 +154,7 @@ class StructDef(object):
                 value = getattr(struct, field.id)
                 if stringify:
                     value = field.to_string(value)
-                ordering = field.fullorder(i)
+                ordering = field.sortorder(i)
                 data.append(key, value, ordering)
 
         data.sort(key=lambda d: d[-1])
@@ -207,35 +200,21 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
                      pointer=odict['pointer'],
                      ttable=ttable)
 
-    def read(self, f, offset=None):
-        """ Read a field from a byte offset within a file.
-
-        Obviously this only works if a field starts somewhere byte-aligned. If
-        *offset* is not provided, it will be read from f.tell().
-
-        The returned value will be a string or an int, as appropriate.
-        """
-        if offset is None:
-            offset = f.tell()
-        bitoffset = offset * 8
-        bs = ConstBitStream(f)
-        return self.from_bitstream(bs, bitoffset)
-
-    def read_bytes(self, data, offset=0):
-        """ Read a field from within a bunch of bytes."""
-        bitoffset = offset * 8
-        bs = ConstBitStream(data)
-        return self.from_bitstream(bs, bitoffset)
-
-    def read_bitstream(self, bs, offset=None):
+    def read(self, source, bit_offset=None):
         """ Read a field from a bit offset within a bitstream.
 
-        If *offset* is not provided, bs.pos will be used.
+        *source* may be any object that can be converted to a bitstream.
+
+        *bit_offset* defaults to the current read position of *source* if
+        possible, or to zero for objects that don't have a read position (e.g.
+        bytes).
 
         The returned value will be a string or an int, as appropriate.
         """
-        if offset is not None:
-            bs.pos = offset
+        if bit_offset is None:
+            bit_offset = util.bit_offset(source)
+        bs = ConstBitStream(source)
+        bs.pos = bit_offset
 
         if 'str' in self.type:
             maxbits = self.bitsize if self.bitsize else 1024*8
@@ -301,7 +280,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         msg = "Stringification of '{}' not implemented."
         raise NotImplementedError(msg, self.type)
 
-    def fullorder(self, origin_sequence_order=0):
+    def sortorder(self, origin_sequence_order=0):
         """ Get the sort order of this field.
 
         This returns a tuple containing several properties relevant to sorting.
@@ -315,5 +294,3 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         nameorder = 0 if self.label == "Name" else 1
         typeorder = 1 if self.info == "pointer" else 0
         return nameorder, self.order, typeorder, origin_sequence_order
-
-
