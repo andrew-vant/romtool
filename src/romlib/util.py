@@ -25,43 +25,6 @@ class OrderedDictReader(csv.DictReader):
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
 
 
-class Address(object):
-    """ Manage and convert between rom offsets and pointer formats."""
-
-    def __init__(self, offset, schema="offset"):
-        funcname = "_from_{}".format(schema)
-        converter = getattr(self, funcname)
-        self._address = converter(offset)
-
-    @property
-    def rom(self):
-        """ Use this address as a ROM offset. """
-        return self._address
-
-    @property
-    def hirom(self, mirror=0xC00000):
-        """ Use this address as a hirom pointer.
-
-        Use this when writing pointers back to a hirom image. There are
-        multiple rom mirrors in hirom; this defaults to using the C0-FF
-        mirror, since it contains all possible banks.
-        """
-        # hirom has multiple possible re-referencings, but C0-FF should
-        # always be safe.
-        return self._address | mirror
-
-    @classmethod
-    def _from_offset(cls, offset):
-        """ Initialize an address from a ROM offset. """
-        return offset
-
-    @classmethod
-    def _from_hirom(cls, offset):
-        """ Initialize an address from a hirom pointer. """
-        # hirom has multiple mirrors, but I *think* this covers all of them...
-        return offset % 0x400000
-
-
 def hexify(i, length=None):
     """ Converts an integer to a hex string.
 
