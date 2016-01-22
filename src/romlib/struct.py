@@ -40,18 +40,6 @@ class StructDef(object):
             fdefs.append(fdef)
         return StructDef(name, fdefs)
 
-    @classmethod
-    def from_primitive(cls, _id, _type, bits,
-                       label=None, mod=0, display=None, ttable=None):
-        field = Field(_id=_id,
-                      _type=_type,
-                      label=label,
-                      bits=bits,
-                      mod=mod,
-                      display=display,
-                      ttable=ttable)
-        return StructDef(_id, [field])
-
     def load(self, d):  # pylint: disable=invalid-name
         """Create a new structure from a dictionary.
 
