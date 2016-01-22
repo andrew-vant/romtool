@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from types import SimpleNamespace
 
-from bitstring import *
+from bitstring import ConstBitStream, BitStream, Bits
 
 from . import util
 
@@ -17,8 +17,6 @@ class StructDef(object):
     """
     def __init__(self, name, fdefs):
         """ Create a new structure type containing the fields *fdefs*."""
-        # FIXME: raise an exception for a structure for which the main data
-        # members don't sum to a whole-byte size?
         self.fields = OrderedDict((fdef.id, fdef) for fdef in fdefs)
         self.links = [f for f in self.fields.values() if f.pointer]
         self.data = [f for f in self.fields.values() if not f.pointer]
