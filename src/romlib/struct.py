@@ -162,6 +162,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     def __init__(self, _id, label, _type, bits,
                  order=0, mod=0, comment="",
                  display=None, pointer=None, ttable=None):
+        if 'str' in _type and ttable is None:
+            msg = "String field {} has no text table. Check display attribute?"
+            raise ValueError(msg, _id)
         self.id = _id  #pylint: disable=invalid-name
         self.label = label
         self.type = _type
@@ -173,9 +176,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.display = display
         self.pointer = pointer
         self.ttable = ttable
-
-        # FIXME: should probably raise an exception if someone asks for a
-        # string type without a text table.
 
     @classmethod
     def from_stringdict(cls, odict, ttable=None, available_tts=None):
