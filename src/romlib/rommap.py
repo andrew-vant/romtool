@@ -55,6 +55,7 @@ class RomMap(object):
         specs.sort(key=lambda spec: spec['index'])
         for spec in specs:
             sdef = self.sdefs.get(spec['type'], None)
+            index = self.arrays.get(spec['index'], None)
             if sdef is None:
                 # We have a primitive
                 field = Field(
@@ -67,15 +68,7 @@ class RomMap(object):
                     ttable=self.texttables.get(spec['ttable'], None)
                     )
                 sdef = StructDef(spec['name'], [field])
-            adef = ArrayDef(
-                name=spec['name'],
-                _set=spec['set'],
-                offset=util.intify(spec['offset']),
-                length=util.intify(spec['length']),
-                stride=util.intify(spec['stride']),
-                sdef=sdef,
-                index=self.arrays.get(spec['index'], None)
-                )
+            adef = ArrayDef.from_stringdict(spec, sdef, index)
             self.arrays[adef.name] = adef
 
 
