@@ -7,18 +7,21 @@ from bitstring import *
 
 from . import util
 
-
 class StructDef(object):
+    """ A definition of a type of structure.
+
+    For example, a structure containing monster data, or weapon data. This
+    class is used to read, convert, textualize, or diff structures against
+    roms. The actual structures it creates are just SimpleNamespaces with a
+    private attribute linking back to their definition.
+    """
     def __init__(self, name, fdefs):
         """ Create a new structure type containing the fields *fdefs*."""
         # FIXME: raise an exception for a structure for which the main data
         # members don't sum to a whole-byte size?
-        if texttables is None:
-            texttables = {}
-
         self.fields = OrderedDict((fdef.id, fdef) for fdef in fdefs)
-        self.links = [f for f in fields.values() if f.pointer]
-        self.data =  [f for f in fields.values() if not f.pointer]
+        self.links = [f for f in self.fields.values() if f.pointer]
+        self.data = [f for f in self.fields.values() if not f.pointer]
         self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
 
     @classmethod
@@ -33,10 +36,10 @@ class StructDef(object):
         if ttables is None:
             ttables = {}
         fdefs = []
-        for d in fdef_dicts:
-            display = d.get('display', None)
+        for fdict in fdef_dicts:
+            display = fdict.get('display', None)
             ttable = ttables.get(display, None)
-            fdef = Field.from_stringdict(d, ttable)
+            fdef = Field.from_stringdict(fdict, ttable)
             fdefs.append(fdef)
         return StructDef(name, fdefs)
 
@@ -122,7 +125,7 @@ class StructDef(object):
         values will be converted to strings. The returned OrderedDict is
         suitable for sending to a csv or similar.
         """
-        return StructDef.to_mergedict([struct], stringify, use_labels)
+        return StructDef.multidump([struct], stringify, use_labels)
 
     @staticmethod
     def multidump(structures, stringify=True, use_labels=True):
@@ -159,7 +162,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     def __init__(self, _id, label, _type, bits,
                  order=0, mod=0, comment="",
                  display=None, pointer=None, ttable=None):
-        self.id = _id
+        self.id = _id  #pylint: disable=invalid-name
         self.label = label
         self.type = _type
         self.bitsize = bits
@@ -174,13 +177,20 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         # FIXME: should probably raise an exception if someone asks for a
         # string type without a text table.
 
+    @classmethod
     def from_stringdict(cls, odict, ttable=None, available_tts=None):
+        """ Create a Field object from a dictionary of strings.
+
+        This is a convenience constructor intended to be used on the input from
+        csv structure definitions. All it does is convert values to the
+        appropriate types and then pass them to the regular constructor.
+        """
         if ttable is None and available_tts is not None:
             ttable = available_tts.get(odict['display'], None)
         return Field(_id=odict['id'],
                      label=odict['label'],
                      _type=odict['type'],
-                     bitsize=util.tobits(odict['size']),
+                     bits=util.tobits(odict['size']),
                      order=int(odict['order']) if odict['order'] else 0,
                      mod=int(odict['mod']) if odict['mod'] else 0,
                      comment=odict['comment'],
@@ -230,7 +240,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 
         This may fail if the field is not a whole number of bytes long.
         """
-        return self.to_bits(value).bytes
+        return self.bits(value).bytes
 
     def load(self, s):  # pylint: disable=invalid-name
         """ Convert the string *s* to an appropriate value type."""
@@ -280,5 +290,5 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         it provided.
         """
         nameorder = 0 if self.label == "Name" else 1
-        typeorder = 1 if self.info == "pointer" else 0
+        typeorder = 1 if self.display == "pointer" else 0
         return nameorder, self.order, typeorder, origin_sequence_order
