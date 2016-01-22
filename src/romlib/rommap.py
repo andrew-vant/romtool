@@ -1,17 +1,24 @@
+"""This module contains classes for locating data within a ROM."""
+
 import os
 import csv
 import itertools
 from collections import OrderedDict
 from types import SimpleNamespace
 
-from bitstring import BitStream
-
-import romlib
 from .struct import StructDef, Field
 from . import util, text
 
 
 class RomMap(object):
+    """ A ROM Map.
+
+    The properties of this object describe what kinds of structures a given ROM
+    contains, their data format, their locations within the rom, and, for
+    textual data, the text table to use to decode them.
+
+    This is romlib's top-level object. All paths start here.
+    """
     def __init__(self, root):
         """ Create a ROM map.
 
@@ -34,7 +41,7 @@ class RomMap(object):
         for name, path in _get_subfiles(root, "structs", ".csv"):
             with open(path) as f:
                 reader = util.OrderedDictReader(f)
-                sdef = romlib.StructDef(name, reader, self.texttables)
+                sdef = StructDef.from_stringdicts(name, reader, self.texttables)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
@@ -49,24 +56,26 @@ class RomMap(object):
         for spec in specs:
             sdef = self.sdefs.get(spec['type'], None)
             if sdef is None:
-                sdef = StructDef.from_primitive(
-                        _id='value',
-                        _type=spec['type'],
-                        label=spec['label'],
-                        bits=util.tobits(spec['stride']),
-                        mod=util.intify(spec['mod']),
-                        display=spec['display'],
-                        ttable=self.texttables.get(spec['ttable'], None)
-                        )
-            adef = ArrayDef(
-                    name=spec['name'],
-                    _set=spec['set'],
-                    offset=util.intify(spec['offset']),
-                    length=util.intify(spec['length']),
-                    stride=util.intify(spec['stride']),
-                    sdef=sdef,
-                    index=self.arrays.get(spec['index'], None)
+                # We have a primitive
+                field = Field(
+                    _id=spec['name'],
+                    _type=spec['type'],
+                    label=spec['label'],
+                    bits=util.tobits(spec['stride']),
+                    mod=util.intify(spec['mod']),
+                    display=spec['display'],
+                    ttable=self.texttables.get(spec['ttable'], None)
                     )
+                sdef = StructDef(spec['name'], [field])
+            adef = ArrayDef(
+                name=spec['name'],
+                _set=spec['set'],
+                offset=util.intify(spec['offset']),
+                length=util.intify(spec['length']),
+                stride=util.intify(spec['stride']),
+                sdef=sdef,
+                index=self.arrays.get(spec['index'], None)
+                )
             self.arrays[adef.name] = adef
 
 
@@ -99,12 +108,12 @@ class RomMap(object):
             # Get a bunch of merged dictionaries representing the data in the
             # set.
             data_subset = zip(getattr(data, arr.name) for arr in aset)
-            odicts = [StructDef.to_mergedict(stuff) for stuff in data_subset]
+            odicts = [StructDef.multidump(stuff) for stuff in data_subset]
 
             # Note the original order of items so it can be preserved when
             # reading back a re-sorted file.
-            for i, d in enumerate(odicts):
-                d['_idx_'] = i
+            for i, odict in enumerate(odicts):
+                odict['_idx_'] = i
 
             # Now dump
             entity = aset[0].name
@@ -141,6 +150,13 @@ class RomMap(object):
 
 
 class ArrayDef(object):
+    """ Definition of a data table within a ROM.
+
+    In short, this describes where a data table starts, how long it is, and
+    what sort of data in contains. If cross-references to the table are against
+    a separate table of pointers, that table will be used when reading,
+    writing, or comparing data.
+    """
     def __init__(self, name, _set, sdef, offset=0, length=0, stride=0, index=None):
         """ Define an array.
 
@@ -229,8 +245,8 @@ class ArrayDef(object):
         rom: A file object opened in binary mode.
         """
         if self._indices is None:
-            mod = self.indexer.mod
-            attr = self.indexer.id
+            mod = self._indexer.mod
+            attr = self._indexer.id
             self._indices = [getattr(struct, attr) + mod
                              for struct in self.index.read(rom)]
 
@@ -255,7 +271,7 @@ class ArrayDef(object):
     @staticmethod
     def multidump(outfile, *arrays):
         """ Splice and dump multiple arrays that are part of a set. """
-        odicts = [StructDef.to_mergedict(structs) for structs in zip(arrays)]
+        odicts = [StructDef.multidump(structs) for structs in zip(arrays)]
         writer = csv.DictWriter(outfile, odicts[0].keys())
         writer.writeheader()
         for odict in odicts:
