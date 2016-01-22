@@ -182,65 +182,22 @@ class ArrayDef(object):
             self._indices = [offset+i*stride for i in range(length)]
 
     @classmethod
-    def from_primitive(cls, name, _type, offset=0, length=0, size=0, mod=0,
-                       _set=None, display=None, label=None,
-                       index=None, ttable=None):
-        """ Define an array of primitive values.
-
-        This is for values that don't have an existing structdef, e.g. bare
-        ints.
-        """
-        sdef = StructDef.from_primitive(_id='value',
-                                        _type=_type,
-                                        bits=size*8,
-                                        label=label if label else name,
-                                        mod=mod,
-                                        display=display,
-                                        ttable=ttable)
-        return cls(name, _set, offset, length, size, sdef, index)
-
-    @classmethod
-    def from_stringdict(cls, spec, sdefs=None, ttables=None, indexes=None):
+    def from_stringdict(cls, spec, sdef, index=None):
         """ Create an arraydef from a dictionary of strings.
 
         Mostly this is to make it convenient to get from a .csv to an arraydef.
+        The behavior here is somewhat counterintuitive; you *do* need to create
+        the sdef and index (if applicable) first, and pass them to this
+        function. All this does is unpack and convert non-type-related fields,
+        then pass the lot on to the constructor.
         """
-        spec = spec.copy()
-        casters = {
-                'offset': util.intify,
-                'length': util.intify,
-                'stride': util.intify,
-                'mod': util.intify
-                }
-        for key, caster in casters:
-            spec[key] = caster(spec[key])
-
-        sdef = sdefs.get(spec['type'], None)
-        ttable = ttables.get(spec['display'], None)
-        index = indexes.get(spec['index'], None)
-
-        if sdef is not None:
-            return ArrayDef(name=spec['name'],
-                            _set=spec['set'],
-                            offset=spec['offset'],
-                            length=spec['length'],
-                            stride=spec['stride'],
-                            mod=spec['mod'],
-                            sdef=sdef,
-                            index=index)
-
-        else:
-            return cls.from_primitive(name=spec['name'],
-                                      _type=spec['type'],
-                                      offset=spec['offset'],
-                                      length=spec['length'],
-                                      size=spec['stride'],
-                                      _set=spec['set'],
-                                      display=spec['display'],
-                                      label=spec['label'],
-                                      index=index,
-                                      ttable=ttable)
-
+        return cls(name=spec['name'],
+                   _set=spec['set'],
+                   offset=util.intify(spec['offset']),
+                   length=util.intify(spec['length']),
+                   stride=util.intify(spec['stride']),
+                   sdef=sdef,
+                   index=index)
 
     def load(self, csvfile):
         """ Initialize a list of structures from a csv file.
