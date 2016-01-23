@@ -21,9 +21,9 @@ def detect(romfile):
     with open("hashdb.txt") as hashdb, open(romfile, "rb") as rom:
         # FIXME: Reads whole file into memory, likely to fail on giant images,
         # e.g cds/dvds.
-        logging.info("Detecting ROM map for: {}.".format(romfile))
+        logging.info("Detecting ROM map for: %s.", romfile)
         romhash = hashlib.sha1(rom.read()).hexdigest()
-        logging.info("sha1 hash is: {}.".format(romhash))
+        logging.info("sha1 hash is: %s.", romhash)
         try:
             line = next(line for line in hashdb if line.startswith(romhash))
         except StopIteration:
@@ -31,7 +31,7 @@ def detect(romfile):
             raise RomDetectionError(msg)
 
         name = line.split(maxsplit=1)[1].strip()
-        logging.info("ROM map found: {}".format(name))
+        logging.info("ROM map found: %s", name)
         return "specs/{}".format(name)
 
 
@@ -39,8 +39,8 @@ def dump(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    s = "Dumping data from {} to {} using map {}."
-    logging.info(s.format(args.rom, args.datafolder, args.map))
+    msg = "Dumping data from %s to %s using map %s."
+    logging.info(msg, args.rom, args.datafolder, args.map)
     with open(args.rom, "rb") as rom:
         rmap.dump(rom, args.datafolder, allow_overwrite=args.force)
     logging.info("Dump finished.")
@@ -50,8 +50,8 @@ def makepatch(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    s = "Creating patch for {} from data at {} using map {}."
-    logging.info(s.format(args.rom, args.datafolder, args.map))
+    msg = "Creating patch for %s from data at %s using map %s."
+    logging.info(msg, args.rom, args.datafolder, args.map)
     changes = rmap.changeset(args.datafolder)
     with open(args.rom, "rb") as rom:
         patch = romlib.Patch(changes, rom)
@@ -59,23 +59,24 @@ def makepatch(args):
     mode = _patch_mode(args.patchfile, True)
     with open(args.patchfile, mode) as patchfile:
         patchfunc(patchfile)
-    logging.info("Patch created at {}.".format(args.patchfile))
-    logging.info("There were {} changes.".format(len(patch.changes)))
+    logging.info("Patch created at %s.", args.patchfile)
+    logging.info("There were %s changes.", len(patch.changes))
 
 
 def diffpatch(args):
-    with open(args.original, "rb") as f1, open(args.modified, "rb") as f2:
-        patch = romlib.Patch.from_diff(f1, f2)
+    with open(args.original, "rb") as original:
+        with open(args.modified, "rb") as changed:
+            patch = romlib.Patch.from_diff(original, changed)
     patchfunc = _patch_func(args.patchfile, patch, True)
     mode = _patch_mode(args.patchfile, True)
-    with open(args.patchfile, mode) as pf:
-        patchfunc(pf)
+    with open(args.patchfile, mode) as pfile:
+        patchfunc(pfile)
 
 
 def _patch_func(path, patch=None, writing=False):
     """ Figure out what function to use to convert to/from a given format."""
     prefix = "to" if writing else "from"
-    filename, extension = os.path.splitext(path)
+    extension = os.path.splitext(path)[-1]
     func = "{}_{}".format(prefix, extension.lstrip("."))
     return getattr(patch, func) if writing else getattr(romlib.Patch, func)
 
@@ -101,11 +102,14 @@ def main():
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
     # easier to maintain. See args.yaml for the actual available arguments.
+    # FIXME: After some thought, probably better to use one big string in the
+    # source. :-(
     _add_yaml_omap()
-    op = os.path
-    youarehere = op.dirname(op.realpath(__file__))
-    with open(op.join(youarehere, "args.yaml")) as f:
-        argdetails = yaml.load(f)
+    path = os.path.realpath(__file__)
+    youarehere = os.path.dirname(path)
+    argspath = os.path.join(youarehere, "args.yaml")
+    with open(argspath) as argfile:
+        argdetails = yaml.load(argfile)
 
     def argument_setup(parser, details):
         # This utility function takes an argument set and adds it to a
@@ -126,12 +130,12 @@ def main():
     subparsers = topparser.add_subparsers(title="commands")
     argument_setup(topparser, topdetails)
     for command, details in sorted(argdetails.items()):
-        sp = subparsers.add_parser(command,
-                                   conflict_handler='resolve',
-                                   **details.get("spec", {}))
-        sp.set_defaults(func=globals()[command])
-        argument_setup(sp, details)
-        argument_setup(sp, topdetails)
+        subparser = subparsers.add_parser(command,
+                                          conflict_handler='resolve',
+                                          **details.get("spec", {}))
+        subparser.set_defaults(func=globals()[command])
+        argument_setup(subparser, details)
+        argument_setup(subparser, topdetails)
 
     # Parse whatever came in.
     args = topparser.parse_args()
