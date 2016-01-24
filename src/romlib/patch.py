@@ -1,25 +1,29 @@
-import struct
+""" Classes and utilities for building ROM patches."""
+
 import codecs
 import itertools
 
 from . import util
 
-_ips_header = "PATCH"
-_ips_footer = "EOF"
-_ips_bogo_address = 0x454f46
-_ips_rle_threshold = 10  # How many repeats before trying to use RLE?
+_IPS_HEADER = "PATCH"
+_IPS_FOOTER = "EOF"
+_IPS_BOGO_ADDRESS = 0x454f46
+_IPS_RLE_THRESHOLD = 10  # How many repeats before trying to use RLE?
 
 
 class PatchFormatError(Exception):
+    """ A patch is 'broken' somehow."""
     pass
 
 
 class PatchValueError(Exception):
+    """ A patch's format is correct but it contains contradictory data."""
     pass
 
 
 class Patch(object):
-    def __init__(self, data={}, rom=None):
+    """ A ROM patch."""
+    def __init__(self, data=None, rom=None):
         """ Create a Patch.
 
         data: A dictionary of changes to be made.
@@ -27,6 +31,8 @@ class Patch(object):
              no-ops will be removed. Note that this is optional and can
              also be done manually with Patch.filter.
         """
+        if data is None:
+            data = {}
         self.changes = data.copy()
         if rom:
             self.filter(rom)
@@ -42,26 +48,29 @@ class Patch(object):
         """
 
         merged = {}
-        block = bytearray()
-        start = None
-        offset = None
-        for o, v in sorted(changes.items()):
-            if start is None:  # First entry
-                block.append(v)
-                start = o
-                offset = o
-            elif o == offset + 1:  # Adjacent change
-                block.append(v)
-                offset = o
+        block = bytearray()  # Current block contents.
+        start = None         # Start of current block.
+        last = None        # Offset of last change seen.
+        for offset, value in sorted(changes.items()):
+            if start is None:
+                # First entry.
+                block.append(value)
+                start = offset
+                last = offset
+            elif offset == last + 1:
+                # Adjacent change.
+                block.append(value)
+                last = offset
             else:
                 # Nonadjacent change. Store the current change block and start
                 # a new one.
                 merged[start] = block
                 block = bytearray()
-                block.append(v)
-                start = o
-                offset = o
+                block.append(value)
+                start = offset
+                last = offset
         if start is not None:
+            # Make sure the last block gets merged.
             merged[start] = block
         return merged
 
@@ -70,8 +79,8 @@ class Patch(object):
         """ Load an offset-to-bytes-object dictionary. """
         changes = {}
         for start, data in blocks.items():
-            for i, d in enumerate(data):
-                changes[start+i] = d
+            for i, byte in enumerate(data):
+                changes[start+i] = byte
         return Patch(changes)
 
     @classmethod
@@ -79,14 +88,14 @@ class Patch(object):
         """ Load an ips patch file. """
         # Read and check the header
         header = f.read(5)
-        if codecs.decode(header) != _ips_header:
+        if codecs.decode(header) != _IPS_HEADER:
             raise PatchFormatError("Header mismatch reading IPS file.")
 
         changes = {}
-        while(True):
+        while True:
             # Check for EOF marker
             data = f.read(3)
-            if data == codecs.encode(_ips_footer):
+            if data == codecs.encode(_IPS_FOOTER):
                 break
 
             # Start reading a record.
@@ -95,8 +104,8 @@ class Patch(object):
 
             # If size is greater than zero, we have a normal record.
             if size > 0:
-                for n, byte in enumerate(f.read(size)):
-                    changes[offset+n] = byte
+                for i, byte in enumerate(f.read(size)):
+                    changes[offset+i] = byte
 
             # If size is instead zero, we have an RLE record.
             else:
@@ -113,29 +122,33 @@ class Patch(object):
         f = (line for line in f if not line or not line.startswith("#"))
 
         header = next(f).rstrip()
-        if header != _ips_header:
+        if header != _IPS_HEADER:
             raise PatchFormatError("Header mismatch reading IPST file.")
 
         changes = {}
         for line_number, line in enumerate(f, 2):
             line = line.rstrip()
             # Check for EOF marker
-            if line == _ips_footer:
+            if line == _IPS_FOOTER:
                 break
 
             # Normal records have three parts, RLE records have four.
             parts = line.split(":")
             if len(parts) == 3:
                 offset, size, data = parts
-                for n, b in enumerate(bytes.fromhex(data)):
-                    changes[int(offset)+n] = b
+                if len(data) != size * 2:
+                    msg = "Data length doesn't match size on line %s."
+                    raise ValueError(msg, line_number)
+                for i, byte in enumerate(bytes.fromhex(data)):
+                    changes[int(offset)+i] = byte
             elif len(parts) == 4:
-                offset, size, rle_size, value = map(int, parts, [16]*4)
+                offset, size, rle_size, value = [int(part, 16)
+                                                 for part in parts]
+                if value > 0xFF:
+                    msg = ("Line {}: RLE value {:02X} "
+                           "won't fit in one byte.")
+                    raise PatchValueError(msg.format(line_number, value))
                 for i in range(rle_size):
-                    if value > 0xFF:
-                        msg = ("Line {}: RLE value {:02X} "
-                               "won't fit in one byte.")
-                        raise PatchValueError(msg.format(line_number, value))
                     changes[offset+i] = value
             else:
                 msg = "Line {}: IPST format error."
@@ -150,14 +163,14 @@ class Patch(object):
         original: The original ROM, opened in binary mode.
         modified: A verion of the ROM containing the desired modifications.
         """
-        zl = itertools.zip_longest  # convenience
+        lzip = itertools.zip_longest  # convenience alias
         iter1 = util.filebytes(original)
         iter2 = util.filebytes(modified)
-        p = Patch()
-        for i, (b1, b2) in enumerate(zl(iter1, iter2, fillvalue=0)):
-            if b2 != b1:
-                p.changes[i] = b2
-        return p
+        patch = Patch()
+        for i, (byte1, byte2) in enumerate(lzip(iter1, iter2, fillvalue=0)):
+            if byte2 != byte1:
+                patch.changes[i] = byte2
+        return patch
 
     def _ips_sanitize_changes(self, bogobyte=None):
         """ Check for bogoaddr issues and return merged/fixed changes.
@@ -172,22 +185,22 @@ class Patch(object):
 
         # Deal with bogoaddress issues.
         try:
-            data = blocks.pop(_ips_bogo_address)
-            bb = bogobyte.to_bytes(1, "big")
-            blocks[_ips_bogo_address-1] = bb + data
+            data = blocks.pop(_IPS_BOGO_ADDRESS)
+            bogo = bogobyte.to_bytes(1, "big")
+            blocks[_IPS_BOGO_ADDRESS-1] = bogo + data
         except KeyError:
             # Nothing starts at bogoaddr so we're OK.
             pass
         except AttributeError:
-            s = ("A change started at 0x454f46 (EOF) "
-                 "but a valid bogobyte was not provided.")
-            raise PatchValueError(s)
+            msg = ("A change started at 0x454F46 (EOF) "
+                   "but a valid bogobyte was not provided.")
+            raise PatchValueError(msg)
         return blocks
 
     def to_ips(self, f, bogobyte=None):
         """ Create an ips patch file."""
         blocks = self._ips_sanitize_changes(bogobyte)
-        f.write(_ips_header.encode())
+        f.write(_IPS_HEADER.encode())
         for offset, data in sorted(blocks.items()):
             # Use RLE if we have a long repetition
             if len(data) > 3 and len(set(data)) == 1:
@@ -199,12 +212,12 @@ class Patch(object):
                 f.write(offset.to_bytes(3, 'big'))
                 f.write(len(data).to_bytes(2, 'big'))
                 f.write(data)
-        f.write(_ips_footer.encode())
+        f.write(_IPS_FOOTER.encode())
 
     def to_ipst(self, f, bogobyte=None):
         """ Create an ipst patch file."""
         blocks = self._ips_sanitize_changes(bogobyte)
-        print(_ips_header, file=f)
+        print(_IPS_HEADER, file=f)
         for offset, data in sorted(blocks.items()):
             # Use RLE if we have a long repetition
             if len(data) > 3 and len(set(data)) == 1:
@@ -214,7 +227,7 @@ class Patch(object):
                 datastr = ''.join('{:02X}'.format(d) for d in data)
                 fmt = "{:06X}:{:04X}:{}"
                 print(fmt.format(offset, len(data), datastr), file=f)
-        print(_ips_footer, file=f)
+        print(_IPS_FOOTER, file=f)
 
     def filter(self, rom):
         """ Remove no-ops from the change list.
@@ -222,6 +235,7 @@ class Patch(object):
         This compares the list of changes to the contents of a ROM and
         filters out any data that is already present."""
         def getbyte(f, offset):
+            """ Convenience function to get a single byte from a file."""
             f.seek(offset)
             return f.read(1)[0]
 
