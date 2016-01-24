@@ -96,7 +96,7 @@ def merge_dicts(dicts, allow_overlap=False):
     return out
 
 
-def tobits(size, default=None):
+def tobits(size, default=-1):
     """ Convert a size specifier to number of bits.
 
     size should be a string containing a size specifier. e.g. 4 (4 bytes),
@@ -112,7 +112,9 @@ def tobits(size, default=None):
         else:
             bits = int(size, 0) * 8
     except ValueError:
-        if default is not None:
+        # Note: I use -1 as the default rather than None because I want to
+        # allow None as a legitimate default value.
+        if default != -1:
             bits = default
         else:
             raise

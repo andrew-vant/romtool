@@ -38,8 +38,9 @@ class RomMap(object):
                 self.texttables[name] = tbl
 
         # Repeat for structs.
-        for name, path in _get_subfiles(root, "structs", ".csv"):
-            with open(path) as f:
+        structfiles = _get_subfiles(root, 'structs', '.csv')
+        for i, (name, path) in enumerate(structfiles):
+            with open(path) as f, util.loading_context('structure', name, i):
                 reader = util.OrderedDictReader(f)
                 sdef = StructDef.from_stringdicts(name, reader, self.texttables)
                 self.sdefs[name] = sdef
@@ -53,21 +54,22 @@ class RomMap(object):
         # indexes, so it may break some day. FIXME: Do empty strings get sorted
         # before all other strings?
         specs.sort(key=lambda spec: spec['index'])
-        for spec in specs:
+        for i, spec in enumerate(specs):
             sdef = self.sdefs.get(spec['type'], None)
             index = self.arrays.get(spec['index'], None)
             if sdef is None:
                 # We have a primitive
-                field = Field(
-                    _id=spec['name'],
-                    _type=spec['type'],
-                    label=spec['label'],
-                    bits=util.tobits(spec['stride']),
-                    mod=util.intify(spec['mod']),
-                    display=spec['display'],
-                    ttable=self.texttables.get(spec['ttable'], None)
-                    )
-                sdef = StructDef(spec['name'], [field])
+                with util.loading_context("array spec", spec['name'], i):
+                    field = Field(
+                        _id=spec['name'],
+                        _type=spec['type'],
+                        label=spec['label'],
+                        bits=util.tobits(spec['stride'], 0),
+                        mod=util.intify(spec['mod']),
+                        display=spec['display'],
+                        ttable=self.texttables.get(spec['display'], None)
+                        )
+                    sdef = StructDef(spec['name'], [field])
             adef = ArrayDef.from_stringdict(spec, sdef, index)
             self.arrays[adef.name] = adef
 
@@ -82,6 +84,7 @@ class RomMap(object):
         data = SimpleNamespace()
         for arr in self.arrays.values():
             setattr(data, arr.name, list(arr.read(rom)))
+        return data
 
     def dump(self, data, dest, allow_overwrite=False):
         """ Dump ROM data to a collection of csv files.
@@ -94,14 +97,14 @@ class RomMap(object):
         """
 
         # Group arrays by set.
-        arrays = sorted(self.arrays.values(), lambda a: a['set'])
-        arraysets = itertools.groupby(arrays, lambda a: a['set'])
+        arrays = sorted(self.arrays.values(), key=lambda a: a.set)
+        arraysets = itertools.groupby(arrays, lambda a: a.set)
 
-        for aset in arraysets:
+        for entity, arrays in arraysets:
             # Get a bunch of merged dictionaries representing the data in the
             # set.
-            data_subset = zip(getattr(data, arr.name) for arr in aset)
-            odicts = [StructDef.multidump(stuff) for stuff in data_subset]
+            data_subset = zip(getattr(data, arr.name) for arr in arrays)
+            odicts = [StructDef.multidump(item) for item in data_subset]
 
             # Note the original order of items so it can be preserved when
             # reading back a re-sorted file.
@@ -166,7 +169,7 @@ class ArrayDef(object):
         array. If not provided, offset, length, and stride will be used
         instead.
         """
-        if not index and not all(offset, stride, length):
+        if not index and not all([offset, stride, length]):
             msg = "Array {} requires either an index or offset/length/stride."
             raise ValueError(msg, name)
         self.name = name
@@ -184,7 +187,7 @@ class ArrayDef(object):
                 msg = "Array {} uses index {} but they don't share a set."
                 raise ValueError(msg, self.name, index.name)
             # Indexes should only have one field so this should work...
-            self._indexer = next(index.sdef.fields.values())
+            self._indexer = next(iter(index.sdef.fields.values()))
             self._indices = None
         else:
             self._indexer = None

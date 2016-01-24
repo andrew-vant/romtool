@@ -22,6 +22,7 @@ class StructDef(object):
         self.data = [f for f in self.fields.values() if not f.pointer]
         self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
 
+
     @classmethod
     def from_stringdicts(cls, name, fdef_dicts, ttables=None):
         """ Create a new structure from a list of dictionaries.
@@ -34,11 +35,13 @@ class StructDef(object):
         if ttables is None:
             ttables = {}
         fdefs = []
-        for fdict in fdef_dicts:
-            display = fdict.get('display', None)
-            ttable = ttables.get(display, None)
-            fdef = Field.from_stringdict(fdict, ttable)
-            fdefs.append(fdef)
+        fdesc = "{} field".format(name)
+        for i, fdict in enumerate(fdef_dicts):
+            with util.loading_context(fdesc, fdict['id'], i):
+                display = fdict.get('display', None)
+                ttable = ttables.get(display, None)
+                fdef = Field.from_stringdict(fdict, ttable)
+                fdefs.append(fdef)
         return StructDef(name, fdefs)
 
     def load(self, d):  # pylint: disable=invalid-name
@@ -182,15 +185,23 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         This is a convenience constructor intended to be used on the input from
         csv structure definitions. All it does is convert values to the
         appropriate types and then pass them to the regular constructor.
+
+        Missing values are assumed to be empty strings. Extra values are
+        ignored.
         """
         if ttable is None and available_tts is not None:
             ttable = available_tts.get(odict['display'], None)
+
+        expected_fields = ['id','label','type','size','order',
+                           'mod','display','comment','pointer']
+        odict = {key: odict.get(key, "") for key in expected_fields}
+
         return Field(_id=odict['id'],
                      label=odict['label'],
                      _type=odict['type'],
                      bits=util.tobits(odict['size']),
-                     order=int(odict['order']) if odict['order'] else 0,
-                     mod=int(odict['mod']) if odict['mod'] else 0,
+                     order=util.intify(odict['order']),
+                     mod=util.intify(odict['mod']),
                      comment=odict['comment'],
                      display=odict['display'],
                      pointer=odict['pointer'],

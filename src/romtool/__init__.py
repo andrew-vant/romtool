@@ -59,7 +59,8 @@ def dump(args):
     msg = "Dumping data from %s to %s using map %s."
     logging.info(msg, args.rom, args.datafolder, args.map)
     with open(args.rom, "rb") as rom:
-        rmap.dump(rom, args.datafolder, allow_overwrite=args.force)
+        data = rmap.read(rom)
+    rmap.dump(data, args.datafolder, allow_overwrite=args.force)
     logging.info("Dump finished.")
 
 
