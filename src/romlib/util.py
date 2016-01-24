@@ -1,6 +1,7 @@
 """ Various utility functions used in romlib."""
 
 import csv
+import contextlib
 from collections import OrderedDict
 
 
@@ -25,6 +26,23 @@ class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
         d = super().__next__()  # pylint: disable=invalid-name
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
 
+@contextlib.contextmanager
+def loading_context(listname, name, index=None):
+    """ Context manager for loading lists or files.
+
+        listname -- a name for the list or file being iterated over.
+        name     -- a name for the specific item being loaded.
+        index    -- The index of the item being loaded. Typically a linenum.
+    """
+    if index is None:
+        index = "Unknown"
+    try:
+        yield
+    except Exception as ex:
+        msg = "{}\nProblem loading {} #{}: {}"
+        msg = msg.format(ex.args[0], listname, index, name)
+        ex.args = (msg,) + ex.args[1:]
+        raise
 
 def hexify(i, length=None):
     """ Converts an integer to a hex string.
