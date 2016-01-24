@@ -52,7 +52,8 @@ def makepatch(args):
     rmap = romlib.RomMap(args.map)
     msg = "Creating patch for %s from data at %s using map %s."
     logging.info(msg, args.rom, args.datafolder, args.map)
-    changes = rmap.changeset(args.datafolder)
+    data = rmap.load(args.datafolder)
+    changes = rmap.bytemap(data)
     with open(args.rom, "rb") as rom:
         patch = romlib.Patch(changes, rom)
     patchfunc = _patch_func(args.patchfile, patch, True)
