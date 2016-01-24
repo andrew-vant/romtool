@@ -1,9 +1,10 @@
+""" Various utility functions used in romlib."""
+
 import csv
 from collections import OrderedDict
-from types import SimpleNamespace
 
 
-class OrderedDictReader(csv.DictReader):
+class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
 
     This has one additional option over DictReader, "orderfunc", which
@@ -21,7 +22,7 @@ class OrderedDictReader(csv.DictReader):
                                      lambda t: self.fieldnames.index(t[0]))
 
     def __next__(self):
-        d = super().__next__()
+        d = super().__next__()  # pylint: disable=invalid-name
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
 
 
@@ -42,18 +43,22 @@ def hexify(i, length=None):
     return fmtstr.format(i)
 
 
-def remap_od(od, keymap):
+def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.
 
     keymap: A dictionary mapping old key names to new key names.
 
     keys not in keymap will be left alone.
     """
-    newkeys = (keymap.get(k, k) for k in od.keys())
-    return OrderedDict(zip(newkeys, od.values()))
+    newkeys = (keymap.get(k, k) for k in odict.keys())
+    return OrderedDict(zip(newkeys, odict.values()))
 
 
 def merge_dicts(dicts, allow_overlap=False):
+    """ Merge an arbitrary number of dictionaries.
+
+    Optionally, raise an exception on key overlap.
+    """
     if not dicts:
         return {}
     if len(dicts) == 1:
@@ -68,7 +73,7 @@ def merge_dicts(dicts, allow_overlap=False):
             raise err
 
     out = type(dicts[0])()  # To account for OrderedDicts
-    for d in dicts:
+    for d in dicts:  # pylint: disable=invalid-name
         out.update(d)
     return out
 
@@ -98,10 +103,10 @@ def tobits(size, default=None):
 
 def filebytes(f):
     """ Get an iterator over the bytes in a file."""
-    b = f.read(1)
-    while b:
-        yield b[0]
-        b = f.read(1)
+    byte = f.read(1)
+    while byte:
+        yield byte[0]
+        byte = f.read(1)
 
 
 def bit_offset(source):
@@ -119,13 +124,13 @@ def bit_offset(source):
         return 0
 
 
-def divup(a, b):
+def divup(a, b):  # pylint: disable=invalid-name
     """ Divide A by B with integer division, rounding up instead of down."""
     # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839
     return (a + (-a % b)) // b
 
 
-def intify(x):
+def intify(x):  # pylint: disable=invalid-name
     """ A forgiving int() cast; returns zero for non-int strings."""
     try:
         return int(x, 0)
