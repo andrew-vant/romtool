@@ -24,13 +24,17 @@ class RomDetectionError(Exception):
     pass
 
 
-def detect(romfile):
+def detect(romfile, maproot=None):
     """ Detect the map to use with a given ROM.
 
-    Right now this just uses a list of known sha1 hashes and the maps to use
-    for them.
+    maproot -- A root directory containing a set of rom maps and a hashdb.txt
+               file associating sha1 hashes with map names.
     """
-    with open("hashdb.txt") as hashdb, open(romfile, "rb") as rom:
+    if maproot is None:
+        maproot = _get_path("maps")
+
+    dbfile = os.path.join(maproot, 'hashdb.txt')
+    with open(dbfile) as hashdb, open(romfile, "rb") as rom:
         # FIXME: Reads whole file into memory, likely to fail on giant images,
         # e.g cds/dvds.
         logging.info("Detecting ROM map for: %s.", romfile)
@@ -44,7 +48,7 @@ def detect(romfile):
 
         name = line.split(maxsplit=1)[1].strip()
         logging.info("ROM map found: %s", name)
-        return "specs/{}".format(name)
+        return os.path.join(maproot, name)
 
 
 def dump(args):
@@ -129,6 +133,20 @@ def _add_yaml_omap():
     yaml.add_constructor("!omap", omap_constructor)
 
 
+def _get_path(subfile=None):
+    """ Get the full path to the containing directory of this file.
+
+    Optionally get a path to a file within same. This is a utility function to
+    avoid having to do a bunch of distracting __file__ juggling.
+    """
+    # FIXME: should this go in util? Maybe not, nothing in romlib uses it.
+    path = os.path.realpath(__file__)
+    path = os.path.dirname(path)
+    if subfile is not None:
+        path = os.path.join(path, subfile)
+    return path
+
+
 def main():
     """ Entry point for romtool."""
 
@@ -139,10 +157,8 @@ def main():
     # source. :-(
 
     _add_yaml_omap()
-    path = os.path.realpath(__file__)
-    youarehere = os.path.dirname(path)
-    argspath = os.path.join(youarehere, "args.yaml")
-    with open(argspath) as argfile:
+
+    with open(_get_path("args.yaml")) as argfile:
         argdetails = yaml.load(argfile)
 
     def argument_setup(parser, details):
