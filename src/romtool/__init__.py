@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+""" CLI frontend to romlib.
+
+Performs as many functions useful to romhackers as I can come up with.
+"""
+
+
 import argparse
 import sys
 import hashlib
@@ -14,10 +20,16 @@ import romlib
 
 
 class RomDetectionError(Exception):
+    """ Indicates that we couldn't autodetect the map to use for a ROM."""
     pass
 
 
 def detect(romfile):
+    """ Detect the map to use with a given ROM.
+
+    Right now this just uses a list of known sha1 hashes and the maps to use
+    for them.
+    """
     with open("hashdb.txt") as hashdb, open(romfile, "rb") as rom:
         # FIXME: Reads whole file into memory, likely to fail on giant images,
         # e.g cds/dvds.
@@ -36,6 +48,7 @@ def detect(romfile):
 
 
 def dump(args):
+    """ Dump all known data from a ROM."""
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
@@ -47,6 +60,10 @@ def dump(args):
 
 
 def makepatch(args):
+    """ Build a patch from a data set containing changes.
+
+    Intended to be applied to a directory created by the dump subcommand.
+    """
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
@@ -65,6 +82,11 @@ def makepatch(args):
 
 
 def diffpatch(args):
+    """ Build a patch by diffing two roms.
+
+    If someone has been making their changes in-place, they can use this to get
+    a patch.
+    """
     with open(args.original, "rb") as original:
         with open(args.modified, "rb") as changed:
             patch = romlib.Patch.from_diff(original, changed)
@@ -90,21 +112,32 @@ def _patch_mode(path, writing=False):
 
 
 def convert(args):
+    """ Convert one patch format to another."""
     raise NotImplementedError("Patch conversion subcommand not ready yet.")
 
 
 def _add_yaml_omap():
+    """ Register the omap type with libyaml.
+
+    I'm not actually sure this is necessary anymore. Pretty sure the
+    list-of-pairs construction returns tuples that I can use to initialize an
+    odict.
+    """
     def omap_constructor(loader, node):
+        """ libyaml constructor for ordered dictionaries."""
         return OrderedDict(loader.construct_pairs(node))
     yaml.add_constructor("!omap", omap_constructor)
 
 
 def main():
+    """ Entry point for romtool."""
+
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
     # easier to maintain. See args.yaml for the actual available arguments.
     # FIXME: After some thought, probably better to use one big string in the
     # source. :-(
+
     _add_yaml_omap()
     path = os.path.realpath(__file__)
     youarehere = os.path.dirname(path)
@@ -113,9 +146,12 @@ def main():
         argdetails = yaml.load(argfile)
 
     def argument_setup(parser, details):
-        # This utility function takes an argument set and adds it to a
-        # parser. It's split out like this to make it easy to add the global
-        # set to itself and each subparser.
+        """ Add arguments to a parser.
+
+        This is split out to make it easy to add the global argument set to
+        each subparser.
+        """
+        # FIXME: Should this be done with parent?
         for name, desc in details.get("args", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc)
