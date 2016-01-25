@@ -1,9 +1,12 @@
+""" Various utility functions used in romlib."""
+
 import csv
+import contextlib
 from collections import OrderedDict
-from types import SimpleNamespace
 
+from bitstring import ConstBitStream
 
-class OrderedDictReader(csv.DictReader):
+class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
 
     This has one additional option over DictReader, "orderfunc", which
@@ -21,46 +24,26 @@ class OrderedDictReader(csv.DictReader):
                                      lambda t: self.fieldnames.index(t[0]))
 
     def __next__(self):
-        d = super().__next__()
+        d = super().__next__()  # pylint: disable=invalid-name
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
 
+@contextlib.contextmanager
+def loading_context(listname, name, index=None):
+    """ Context manager for loading lists or files.
 
-class Address(object):
-    """ Manage and convert between rom offsets and pointer formats."""
-
-    def __init__(self, offset, schema="offset"):
-        funcname = "_from_{}".format(schema)
-        converter = getattr(self, funcname)
-        self._address = converter(offset)
-
-    @property
-    def rom(self):
-        """ Use this address as a ROM offset. """
-        return self._address
-
-    @property
-    def hirom(self, mirror=0xC00000):
-        """ Use this address as a hirom pointer.
-
-        Use this when writing pointers back to a hirom image. There are
-        multiple rom mirrors in hirom; this defaults to using the C0-FF
-        mirror, since it contains all possible banks.
-        """
-        # hirom has multiple possible re-referencings, but C0-FF should
-        # always be safe.
-        return self._address | mirror
-
-    @classmethod
-    def _from_offset(cls, offset):
-        """ Initialize an address from a ROM offset. """
-        return offset
-
-    @classmethod
-    def _from_hirom(cls, offset):
-        """ Initialize an address from a hirom pointer. """
-        # hirom has multiple mirrors, but I *think* this covers all of them...
-        return offset % 0x400000
-
+        listname -- a name for the list or file being iterated over.
+        name     -- a name for the specific item being loaded.
+        index    -- The index of the item being loaded. Typically a linenum.
+    """
+    if index is None:
+        index = "Unknown"
+    try:
+        yield
+    except Exception as ex:
+        msg = "{}\nProblem loading {} #{}: {}"
+        msg = msg.format(ex.args[0], listname, index, name)
+        ex.args = (msg,) + ex.args[1:]
+        raise
 
 def hexify(i, length=None):
     """ Converts an integer to a hex string.
@@ -79,18 +62,22 @@ def hexify(i, length=None):
     return fmtstr.format(i)
 
 
-def remap_od(od, keymap):
+def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.
 
     keymap: A dictionary mapping old key names to new key names.
 
     keys not in keymap will be left alone.
     """
-    newkeys = (keymap.get(k, k) for k in od.keys())
-    return OrderedDict(zip(newkeys, od.values()))
+    newkeys = (keymap.get(k, k) for k in odict.keys())
+    return OrderedDict(zip(newkeys, odict.values()))
 
 
 def merge_dicts(dicts, allow_overlap=False):
+    """ Merge an arbitrary number of dictionaries.
+
+    Optionally, raise an exception on key overlap.
+    """
     if not dicts:
         return {}
     if len(dicts) == 1:
@@ -105,12 +92,12 @@ def merge_dicts(dicts, allow_overlap=False):
             raise err
 
     out = type(dicts[0])()  # To account for OrderedDicts
-    for d in dicts:
+    for d in dicts:  # pylint: disable=invalid-name
         out.update(d)
     return out
 
 
-def tobits(size, default=None):
+def tobits(size, default=-1):
     """ Convert a size specifier to number of bits.
 
     size should be a string containing a size specifier. e.g. 4 (4 bytes),
@@ -126,7 +113,9 @@ def tobits(size, default=None):
         else:
             bits = int(size, 0) * 8
     except ValueError:
-        if default is not None:
+        # Note: I use -1 as the default rather than None because I want to
+        # allow None as a legitimate default value.
+        if default != -1:
             bits = default
         else:
             raise
@@ -135,7 +124,53 @@ def tobits(size, default=None):
 
 def filebytes(f):
     """ Get an iterator over the bytes in a file."""
-    b = f.read(1)
-    while b:
-        yield b[0]
-        b = f.read(1)
+    byte = f.read(1)
+    while byte:
+        yield byte[0]
+        byte = f.read(1)
+
+
+def bit_offset(source):
+    """ Find the current read position of *source*, in bits.
+
+    Used for cases where *source* may be a file, a bitstring, or a bytes.
+    Returns f.tell(), bs.pos, or 0 respectively.
+    """
+    # Don't like this if chain but try/except comes out worse...
+    if hasattr(source, 'tell'):
+        return source.tell() * 8
+    elif hasattr(source, 'pos'):
+        return source.pos
+    else:
+        return 0
+
+def bsify(source, cls=ConstBitStream):
+    """ Convert source to a bitstream if, and only if, necessary.
+
+    Current read position is preserved if possible.
+
+    This turned out to be necessary because apparently creating a
+    ConstBitStream is expensive. Field converting a data source to CBS on every
+    read was taking up 80% of runtime.
+    """
+    if isinstance(source, cls):
+        return source
+    else:
+        pos = bit_offset(source)
+        bs = cls(source)
+        bs.pos = pos
+        return bs
+
+
+def divup(a, b):  # pylint: disable=invalid-name
+    """ Divide A by B with integer division, rounding up instead of down."""
+    # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839
+    return (a + (-a % b)) // b
+
+
+def intify(x):  # pylint: disable=invalid-name
+    """ A forgiving int() cast; returns zero for non-int strings."""
+    try:
+        return int(x, 0)
+    except ValueError:
+        return 0
