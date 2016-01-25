@@ -77,9 +77,9 @@ class StructDef(object):
 
         If *source* is a file object, it must be opened in binary mode.
         """
-        if bit_offset is None:
-            bit_offset = util.bit_offset(source)
-        bs = ConstBitStream(source)
+        bs = util.bsify(source)
+        if bit_offset is not None:
+            bs.pos = bit_offset
         data = dict()
 
         for field in self.data:
@@ -236,10 +236,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 
         The returned value will be a string or an int, as appropriate.
         """
-        if bit_offset is None:
-            bit_offset = util.bit_offset(source)
-        bs = ConstBitStream(source)
-        bs.pos = bit_offset
+        bs = util.bsify(source)
+        if bit_offset is not None:
+            bs.pos = bit_offset
 
         if 'str' in self.type:
             maxbits = self.bitsize if self.bitsize else 1024*8

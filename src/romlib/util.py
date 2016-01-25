@@ -4,6 +4,7 @@ import csv
 import contextlib
 from collections import OrderedDict
 
+from bitstring import ConstBitStream
 
 class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
@@ -142,6 +143,23 @@ def bit_offset(source):
         return source.pos
     else:
         return 0
+
+def bsify(source, cls=ConstBitStream):
+    """ Convert source to a bitstream if, and only if, necessary.
+
+    Current read position is preserved if possible.
+
+    This turned out to be necessary because apparently creating a
+    ConstBitStream is expensive. Field converting a data source to CBS on every
+    read was taking up 80% of runtime.
+    """
+    if isinstance(source, cls):
+        return source
+    else:
+        pos = bit_offset(source)
+        bs = cls(source)
+        bs.pos = pos
+        return bs
 
 
 def divup(a, b):  # pylint: disable=invalid-name
