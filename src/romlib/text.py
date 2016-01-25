@@ -6,6 +6,8 @@ I would be *really* happy if I could implement this using python's built in
 codec capabilities.
 """
 
+import re
+
 from patricia import trie
 
 
@@ -66,10 +68,17 @@ class TextTable(object):
         """ Encode a string into a series of bytes."""
         codeseq = []
         i = 0
+        raw = r"^\[\$[a-fA-F0-9]{2}\]"
         while i < len(string):
-            match, code = self.enc.item(string[i:])
-            codeseq.extend(code)
-            i += len(match)
+            if re.match(raw, string[i:]):
+                # Oops, raw byte listing.
+                code = int(string[i+2:i+4], 16)
+                codeseq.append(code)
+                i += 5
+            else:
+                match, code = self.enc.item(string[i:])
+                codeseq.extend(code)
+                i += len(match)
         return bytes(codeseq)
 
     def decode(self, data, include_eos=True, stop_on_eos=True):
