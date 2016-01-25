@@ -59,7 +59,7 @@ class StructDef(object):
             # Look for fields both by id and by label.
             value = d.get(field.id, d[field.label])
             if isinstance(value, str):
-                value = field.from_string(value)
+                value = field.load(value)
             initializers[field.id] = value
         return self.cls(**initializers)
 
@@ -114,7 +114,7 @@ class StructDef(object):
         bs = BitStream()
         for field in self.data:
             value = getattr(struct, field.id)
-            bs.append(field.to_bits(value))
+            bs.append(field.bits(value))
         for i, byte in enumerate(bs.bytes):
             changes[offset+i] = byte
 
@@ -123,8 +123,9 @@ class StructDef(object):
         # reuse offset.
         for field in self.links:
             value = getattr(struct, field.id)
-            offset = getattr(struct, field.pointer)
-            for i, byte in enumerate(field.to_bytes(value)):
+            pointer = self.fields[field.pointer]
+            offset = getattr(struct, field.pointer) + pointer.mod
+            for i, byte in enumerate(field.bytes(value)):
                 changes[offset+i] = byte
 
         # Done
@@ -257,6 +258,10 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """ Convert a value to a Bits object."""
         if 'str' in self.type:
             return Bits(self.ttable.encode(value))
+        elif self.type == 'bin':
+            # Separated because you can't pass length along with bin for some
+            # reason.
+            return Bits(bin=value)
         else:
             init = {self.type: value, 'length': self.bitsize}
             return Bits(**init)
@@ -291,6 +296,10 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
             'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
             }
+        # FIXME bin types should have one letter per bit and use
+        # upper/lowercase to indicate on/off. This is probably more useful
+        # and keeps spreadsheets from trying to compact them to ints. Use the
+        # display field to indicate the letters for each bit.
         if 'int' in self.type:
             value += self.mod
             fstr = formats.get(self.display, '{}')

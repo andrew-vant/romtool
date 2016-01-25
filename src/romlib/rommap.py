@@ -133,10 +133,9 @@ class RomMap(object):
             filename = "{}/{}.csv".format(modfolder, entity)
             arrays = (a for a in self.arrays.values() if a.set == entity)
             try:
-                with open(filename) as f:
-                    dicts = list(util.OrderedDictReader(f))
+                with open(filename, 'rt', newline='') as f:
                     for arr in arrays:
-                        setattr(data, arr.name, arr.load(dicts))
+                        setattr(data, arr.name, list(arr.load(f)))
             except FileNotFoundError:
                 pass # Ignore missing files. FIXME: Log warning?
         return data
@@ -266,7 +265,8 @@ class ArrayDef(object):
             indices = self._indices
         bmap = {}
         for offset, struct in zip(indices, structs):
-            bmap.update(self.sdef.to_bytemap(struct, offset))
+            bmap.update(self.sdef.bytemap(struct, offset))
+        return bmap
 
     @staticmethod
     def multidump(outfile, *arrays):
