@@ -98,12 +98,17 @@ class RomMap(object):
 
         # Group arrays by set.
         arrays = sorted(self.arrays.values(), key=lambda a: a.set)
-        arraysets = itertools.groupby(arrays, lambda a: a.set)
+        # FIXME: I've yet to figure out how to iterate over groupby results
+        # naturally so screw it for now I'll just listify everything it
+        # returns...
+        arraysets = [(entity, list(arrays))
+                     for entity, arrays
+                     in itertools.groupby(arrays, lambda a: a.set)]
 
         for entity, arrays in arraysets:
             # Get a bunch of merged dictionaries representing the data in the
             # set.
-            data_subset = zip(getattr(data, arr.name) for arr in arrays)
+            data_subset = zip(*[getattr(data, arr.name) for arr in arrays])
             odicts = [StructDef.multidump(item) for item in data_subset]
 
             # Note the original order of items so it can be preserved when
@@ -112,14 +117,13 @@ class RomMap(object):
                 odict['_idx_'] = i
 
             # Now dump
-            entity = aset[0].name
             filename = "{}/{}.csv".format(dest, entity)
             mode = "w" if allow_overwrite else "x"
             headers = odicts[0].keys()
             with open(filename, mode, newline='') as f:
                 writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
                 writer.writeheader()
-                for item in data:
+                for item in odicts:
                     writer.writerow(item)
 
     def load(self, modfolder):

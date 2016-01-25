@@ -17,6 +17,7 @@ class StructDef(object):
     """
     def __init__(self, name, fdefs):
         """ Create a new structure type containing the fields *fdefs*."""
+        self.name = name
         self.fields = OrderedDict((fdef.id, fdef) for fdef in fdefs)
         self.links = [f for f in self.fields.values() if f.pointer]
         self.data = [f for f in self.fields.values() if not f.pointer]
@@ -35,9 +36,9 @@ class StructDef(object):
         if ttables is None:
             ttables = {}
         fdefs = []
-        fdesc = "{} field".format(name)
+        desc = "{} field".format(name)
         for i, fdict in enumerate(fdef_dicts):
-            with util.loading_context(fdesc, fdict['id'], i):
+            with util.loading_context(desc, fdict['id'], i):
                 display = fdict.get('display', None)
                 ttable = ttables.get(display, None)
                 fdef = Field.from_stringdict(fdict, ttable)
@@ -79,15 +80,25 @@ class StructDef(object):
         if bit_offset is None:
             bit_offset = util.bit_offset(source)
         bs = ConstBitStream(source)
-        bs.pos = bit_offset
+        data = dict()
 
-        data = {field.id: field.read(bs)
-                for field in self.data}
+        for field in self.data:
+            data[field.id] = field.read(bs, bit_offset)
+            bit_offset += field.bitsize
 
         for field in self.links:
-            pointer = self.fields[field.pointer]
-            bs.pos = (data[pointer.id] + pointer.mod) * 8
-            data[field.id] = field.read(bs)
+            desc = "{} field".format(self.name)
+            with util.loading_context(desc, field.id):
+                pointer = self.fields[field.pointer]
+                bs.pos = (data[pointer.id] + pointer.mod) * 8
+                data[field.id] = field.read(bs)
+                #try:
+                #    bs.pos = (data[pointer.id] + pointer.mod) * 8
+                #except ValueError:
+                #    # Bogus pointer. FIXME: Log warning?
+                #    data[field.id] = field.default
+                #else:
+                #    data[field.id] = field.read(bs)
         return self.cls(**data)
 
     def bytemap(self, struct, offset=0):
@@ -141,13 +152,13 @@ class StructDef(object):
 
         data = []
         for i, struct in enumerate(structures):
-            for field in struct._sdef.fields:
+            for field in struct._sdef.fields.values():
                 key = field.label if field.label and use_labels else field.id
                 value = getattr(struct, field.id)
                 if stringify:
-                    value = field.to_string(value)
+                    value = field.dump(value)
                 ordering = field.sortorder(i)
-                data.append(key, value, ordering)
+                data.append((key, value, ordering))
 
         data.sort(key=lambda d: d[-1])
         return OrderedDict(d[:2] for d in data)
@@ -199,13 +210,20 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         return Field(_id=odict['id'],
                      label=odict['label'],
                      _type=odict['type'],
-                     bits=util.tobits(odict['size']),
+                     bits=util.tobits(odict['size'], 0),
                      order=util.intify(odict['order']),
                      mod=util.intify(odict['mod']),
                      comment=odict['comment'],
                      display=odict['display'],
                      pointer=odict['pointer'],
                      ttable=ttable)
+
+    @property
+    def default(self):
+        if 'str' in self.type:
+            return ""
+        else:
+            return 0
 
     def read(self, source, bit_offset=None):
         """ Read a field from a bit offset within a bitstream.
