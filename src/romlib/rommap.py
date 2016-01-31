@@ -136,6 +136,7 @@ class RomMap(object):
                 with open(filename, 'rt', newline='') as f:
                     for arr in arrays:
                         setattr(data, arr.name, list(arr.load(f)))
+                        f.seek(0)
             except FileNotFoundError:
                 pass # Ignore missing files. FIXME: Log warning?
         return data
@@ -144,6 +145,8 @@ class RomMap(object):
         """ Get all possible changes from a data set."""
         bmap = {}
         for name, arr in self.arrays.items():
+            if not hasattr(data, name):
+                continue  #FIXME: Log warning?
             bmap.update(arr.bytemap(getattr(data, name)))
         return bmap
 
@@ -228,7 +231,11 @@ class ArrayDef(object):
         # don't need to mod it here...
         for item in csv.DictReader(csvfile):
             if self.index:
-                self._indices.append(int(item[self._indexer.id], 0))
+                # FIXME: I'm doing this get+cast magic enough that I should
+                # probably make it a field method or something. Accept a dict,
+                # return a value.
+                i = item.get(self._indexer.id, item[self._indexer.label])
+                self._indices.append(int(i, 0))
             yield self.sdef.load(item)
 
     def dump(self, outfile, structures):
