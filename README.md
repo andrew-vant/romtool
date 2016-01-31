@@ -41,11 +41,9 @@ Some additional features that have not been added yet, but that I want to
 support. This isn't a complete list, just the things that come to mind as I am
 writing:
 
-* String editing
 * Patch merging
-* Patch textualization
 * ROM expansion
-* Binary diffs
+* Empty-space search
 * Code assembly/disassembly
 * ROM header removal
 * Game documentation generation
@@ -61,6 +59,8 @@ writing:
   - locating data arrays
 
 ## Installing
+
+    # FIXME: section out of date.
 
 "Proper" installation isn't quite ready yet. To set it up by hand:
 
@@ -83,17 +83,12 @@ definitely won't.
 
 You can get help at any time with `romtool -h` or `romtool <subcommand> -h`.
 
-Right now romtool does only two things: Dump information from the ROM to
-spreadsheets for editing, and create IPS patches from changes to those
-spreadsheets. Only a few games are directly supported, although in theory
-anyone can create a map for an unsupported game.
-
 The following command will extract all known data from the ROM named
-some_game.smc, and save it as .csv files in datafolder. Each file contains a
+`some_game.smc`, and save it as .csv files in `datafolder`. Each file contains a
 list of entities; for example, there may be a monsters.csv containing
 information about monsters, or a characters.csv with character stats.
 
-``` romtool dump some_game.smc datafolder ```
+    romtool dump some_game.smc datafolder
 
 Note that you do not need to specify which rom map to use; romtool will attempt
 to autodetect it. If autodetection fails, it will complain. You can force it to
@@ -102,7 +97,8 @@ use a map in a particular folder by appending `-m <pathtomap>`.
 After dumping is finished, make whatever changes you want to the files in
 `datafolder`. Any spreadsheet application should do the job; I use LibreOffice,
 but Excel should also work. When saving your changes, be sure you save in .csv
-format, *not* .xls, .ods, or anything else.
+format, *not* .xls, .ods, or anything else. It's probably a good idea to turn
+off autocorrect or similar features, too.
 
 There are some limits to what you can change. For example, if a monster's
 attack power is stored in the ROM as a single byte, you cannot give it >255
@@ -112,17 +108,26 @@ implemented yet. Caution advised.
 
 When you're done making changes, do this:
 
-``` romtool makepatch some_game.smc datafolder some_game.ips ```
+    romtool makepatch some_game.smc datafolder some_game.ips
 
 That will create an IPS patch containing your changes. It should be given the
 same name as the ROM, but with a .ips extension (this will probably be the
 default in future versions). The reason the name should match is that it will
-cause some emulators (ZSNES at least, probably others) to implicitly make use
-of it, without physically modifying the original ROM.
+cause some emulators (ZSNES and SNES9x at least, probably others) to implicitly
+make use of it, without physically modifying the original ROM.
+
+If you want to view the binary changes the patch is going to make, name the
+output file with a .ipst extension instead of .ips. This will create a
+textualized representation of the ips patch that is readable in any editor.
 
 To test your patch, fire up an emulator and point it to the ROM. Assuming the
 emulator supports implicit patching and your patch is named correctly, you
 should see your changes in-game.
+
+If you have an existing, modified ROM and want to create an IPS patch from it,
+you can do it this way:
+
+    romtool diffpatch original.rom modified.rom patch.ips
 
 ## Troubleshooting
 
@@ -151,3 +156,4 @@ patch (romtool will support this eventually, but KEEP A CLEAN COPY), or use an
 emulator that does support it. Here is a list of emulators known to support
 implicit patching:
     * ZSNES
+    * snes9x
