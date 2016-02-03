@@ -1,4 +1,4 @@
-id,label,size,type,subtype,display,order,info,comment
+id,label,size,type,mod,display,order,info,comment
 hp,HP,2,uintle,,,,base,
 mp,MP,2,uintle,,,,base,
 pow,Power,1,uint,,,,base,
@@ -11,7 +11,7 @@ powg,Power Growth,1,uint,,,,growth,
 grdg,Guard Growth,1,uint,,,,growth,
 magg,Magic Growth,1,uint,,,,growth,
 spdg,Speed Growth,1,uint,,,,growth,
-wpn,Weapon?,1,uint,,,,equip,
-amr,Armor?,1,uint,,,,equip,
-acc,Accessory?,1,uint,,,,equip,
+wpn,Weapon,1,uint,-100,,,equip,
+amr,Armor,1,uint,-151,,,equip,
+acc,Accessory,1,uint,-151,,,equip,
 xp,Exp,1,uint,,,,base,
