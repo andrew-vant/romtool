@@ -81,6 +81,39 @@ def hexify(i, length=None):
     fmtstr = "0x{{:0{}X}}".format(digits)
     return fmtstr.format(i)
 
+def displaybits(bits, display):
+    if not display:
+        display = 'b' * len(bits)
+    if not len(bits) == len(display):
+        raise ValueError("display length doesn't match bitfield length.")
+
+    out = ""
+    for bit, letter in zip(bits, display):
+        trtable = {'0': letter.lower(),
+                   '1': letter.upper()}
+        out += trtable[bit]
+    return out
+
+
+def undisplaybits(s, display):
+    if not display:
+        display = 'b' * len(s)
+    if not len(s) == len(display):
+        raise ValueError("display length doesn't match string length.")
+
+    out = ""
+    for char, letter in zip(s, display):
+        trtable = {'0': '0',
+                   '1': '1',
+                   letter.lower(): '0',
+                   letter.upper(): '1'}
+        try:
+            out += trtable[char]
+        except KeyError:
+            msg = "Unrecognized or out of order bitfield character: {}"
+            raise ValueError(msg.format(char))
+    return out
+
 
 def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.

@@ -190,6 +190,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.pointer = pointer
         self.ttable = ttable
 
+
     @classmethod
     def from_stringdict(cls, odict, ttable=None, available_tts=None):
         """ Create a Field object from a dictionary of strings.
@@ -275,8 +276,10 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 
     def load(self, s):  # pylint: disable=invalid-name
         """ Convert the string *s* to an appropriate value type."""
-        if self.type in ['str', 'strz', 'bin', 'hex']:
+        if self.type in ['str', 'strz', 'hex']:
             return s
+        elif self.type == 'bin':
+            return util.undisplaybits(s, self.display)
         elif 'int' in self.type:
             return int(s, 0) - self.mod
         elif 'float' in self.type:
@@ -307,7 +310,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if 'float' in self.type:
             value += self.mod
             return str(value)
-        if self.type in ['str', 'strz', 'bin', 'hex']:
+        if self.type == 'bin':
+            return util.displaybits(value, self.display)
+        if self.type in ['str', 'strz', 'hex']:
             return value
         # If we get here something is wrong.
         msg = "Stringification of '{}' not implemented."
