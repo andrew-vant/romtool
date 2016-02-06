@@ -2,6 +2,7 @@
 
 import csv
 import contextlib
+import logging
 from collections import OrderedDict
 
 from bitstring import ConstBitStream
@@ -26,6 +27,25 @@ class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     def __next__(self):
         d = super().__next__()  # pylint: disable=invalid-name
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
+
+class CheckedDict(dict):
+    """ A dictionary that warns you if you overwrite keys."""
+
+    cmsg = "Conflict: %s: %s replaced with %s."
+
+    def __setitem__(self, key, value):
+        self._check_conflict(key, value)
+        super().__setitem__(self, key, value)
+
+    def update(self, *args, **kwargs):
+        d = dict(*args, **kwargs)
+        for k, v in d.items():
+            self._check_conflict(k, v)
+        super().update(d)
+
+    def _check_conflict(self, key, value):
+        if key in self and value != self[key]:
+            logging.debug(self.cmsg, key, self[key], value)
 
 @contextlib.contextmanager
 def loading_context(listname, name, index=None):
