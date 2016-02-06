@@ -49,11 +49,14 @@ class RomMap(object):
         with open("{}/arrays.csv".format(root)) as f:
             specs = list(util.OrderedDictReader(f))
 
-        # Make sure unindexed specs get loaded first to ensure that indexes get
-        # loaded before the arrays that require them. This assumes no recursive
-        # indexes, so it may break some day. FIXME: Do empty strings get sorted
-        # before all other strings?
-        specs.sort(key=lambda spec: spec['index'])
+        # The order in which arrays get loaded matters. Indexes need to be
+        # loaded before the arrays that require them. Also, in the event that
+        # pointers in different arrays go to the same place and only one is
+        # later edited, the last one loaded wins. The 'priority' column lets
+        # the map-maker specify the winner of such conflicts by ensuring
+        # higher-priority arrays get loaded last.
+        specs.sort(key=lambda spec: (bool(spec['index']),
+                                     util.intify(spec.get('priority', 0))))
         for i, spec in enumerate(specs):
             sdef = self.sdefs.get(spec['type'], None)
             index = self.arrays.get(spec['index'], None)
@@ -72,7 +75,6 @@ class RomMap(object):
                     sdef = StructDef(spec['name'], [field])
             adef = ArrayDef.from_stringdict(spec, sdef, index)
             self.arrays[adef.name] = adef
-
 
     def read(self, rom):
         """ Read all known data in a ROM.
@@ -143,7 +145,7 @@ class RomMap(object):
 
     def bytemap(self, data):
         """ Get all possible changes from a data set."""
-        bmap = {}
+        bmap = util.CheckedDict()
         for name, arr in self.arrays.items():
             if not hasattr(data, name):
                 continue  #FIXME: Log warning?
