@@ -1,1 +1,3 @@
-name,label,set,type,offset,length,stride,display,tags,commentcharacters,,characters,character,0x3050,6,16,,,
+name,label,set,type,offset,length,stride,mod,index,priority,display,comment
+characters,,characters,character,0x3050,6,16,,,,,
+monsters,,monsters,monster,0x30530,128,20,,,,,

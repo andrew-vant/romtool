@@ -1,0 +1,18 @@
+id,label,size,type,mod,display,order,info,comment
+xp,Exp,2,uintle,,,16,,
+gld,Gold,2,uintle,,,15,,
+hp,HP,2,uintle,,,1,,
+mor,Morale,1,uint,,,9,,
+cai,Cursor AI?,1,uint,,hex,17,,
+evd,Evasion,1,uint,,,8,,
+def,Defense,1,uint,,,6,,
+hits,Hits,1,uint,,,4,,
+acc,Accuracy,1,uint,,,3,,
+str,Strength,1,uint,,,2,,
+crit,Crit Rate,1,uint,,,5,,
+eatk,Attack Element,1,lbin,,sptdfile,10,,Status Psn/Stn Time Death Fire Ice Lightning Earth
+satk,Attack Status,1,lbin,,dspbtlmc,11,,Death Stone Poison Blind Stun Sleep Mute Confuse
+fam,Family,1,lbin,,mdguwacr,14,,Magical Dragon Giant Undead Were Aquatic Caster Regen
+mdef,Mag. Defense,1,uint,,,7,,
+weak,Weaknesses,1,lbin,,sptdfile,12,,Status Psn/Stn Time Death Fire Ice Lightning Earth
+res,Resistances,1,lbin,,sptdfile,13,,Status Psn/Stn Time Death Fire Ice Lightning Earth
