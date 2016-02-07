@@ -157,3 +157,4 @@ emulator that does support it. Here is a list of emulators known to support
 implicit patching:
     * ZSNES
     * snes9x
+    * FCEUX (name as romname.nes.ips)
