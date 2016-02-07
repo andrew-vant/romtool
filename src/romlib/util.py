@@ -114,6 +114,8 @@ def undisplaybits(s, display):
             raise ValueError(msg.format(char))
     return out
 
+def str_reverse(s):
+    return s[::-1]
 
 def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.

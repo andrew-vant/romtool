@@ -1,7 +1,7 @@
 id,label,size,type,mod,display,pointer,order,info,comment
 grd,Guard+,2,uintle,,,,,stat,
 cst,Cost,2,uintle,,,,,stat,
-usr,Users,1,bin,,njvxweok,,,bitfield,Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil
+usr,Users,1,lbin,,koewxvjn,,,bitfield,Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil
 rthn,Thunder Resist,1,uint,,,,,stat,
 ru1,Unused 1 Resist,1,uint,,,,,unknown,No spells carry this element. 
 ru2,Unused 2 Resist,1,uint,,,,,unknown,No spells carry this element. 

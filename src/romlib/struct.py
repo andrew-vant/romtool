@@ -247,6 +247,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             pos = bs.pos
             data = bs[pos:pos+maxbits]
             return self.ttable.decode(data.bytes)
+        elif self.type == 'lbin':
+            initstr = "{}:{}".format('bin', self.bitsize)
+            return util.str_reverse(bs.read(initstr))
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -263,6 +266,8 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             # Separated because you can't pass length along with bin for some
             # reason.
             return Bits(bin=value)
+        elif self.type == 'lbin':
+            return Bits(bin=util.str_reverse(value))
         else:
             init = {self.type: value, 'length': self.bitsize}
             return Bits(**init)
@@ -278,7 +283,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """ Convert the string *s* to an appropriate value type."""
         if self.type in ['str', 'strz', 'hex']:
             return s
-        elif self.type == 'bin':
+        elif 'bin' in self.type:
             return util.undisplaybits(s, self.display)
         elif 'int' in self.type:
             return int(s, 0) - self.mod
@@ -310,7 +315,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if 'float' in self.type:
             value += self.mod
             return str(value)
-        if self.type == 'bin':
+        if 'bin' in self.type:
             return util.displaybits(value, self.display)
         if self.type in ['str', 'strz', 'hex']:
             return value
