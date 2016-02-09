@@ -1,0 +1,9 @@
+id,label,size,type,mod,display,order,info,comment
+acc,Accuracy,1,uint,,,,,
+effect,Effectivity,1,uint,,,,,The nature of this value is determined by the Effect Routine property
+elem,Element,1,uint,,sptdfile,,,Status Psn/Stn Time Death Fire Ice Lightning Earth
+tgt,Target,1,lbin,,aecpauuu,,,All enemies – One enemy – Caster – Party – Ally – ???
+code,Effect Routine,1,uint,,hex,,,Determines what the spell does.
+gfx,Sprite,1,uint,,hex,,,
+pal,Palette,1,uint,,hex,,,
+unk1,Unknown 1,1,uint,,hex,,,
