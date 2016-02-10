@@ -16,28 +16,38 @@ dump:
   flags: !omap
     -f|--force: Overwrite existing destination files
 
-makepatch:
+build:
   spec:
-    description: Construct IPS patch from modified files
+    description: Construct patch from modified files.
   args: !omap
-    rom: ROM to generate patch against
-    datafolder: Get input from this folder
-    patchfile: Patch filename
+    moddir: Directory containing mod data.
   opts: !omap
-    -m|--map: Specify ROM map instead of autodetecting
+    -r|--rom: Filter against a ROM, removing no-op changes.
+    -m|--map: Specify ROM map instead of autodetecting.
+    -o|--out: Patch file to write. Detects format by extension.
 
-diffpatch:
+merge:
   spec:
-    description: Diff two files and generate a patch between the two
-  args: !omap
-    original: Original ROM
-    modified: Modified ROM
-    patchfile: Patch filename
+    description: Merge multiple patches together.
+  args+:
+    patches: List of patches to merge.
+  opts:
+    -r|--rom: Filter against a ROM, removing no-op changes.
+    -o|--out: Patch file to write. Detects format by extension.
 
 convert:
   spec:
     description: Convert a patch from one format to another
   args: !omap
-    input: File to convert
-    output: File to create
+    infile: File to convert
+    outfile: File to create
+
+diff:
+  spec:
+    description: Diff two files and generate a patch between the two
+  args: !omap
+    original: Original ROM
+    modified: Modified ROM
+  opts:
+    -o|--out: Patch file to write. Detects format by extension.
 
