@@ -64,29 +64,55 @@ def dump(args):
     logging.info("Dump finished.")
 
 
-def makepatch(args):
+def build(args):
     """ Build a patch from a data set containing changes.
 
     Intended to be applied to a directory created by the dump subcommand.
     """
+    if args.map is None and args.rom is None:
+        raise ValueError("At least one of -r or -m must be provided.")
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    msg = "Creating patch for %s from data at %s using map %s."
-    logging.info(msg, args.rom, args.datafolder, args.map)
-    data = rmap.load(args.datafolder)
-    changes = rmap.bytemap(data)
-    with open(args.rom, "rb") as rom:
-        patch = romlib.Patch(changes, rom)
-    patchfunc = _patch_func(args.patchfile, patch, True)
-    mode = _patch_mode(args.patchfile, True)
-    with open(args.patchfile, mode) as patchfile:
-        patchfunc(patchfile)
-    logging.info("Patch created at %s.", args.patchfile)
-    logging.info("There were %s changes.", len(patch.changes))
+    msg = "Loading mod dir %s using map %s."
+    logging.info(msg, args.moddir, args.map)
+    data = rmap.load(args.moddir)
+    patch = romlib.Patch(rmap.bytemap(data))
+    _filterpatch(patch, args.rom)
+    _writepatch(patch, args.out)
 
 
-def diffpatch(args):
+def merge(args):
+    """ Merge multiple patches.
+
+    This can accept and merge changes from any number of existing patches and
+    formats. Overlapping changes will produce a warning. Last changeset
+    specified on the command line wins.
+    """
+    changeset = romlib.util.CheckedDict()
+    for patchfile in args.patches:
+        msg = "Importing changes from %s."
+        logging.info(msg, patchfile)
+        changeset.update(romlib.Patch.load(patchfile).changes)
+
+    # Filter the complete changeset against a target ROM if asked.
+    patch = romlib.Patch(changeset)
+    _filterpatch(patch, args.rom)
+    _writepatch(patch, args.out)
+
+
+def convert(args):
+    """ Convert one patch format to another.
+
+    This is just syntactic sugar over merge.
+    """
+    args.patches = [args.infile]
+    args.out = args.outfile
+    args.rom = None
+    merge(args)
+
+
+def diff(args):
     """ Build a patch by diffing two roms.
 
     If someone has been making their changes in-place, they can use this to get
@@ -95,30 +121,30 @@ def diffpatch(args):
     with open(args.original, "rb") as original:
         with open(args.modified, "rb") as changed:
             patch = romlib.Patch.from_diff(original, changed)
-    patchfunc = _patch_func(args.patchfile, patch, True)
-    mode = _patch_mode(args.patchfile, True)
-    with open(args.patchfile, mode) as pfile:
-        patchfunc(pfile)
+    _writepatch(patch, args.out)
 
 
-def _patch_func(path, patch=None, writing=False):
-    """ Figure out what function to use to convert to/from a given format."""
-    prefix = "to" if writing else "from"
-    extension = os.path.splitext(path)[-1]
-    func = "{}_{}".format(prefix, extension.lstrip("."))
-    return getattr(patch, func) if writing else getattr(romlib.Patch, func)
+def _filterpatch(patch, romfile):
+    # Fixme: Ask forgiveness, not permission here? And should the check be
+    # handled by the caller?
+    if romfile is not None:
+        msg = "Filtering changes against %s."
+        logging.info(msg, romfile)
+        with open(romfile, "rb") as rom:
+                patch.filter(rom)
 
 
-def _patch_mode(path, writing=False):
-    """ Figure out what file mode to use for a given format."""
-    mode = "w" if writing else "r"
-    mode += "t" if path.endswith("t") else "b"
-    return mode
+def _writepatch(patch, outfile):
+    """ Write a patch to a file.
 
-
-def convert(args):
-    """ Convert one patch format to another."""
-    raise NotImplementedError("Patch conversion subcommand not ready yet.")
+    Logs a bit if needed and redirects to stdout if needed.
+    """
+    if outfile:
+        logging.info("Creating patch at %s.", outfile)
+        patch.save(outfile)
+    else:
+        patch.to_ipst(sys.stdout)
+    logging.info("There were %s changes.", len(patch.changes))
 
 
 def _add_yaml_omap():
@@ -172,9 +198,15 @@ def main():
         for name, desc in details.get("args", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc)
+        for name, desc in details.get("args+", {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, nargs="+", help=desc)
         for name, desc in details.get("opts", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc)
+        for name, desc in details.get("ropts", {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, help=desc, action="append")
         for name, desc in details.get("flags", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc, action="store_true")
