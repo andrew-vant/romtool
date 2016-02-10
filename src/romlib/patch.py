@@ -1,5 +1,6 @@
 """ Classes and utilities for building ROM patches."""
 
+import os
 import codecs
 import itertools
 
@@ -241,3 +242,33 @@ class Patch(object):
 
         self.changes = {offset: value for offset, value in self.changes.items()
                         if value != getbyte(rom, offset)}
+
+    def save(self, outfile, ptype=None):
+        """ Save a patch to a file.
+
+        This detects the type of patch from the filename extension. You can
+        override detection by supplying ptype.
+        """
+        if ptype is None:
+            # Take the extension of the filename and strip the leading dot.
+            ptype = os.path.splitext(outfile)[-1][1:]
+        pfunc = getattr(self, "to_"+ptype)
+        mode = 'wt' if ptype.endswith('t') else 'wb'
+        with open(outfile, mode) as f:
+            pfunc(f)
+
+    @classmethod
+    def load(cls, patchfile, ptype=None):
+        """ Load a patch given a filename.
+
+        This detects the type of patch from the filename extension. You can
+        override detection by supplying ptype.
+        """
+        if ptype is None:
+            # Take the extension of the filename and strip the leading dot.
+            ptype = os.path.splitext(patchfile)[-1][1:]
+        pfunc = getattr(cls, "from_"+ptype)
+        mode = 'rt' if ptype.endswith('t') else 'rb'
+        with open(patchfile, mode) as f:
+            patch = pfunc(f)
+        return patch
