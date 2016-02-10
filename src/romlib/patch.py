@@ -136,11 +136,11 @@ class Patch(object):
             parts = line.split(":")
             if len(parts) == 3:
                 offset, size, data = parts
-                if len(data) != size * 2:
+                if len(data) != int(size, 16) * 2:
                     msg = "Data length doesn't match size on line %s."
                     raise ValueError(msg, line_number)
                 for i, byte in enumerate(bytes.fromhex(data)):
-                    changes[int(offset)+i] = byte
+                    changes[int(offset, 16)+i] = byte
             elif len(parts) == 4:
                 offset, size, rle_size, value = [int(part, 16)
                                                  for part in parts]
