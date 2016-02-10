@@ -29,9 +29,9 @@ build:
 merge:
   spec:
     description: Merge multiple patches together.
-  args+:
+  args+: !omap
     patches: List of patches to merge.
-  opts:
+  opts: !omap
     -r|--rom: Filter against a ROM, removing no-op changes.
     -o|--out: Patch file to write. Detects format by extension.
 
