@@ -30,7 +30,7 @@ class RomMap(object):
         self.texttables = OrderedDict()
         self.arrays = OrderedDict()
 
-        # Find all csv files in the texttables directory and load them into
+        # Find all tbl files in the texttables directory and load them into
         # a dictionary keyed by their base name.
         for name, path in _get_subfiles(root, "texttables", ".tbl"):
             with open(path) as f:
@@ -38,16 +38,16 @@ class RomMap(object):
                 self.texttables[name] = tbl
 
         # Repeat for structs.
-        structfiles = _get_subfiles(root, 'structs', '.csv')
+        structfiles = _get_subfiles(root, 'structs', '.tsv')
         for i, (name, path) in enumerate(structfiles):
             with open(path) as f, util.loading_context('structure', name, i):
-                reader = util.OrderedDictReader(f)
+                reader = util.OrderedDictReader(f, delimiter="\t")
                 sdef = StructDef.from_stringdicts(name, reader, self.texttables)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
-        with open("{}/arrays.csv".format(root)) as f:
-            specs = list(util.OrderedDictReader(f))
+        with open("{}/arrays.tsv".format(root)) as f:
+            specs = list(util.OrderedDictReader(f, delimiter="\t"))
 
         # The order in which arrays get loaded matters. Indexes need to be
         # loaded before the arrays that require them. Also, in the event that
@@ -89,7 +89,7 @@ class RomMap(object):
         return data
 
     def dump(self, data, dest, allow_overwrite=False):
-        """ Dump ROM data to a collection of csv files.
+        """ Dump ROM data to a collection of tsv files.
 
         This produces one file for each array set.
 
@@ -119,11 +119,13 @@ class RomMap(object):
                 odict['_idx_'] = i
 
             # Now dump
-            filename = "{}/{}.csv".format(dest, entity)
+            filename = "{}/{}.tsv".format(dest, entity)
             mode = "w" if allow_overwrite else "x"
             headers = odicts[0].keys()
             with open(filename, mode, newline='') as f:
-                writer = csv.DictWriter(f, headers, quoting=csv.QUOTE_ALL)
+                csvopts = {"quoting": csv.QUOTE_ALL,
+                           "delimiter": "\t"}
+                writer = csv.DictWriter(f, headers, **csvopts)
                 writer.writeheader()
                 for item in odicts:
                     writer.writerow(item)
@@ -132,7 +134,7 @@ class RomMap(object):
         """ Reload the data from a previous dump."""
         data = SimpleNamespace()
         for entity in set(arr.set for arr in self.arrays.values()):
-            filename = "{}/{}.csv".format(modfolder, entity)
+            filename = "{}/{}.tsv".format(modfolder, entity)
             arrays = (a for a in self.arrays.values() if a.set == entity)
             try:
                 with open(filename, 'rt', newline='') as f:
@@ -190,7 +192,7 @@ class ArrayDef(object):
         if index:
             if self.set != index.set:
                 # If the array and its index don't share a set, they won't be
-                # dumped in the same csv and the offsets can't be reaquired on
+                # dumped in the same tsv and the offsets can't be reaquired on
                 # load.
                 msg = "Array {} uses index {} but they don't share a set."
                 raise ValueError(msg, self.name, index.name)
@@ -205,7 +207,7 @@ class ArrayDef(object):
     def from_stringdict(cls, spec, sdef, index=None):
         """ Create an arraydef from a dictionary of strings.
 
-        Mostly this is to make it convenient to get from a .csv to an arraydef.
+        Mostly this is to make it convenient to get from a .tsv to an arraydef.
         The behavior here is somewhat counterintuitive; you *do* need to create
         the sdef and index (if applicable) first, and pass them to this
         function. All this does is unpack and convert non-type-related fields,
@@ -219,8 +221,8 @@ class ArrayDef(object):
                    sdef=sdef,
                    index=index)
 
-    def load(self, csvfile):
-        """ Initialize a list of structures from a csv file.
+    def load(self, tsvfile):
+        """ Initialize a list of structures from a tsv file.
 
         The file must be opened in text mode.
         """
@@ -229,9 +231,9 @@ class ArrayDef(object):
         if self.index:
             self._indices = []
 
-        # The value in the csvfile should be a rom offset rather than raw so we
+        # The value in the tsvfile should be a rom offset rather than raw so we
         # don't need to mod it here...
-        for item in csv.DictReader(csvfile):
+        for item in csv.DictReader(tsvfile, delimiter="\t"):
             if self.index:
                 # FIXME: I'm doing this get+cast magic enough that I should
                 # probably make it a field method or something. Accept a dict,
@@ -241,7 +243,7 @@ class ArrayDef(object):
             yield self.sdef.load(item)
 
     def dump(self, outfile, structures):
-        """ Dump an array to a csv file.
+        """ Dump an array to a tsv file.
 
         outfile must be opened in writable text mode.
         """
@@ -281,7 +283,7 @@ class ArrayDef(object):
     def multidump(outfile, *arrays):
         """ Splice and dump multiple arrays that are part of a set. """
         odicts = [StructDef.multidump(structs) for structs in zip(arrays)]
-        writer = csv.DictWriter(outfile, odicts[0].keys())
+        writer = csv.DictWriter(outfile, odicts[0].keys(), delimiter='\t')
         writer.writeheader()
         for odict in odicts:
             writer.writerow(odict)

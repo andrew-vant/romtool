@@ -1,9 +1,0 @@
-id,label,size,type,mod,display,order,info,comment
-hit,Hit%,1,uint,,,,,
-dmg,Damage,1,uint,,,,,
-crit,Crit Rate,1,uint,,,,,
-spl,Spell,1,uint,,,,,Probably an index into the spell array.
-elem,Element,1,lbin,,sptdfile,,,Status Psn/Stn Time Death Fire Ice Lightning Earth
-svs,Strong vs Monster,1,lbin,,mdguwacr,,,Magical Dragon Giant Undead Were Aquatic Caster Regen
-gfx,Sprite,1,uint,,hex,,,
-pal,Palette,1,uint,,hex,,,
