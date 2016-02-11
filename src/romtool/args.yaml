@@ -7,7 +7,7 @@ global:
 
 dump:
   spec:
-    description: Dump all known data to csv files.
+    description: Dump all known data to tsv files.
   args: !omap
     rom: ROM file to dump from
     datafolder: Send output to this folder

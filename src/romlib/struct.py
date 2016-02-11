@@ -52,7 +52,7 @@ class StructDef(object):
         in the dictionary. They dictionary may be keyed by either the field id
         or the field label. The field id is checked first. Superfluous items
         are ignored. If the values are strings of non-string types, as when
-        read from a .csv, they will be converted.
+        read from a .tsv, they will be converted.
         """
         initializers = dict()
         for field in self.fields.values():
@@ -136,7 +136,7 @@ class StructDef(object):
 
         By default, the field labels will be used as keys if available, and all
         values will be converted to strings. The returned OrderedDict is
-        suitable for sending to a csv or similar.
+        suitable for sending to a tsv or similar.
         """
         return StructDef.multidump([struct], stringify, use_labels)
 
@@ -145,7 +145,7 @@ class StructDef(object):
         """ Turn a list of structures into an ordereddict for serialization.
 
         The odict will contain all their values and be ordered in a sane manner
-        for outputting to (for example) csv. By default, field labels will be
+        for outputting to (for example) tsv. By default, field labels will be
         used as keys if available, and values will be converted to strings.
 
         None of the structures may have overlapping field ids/labels.
@@ -196,7 +196,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """ Create a Field object from a dictionary of strings.
 
         This is a convenience constructor intended to be used on the input from
-        csv structure definitions. All it does is convert values to the
+        tsv structure definitions. All it does is convert values to the
         appropriate types and then pass them to the regular constructor.
 
         Missing values are assumed to be empty strings. Extra values are
