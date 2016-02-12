@@ -22,9 +22,10 @@ classifiers = ["Development Status :: 3 - Alpha",
                "Topic :: Software Development :: Libraries :: Python Modules"]
 
 setup(name="romlib",
-      version="0.1.0a1",
-      packages=find_packages("src"),
-      package_dir={'': "src"},
+      version="0.1.0a2",
+      packages=find_packages("src") + ['romtool.maps'],
+      package_dir={'': "src",
+                   'romtool.maps': 'data/maps'}, # Ugh.
       include_package_data=True,
       install_requires=dependencies,
       tests_require=['tox'],
