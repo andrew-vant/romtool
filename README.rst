@@ -171,6 +171,14 @@ Possible causes:
    patching. If you are trying to dump data from a modified ROM, you can
    specify a map with the -m option.
 
+**Q. My system doesn't know what program to use to open .tsv files.**
+
+The tsv file type may not be properly associated. The method for associating
+filetypes differs by OS. On Windows 7 you can do it from the file properties;
+look for "Opens With <something>" followed by a button marked 'Change'. Other
+Windows versions should be pretty similar. On Linux you're on your own, but you
+probably Googled the answer before you got here anyway.
+
 **Q. The changes in my patch don't show up in-game.**
 
 1. Your patch may be named incorrectly. It should have the same filename
