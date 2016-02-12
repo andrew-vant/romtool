@@ -119,6 +119,7 @@ class RomMap(object):
                 odict['_idx_'] = i
 
             # Now dump
+            os.makedirs(dest, exist_ok=True)
             filename = "{}/{}.tsv".format(dest, entity)
             mode = "w" if allow_overwrite else "x"
             headers = odicts[0].keys()
