@@ -1,0 +1,26 @@
+id	label	size	type	mod	display	order	info	comment
+mhpg	Mario HP Growth	1	uint					
+matkg	Mario Atk Growth	b4	uint					
+mdefg	Mario Def Growth	b4	uint					
+mmagg	Mario MAtk Growth	b4	uint					
+mmdg	Mario MDef Growth	b4	uint					
+thpg	Toadstool HP Growth	1	uint					
+tatkg	Toadstool Atk Growth	b4	uint					
+tdefg	Toadstool Def Growth	b4	uint					
+tmagg	Toadstool MAtk Growth	b4	uint					
+tmdg	Toadstool MDef Growth	b4	uint					
+bhpg	Bowser HP Growth	1	uint					
+batkg	Bowser Atk Growth	b4	uint					
+bdefg	Bowser Def Growth	b4	uint					
+bmagg	Bowser MAtk Growth	b4	uint					
+bmdg	Bowser MDef Growth	b4	uint					
+ghpg	Geno HP Growth	1	uint					
+gatkg	Geno Atk Growth	b4	uint					
+gdefg	Geno Def Growth	b4	uint					
+gmagg	Geno MAtk Growth	b4	uint					
+gmdg	Geno MDef Growth	b4	uint					
+lhpg	Mallow HP Growth	1	uint					
+latkg	Mallow Atk Growth	b4	uint					
+ldefg	Mallow Def Growth	b4	uint					
+lmagg	Mallow MAtk Growth	b4	uint					
+lmdg	Mallow MDef Growth	b4	uint					

@@ -4,3 +4,7 @@ monster_ptrs	Stats Pointer	monsters	uintle	0x390026	256	2	0x390000
 monster_names	Name	monsters	strz	0x3992D1	256	13				ascii	
 characters		characters	cstats	0x3A002C	5	20					
 char_names	Name	characters	strz	0x3A134D	5	10				ascii	
+level_exp	Exp Requirement	levels	uintle	0x3A1AFF	29	2					
+newspell		levels	newspell	0x3A42F5	29	5					
+growth		levels	growth	0x3A1B39	29	15					
+bonus		levels	bonus	0x3A1CEC	29	15					
