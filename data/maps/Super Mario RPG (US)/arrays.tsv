@@ -1,0 +1,6 @@
+name	label	set	type	offset	length	stride	mod	index	priority	display	comment
+monsters		monsters	monster	0x390226	256	16		monster_ptrs		pointer	
+monster_ptrs	Stats Pointer	monsters	uintle	0x390026	256	2	0x390000				
+monster_names	Name	monsters	strz	0x3992D1	256	13				ascii	
+characters		characters	cstats	0x3A002C	5	20					
+char_names	Name	characters	strz	0x3A134D	5	10				ascii	

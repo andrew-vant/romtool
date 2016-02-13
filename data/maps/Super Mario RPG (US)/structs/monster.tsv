@@ -1,0 +1,23 @@
+id	label	size	type	mod	display	order	info	comment
+hp	HP	2	uintle					
+spd	Speed	1	uint					
+atk	Attack	1	uint					
+def	Defense	1	uint					
+matt	Magic Atk	1	uint					
+mdef	Magic Def	1	uint					
+fp	FP	1	uint					
+evd	Evade	1	uint					
+mevd	Magic Evd	1	uint					
+pad1	Unused 1	b6	uint					
+spal	Special Palette?	b1	uint					
+sdth	Special Death	b1	uint					Wait for the battle script to remove the monster instead of dying normally. (used by bosses?)
+asnd	Attack Sound	b4	uint		hex			
+mph	Morph Rate	b2	uint					Check 2/3 values, this may be bitwise little-endian.
+idth	Death Immune	b1	uint					
+inv	Invincible	b1	uint					
+res	Resistances	1	lbin		mspfitfj			Mute Sleep Poison Fear Ice Thunder Fire Jump
+weak	Weaknesses	b4	lbin		itfj			Ice Thunder Fire Jump
+imm	Immunities	1	lbin		mspfumsi			Mute Sleep Poison Fear Unknown Mushroom Scarecrow Invincible
+ent	Entrance Style	b4	uint		hex			
+coin	Coin Size	b2	uint					Not sure whether this should be treated as a bitfield or int or what.
+hov	Hover Height	b2	uint					
