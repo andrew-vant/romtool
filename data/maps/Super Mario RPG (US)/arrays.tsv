@@ -4,6 +4,8 @@ monster_ptrs	Stats Pointer	monsters	uintle	0x390026	256	2	0x390000			pointer
 monster_names	Name	monsters	strz	0x3992D1	256	13				names	
 rewards		monsters	reward	0x39162A	256	6		reward_ptrs			
 reward_ptrs	Reward Pointer	monsters	uintle	0x39142A	256	2	0x390000			pointer	
+fbonus		monsters	fbonus	0x39BB44	256	1					
+aiptr	AI Pointer	monsters	uintle	0x3930AA	256	2	0x390000		1	pointer	
 characters		characters	cstats	0x3A002C	5	20					
 char_names	Name	characters	strz	0x3A134D	5	10				names	
 level_exp	Exp Requirement	levels	uintle	0x3A1AFF	29	2					
