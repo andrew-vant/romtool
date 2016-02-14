@@ -1,0 +1,15 @@
+id	label	size	type	mod	display	order	info	comment
+lvl	Level	1	uint					
+hp	HP	2	uintle					
+mhp	Max HP	2	uintle					
+spd	Speed	1	uint					
+atk	Attack	1	uint					
+def	Defense	1	uint					
+matt	Magic Atk	1	uint					
+mdef	Magic Def	1	uint					
+exp	Experience	2	uintle					
+wpn	Weapon	1	uint					
+arm	Armor	1	uint					
+acc	Accessory	1	uint					
+unk	Unknown 1	1	uint					
+spl	Starting Spells (out of order)	4	bin					One bit per starting spell. Not sure of a good character list for this.

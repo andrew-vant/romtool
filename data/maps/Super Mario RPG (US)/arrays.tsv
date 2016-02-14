@@ -1,0 +1,19 @@
+name	label	set	type	offset	length	stride	mod	index	priority	display	comment
+monsters		monsters	monster	0x390226	256	16		monster_ptrs			
+monster_ptrs	Stats Pointer	monsters	uintle	0x390026	256	2	0x390000			pointer	
+monster_names	Name	monsters	strz	0x3992D1	256	13				names	
+rewards		monsters	reward	0x39162A	256	6		reward_ptrs			
+reward_ptrs	Reward Pointer	monsters	uintle	0x39142A	256	2	0x390000			pointer	
+fbonus		monsters	fbonus	0x39BB44	256	1					
+aiptr	AI Pointer	monsters	uintle	0x3930AA	256	2	0x390000		1	pointer	
+characters		characters	cstats	0x3A002C	5	20					
+char_names	Name	characters	strz	0x3A134D	5	10				names	
+level_exp	Exp Requirement	levels	uintle	0x3A1AFF	29	2					
+newspell		levels	newspell	0x3A42F5	29	5					
+growth		levels	growth	0x3A1B39	29	15					
+bonus		levels	bonus	0x3A1CEC	29	15					
+items		items	item	0x3A014D	256	18					
+prices	Price	items	uintle	0x3A40F2	256	2					
+item_names	Name	items	strz	0x3A46EF	256	15				names	
+item_descs	Description	items	strz	0x3A3120	256			item_desc_ptrs		main	
+item_desc_ptrs	Description Ptr	items	uintle	0x3A2F20	256	2	0x3A0000			pointer	

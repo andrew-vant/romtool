@@ -1,0 +1,6 @@
+id	label	size	type	mod	display	order	info	comment
+mnsp	Mario Spell	1	uint					
+tnsp	Toadstool Spell	1	uint					
+bnsp	Bowser Spell	1	uint					
+gnsp	Geno Spell	1	uint					
+lnsp	Mallow Spell	1	uint					

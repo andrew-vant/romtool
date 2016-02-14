@@ -1,0 +1,26 @@
+id	label	size	type	mod	display	order	info	comment
+mhpb	Mario HP Bonus	1	uint					
+matkb	Mario Atk Bonus	b4	uint					
+mdefb	Mario Def Bonus	b4	uint					
+mmagb	Mario MAtk Bonus	b4	uint					
+mmdb	Mario MDef Bonus	b4	uint					
+thpb	Toadstool HP Bonus	1	uint					
+tatkb	Toadstool Atk Bonus	b4	uint					
+tdefb	Toadstool Def Bonus	b4	uint					
+tmagb	Toadstool MAtk Bonus	b4	uint					
+tmdb	Toadstool MDef Bonus	b4	uint					
+bhpb	Bowser HP Bonus	1	uint					
+batkb	Bowser Atk Bonus	b4	uint					
+bdefb	Bowser Def Bonus	b4	uint					
+bmagb	Bowser MAtk Bonus	b4	uint					
+bmdb	Bowser MDef Bonus	b4	uint					
+ghpb	Geno HP Bonus	1	uint					
+gatkb	Geno Atk Bonus	b4	uint					
+gdefb	Geno Def Bonus	b4	uint					
+gmagb	Geno MAtk Bonus	b4	uint					
+gmdb	Geno MDef Bonus	b4	uint					
+lhpb	Mallow HP Bonus	1	uint					
+latkb	Mallow Atk Bonus	b4	uint					
+ldefb	Mallow Def Bonus	b4	uint					
+lmagb	Mallow MAtk Bonus	b4	uint					
+lmdb	Mallow MDef Bonus	b4	uint					

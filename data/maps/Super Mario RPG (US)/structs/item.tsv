@@ -1,0 +1,25 @@
+id	label	size	type	mod	display	order	info	comment
+idth	Death Immunity	b1	uint					
+unk1	Unknown 1	b1	uint					
+use	Usage Flags	b3	lbin		bmr			battle/overworld/reusable
+unk2	Unknown 2	b1	uint					
+type	Type	b2	uint					weapon/armor/accessory/item
+cursor	Cursor Flags	b3	bin					Stop on max Hp; stop on max FP; point to FP.
+unk3	Unknown 3	b2	bin					
+stat	Status Flags	b3	bin		cir			cure/inflict/resist
+users	Users	1	lbin		mtbgluuu			Mario Toadstool Bowser Geno Mallow
+tgt	Targeting Flags	1	lbin		uaeumdon			unknown allies enemy unknown multiple dead oneside? Notself
+elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+res	Immunities	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+weak	Resistances	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+ail	Ailment	1	bin		ismufpsm			invuln scarecrow mushroom unknown fear poison sleep mute
+enh	Enhancement	1	bin		udramuuu			unknown defense resist attack magic
+spd	Speed	1	int					
+atk	Attack	1	int					
+def	Defense	1	int					
+matt	Magic	1	int					
+mdef	MDef	1	int					
+avar	Attack Variance	1	uint					
+pow	Power	1	uint					
+eff	Item Effect	1	uint		hex			
+attf	Special Flags?	1	bin		llldnhnu			Only bit 6 (hide damage) used, others may be same as special attack flags.
