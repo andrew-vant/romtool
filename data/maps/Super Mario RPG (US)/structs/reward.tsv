@@ -1,0 +1,6 @@
+id	label	size	type	mod	display	order	info	comment
+exp	Exp	2	uintle					
+coins	Coins	1	uintle					
+cookie	Cookie Drop	1	uintle					
+drop	Item Drop	1	uintle					
+rare	Rare Drop	1	uintle					
