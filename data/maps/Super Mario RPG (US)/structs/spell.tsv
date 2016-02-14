@@ -1,0 +1,14 @@
+id	label	size	type	mod	display	order	info	comment
+mflags	Magic Flags	1	bin		muduuuip			menu unknown deathprotectable unknown unknown unknown ignoredefense party?
+unk1	Unknown 1	b4	bin					
+aflags	Status Flags	b4	lbin		cird			cure/inflict/resist/death
+fp	FP Cost	1	uint					
+tgt	Targeting Flags	1	lbin		uteumdon			unknown targetcursor enemy unknown multitarget dead oneside? Notself
+elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+pow	Power	1	uint					
+hit	Hit Rate	1	uint					
+ail	Ailment	1	bin		ismufpsm			Invuln Scarecrow Mushroom Unknown Fear Poison Sleep Mute
+enh	Enhancement	1	bin		udramuuu			unknown defense resist attack magic
+unk2	Unknown 2	1	uint		hex			
+func	Special Function	1	uint		hex			
+flags	Attack Flags	1	lbin		dnhnuuuu			Death Nodamage1 Hidedamage Nodamage2 Unknown Unknown Unknown Unknown | only hidedamage actually used, others speculative.

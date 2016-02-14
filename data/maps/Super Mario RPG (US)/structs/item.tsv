@@ -8,7 +8,7 @@ cursor	Cursor Flags	b3	bin					Stop on max Hp; stop on max FP; point to FP.
 unk3	Unknown 3	b2	bin					
 stat	Status Flags	b3	bin		cir			cure/inflict/resist
 users	Users	1	lbin		mtbgluuu			Mario Toadstool Bowser Geno Mallow
-tgt	Targeting Flags	1	lbin		uaeumdon			unknown allies enemy unknown multiple dead oneside? Notself
+tgt	Targeting Flags	1	lbin		uaeumdon			unknown targetcursor enemy unknown multitarget dead oneside? Notself
 elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
 res	Immunities	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
 weak	Resistances	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute

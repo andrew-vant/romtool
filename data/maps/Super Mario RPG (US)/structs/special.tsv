@@ -1,0 +1,6 @@
+id	label	size	type	mod	display	order	info	comment
+flags	Attack Flags	b5	lbin		dnhnu			Death Nodamage1 Hidedamage Nodamage2 Unknown
+time	Timing Type	b3	uint					
+hit	Hit Rate	1	uint					
+ail	Ailment	1	bin		ismufpsm			Invuln Scarecrow Mushroom Unknown Fear Poison Sleep Mute
+enh	Enhancement	1	bin		udramuuu			unknown defense resist attack magic unknown unknown unknown
