@@ -1,0 +1,27 @@
+id	label	size	type	mod	display	order	info	comment
+idth	Death Immunity	b1	uint					
+unk1	Unknown 1	b1	uint					
+use	Usage Flags	b3	lbin		bmr			battle/overworld/reusable
+unk2	Unknown 2	b1	uint					
+type	Type	b2	uint					weapon/armor/accessory/item
+cursor	Cursor Flags	b3	bin					Stop on max Hp; stop on max FP; point to FP.
+unk3	Unknown 3	b2	bin					
+stat	Status Flags	b3	bin					nullify/inflict/protect
+users	Users	1	lbin		mtbgluuu			Mario Toadstool Bowser Geno Mallow
+tgt	Targeting Flags	1	lbin		uaeuawpo			unknown ally enemy unknown all wounded party other
+elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+res	Resistances	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+weak	Weaknesses	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
+ail	Ailment	1	lbin		ismufpsm			invuln scarecrow mushroom unknown fear poison sleep mute
+enh	Enhancement	1	bin		uumarduu			unknown unknown magic attack mdef defense unknown unknown
+spd	Speed	1	uint					
+atk	Attack	1	uint					
+def	Defense	1	uint					
+matt	Magic	1	uint					
+mdef	MDef	1	uint					
+avar	Attack Variance	1	uint					
+eff	Effectiveness	1	uint					
+atkf	Item Effect	1	uint		hex			
+unk4	Unknown 4	b2	lbin					
+hide	Hide Damage	b1	uint					
+unk5	Unknown 5	b5	lbin					
