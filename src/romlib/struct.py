@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from types import SimpleNamespace
 
+import bitstring
 from bitstring import ConstBitStream, BitStream, Bits
 
 from . import util
@@ -115,8 +116,13 @@ class StructDef(object):
         for field in self.data:
             value = getattr(struct, field.id)
             bs.append(field.bits(value))
-        for i, byte in enumerate(bs.bytes):
-            changes[offset+i] = byte
+        try:
+            for i, byte in enumerate(bs.bytes):
+                changes[offset+i] = byte
+        except bitstring.InterpretError as e:
+            msg = "Problem bytemapping main data of {}: {}"
+            # FIXME: more appropriate exception type here.
+            raise Exception(msg.format(self.name, e.msg))
 
         # Deal with pointers. For now pointers require whole-byte values.
         # Note that we no longer care about the struct's start point so we can
