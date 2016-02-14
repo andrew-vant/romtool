@@ -55,8 +55,10 @@ class RomMap(object):
         # later edited, the last one loaded wins. The 'priority' column lets
         # the map-maker specify the winner of such conflicts by ensuring
         # higher-priority arrays get loaded last.
-        specs.sort(key=lambda spec: (bool(spec['index']),
+        indexnames = set([spec['index'] for spec in specs if spec['index']])
+        specs.sort(key=lambda spec: (spec['name'] not in indexnames,
                                      util.intify(spec.get('priority', 0))))
+
         for i, spec in enumerate(specs):
             sdef = self.sdefs.get(spec['type'], None)
             index = self.arrays.get(spec['index'], None)
