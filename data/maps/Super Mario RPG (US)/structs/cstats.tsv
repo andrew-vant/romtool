@@ -12,4 +12,4 @@ wpn	Weapon	1	uint
 arm	Armor	1	uint					
 acc	Accessory	1	uint					
 unk	Unknown 1	1	uint					
-spl	Spells	4	bin					One bit per starting spell. Not sure of a good character list for this.
+spl	Starting Spells (out of order)	4	bin					One bit per starting spell. Not sure of a good character list for this.
