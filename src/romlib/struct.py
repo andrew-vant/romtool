@@ -255,7 +255,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             return self.ttable.decode(data.bytes)
         elif self.type == 'lbin':
             initstr = "{}:{}".format('bin', self.bitsize)
-            return util.str_reverse(bs.read(initstr))
+            return util.lbin_reverse(bs.read(initstr))
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -273,7 +273,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             # reason.
             return Bits(bin=value)
         elif self.type == 'lbin':
-            return Bits(bin=util.str_reverse(value))
+            return Bits(bin=util.lbin_reverse(value))
         else:
             init = {self.type: value, 'length': self.bitsize}
             return Bits(**init)

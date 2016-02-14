@@ -117,6 +117,16 @@ def undisplaybits(s, display):
 def str_reverse(s):
     return s[::-1]
 
+def lbin_reverse(bs):
+    """ Reverse the bits in each byte of a bitstring.
+
+    Used when the source data assumes LSB-0. This may not do what you expect
+    if the input is both >1 byte and not an even number of bytes.
+    """
+    substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
+    revstrings = [bs[::-1] for bs in substrings]
+    return "".join(revstrings)
+
 def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.
 
