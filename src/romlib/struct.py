@@ -253,9 +253,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             pos = bs.pos
             data = bs[pos:pos+maxbits]
             return self.ttable.decode(data.bytes)
-        elif self.type == 'lbin':
-            initstr = "{}:{}".format('bin', self.bitsize)
-            return util.lbin_reverse(bs.read(initstr))
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -268,12 +265,11 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         """ Convert a value to a Bits object."""
         if 'str' in self.type:
             return Bits(self.ttable.encode(value))
-        elif self.type == 'bin':
+        elif 'bin' in self.type:
             # Separated because you can't pass length along with bin for some
             # reason.
-            return Bits(bin=value)
-        elif self.type == 'lbin':
-            return Bits(bin=util.lbin_reverse(value))
+            init = {self.type: value}
+            return Bits(**init)
         else:
             init = {self.type: value, 'length': self.bitsize}
             return Bits(**init)
