@@ -145,7 +145,7 @@ class RomMap(object):
                         setattr(data, arr.name, list(arr.load(f)))
                         f.seek(0)
             except FileNotFoundError:
-                pass # Ignore missing files. FIXME: Log warning?
+                pass  # Ignore missing files. FIXME: Log warning?
         return data
 
     def bytemap(self, data):
@@ -153,7 +153,7 @@ class RomMap(object):
         bmap = util.CheckedDict()
         for name, arr in self.arrays.items():
             if not hasattr(data, name):
-                continue  #FIXME: Log warning?
+                continue  # FIXME: Log warning?
             bmap.update(arr.bytemap(getattr(data, name)))
         return bmap
 

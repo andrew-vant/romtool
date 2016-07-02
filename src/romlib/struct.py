@@ -8,6 +8,7 @@ from bitstring import ConstBitStream, BitStream, Bits
 
 from . import util
 
+
 class StructDef(object):
     """ A definition of a type of structure.
 
@@ -23,7 +24,6 @@ class StructDef(object):
         self.links = [f for f in self.fields.values() if f.pointer]
         self.data = [f for f in self.fields.values() if not f.pointer]
         self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
-
 
     @classmethod
     def from_stringdicts(cls, name, fdef_dicts, ttables=None):
@@ -93,13 +93,13 @@ class StructDef(object):
                 pointer = self.fields[field.pointer]
                 bs.pos = (data[pointer.id] + pointer.mod) * 8
                 data[field.id] = field.read(bs)
-                #try:
-                #    bs.pos = (data[pointer.id] + pointer.mod) * 8
-                #except ValueError:
-                #    # Bogus pointer. FIXME: Log warning?
-                #    data[field.id] = field.default
-                #else:
-                #    data[field.id] = field.read(bs)
+                # try:
+                #     bs.pos = (data[pointer.id] + pointer.mod) * 8
+                # except ValueError:
+                #     # Bogus pointer. FIXME: Log warning?
+                #     data[field.id] = field.default
+                # else:
+                #     data[field.id] = field.read(bs)
         return self.cls(**data)
 
     def bytemap(self, struct, offset=0):
@@ -184,7 +184,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if 'str' in _type and ttable is None:
             msg = "String field {} has no text table. Check display attribute?"
             raise ValueError(msg, _id)
-        self.id = _id  #pylint: disable=invalid-name
+        self.id = _id  # pylint: disable=invalid-name
         self.label = label
         self.type = _type
         self.bitsize = bits
@@ -195,7 +195,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.display = display
         self.pointer = pointer
         self.ttable = ttable
-
 
     @classmethod
     def from_stringdict(cls, odict, ttable=None, available_tts=None):
@@ -211,8 +210,8 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if ttable is None and available_tts is not None:
             ttable = available_tts.get(odict['display'], None)
 
-        expected_fields = ['id','label','type','size','order',
-                           'mod','display','comment','pointer']
+        expected_fields = ['id', 'label', 'type', 'size', 'order',
+                           'mod', 'display', 'comment', 'pointer']
         odict = {key: odict.get(key, "") for key in expected_fields}
 
         return Field(_id=odict['id'],
