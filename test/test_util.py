@@ -57,13 +57,3 @@ class TestOrderedDictReader(unittest.TestCase):
             f.seek(0)
             reader = util.OrderedDictReader(f)
             self.assertEqual(list(next(reader).keys()), keys)
-
-
-class TestAddress(unittest.TestCase):
-    def test_offset_to_hirom(self):
-        a = util.Address(0)
-        self.assertEqual(a.hirom, 0xC00000)
-
-    def test_hirom_to_offset(self):
-        a = util.Address(0xC00000, "hirom")
-        self.assertEqual(a.rom, 0)
