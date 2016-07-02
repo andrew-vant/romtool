@@ -7,6 +7,7 @@ from collections import OrderedDict
 
 from bitstring import ConstBitStream
 
+
 class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
 
@@ -28,6 +29,7 @@ class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
         d = super().__next__()  # pylint: disable=invalid-name
         return OrderedDict(sorted(d.items(), key=self._orderfunc))
 
+
 class CheckedDict(dict):
     """ A dictionary that warns you if you overwrite keys."""
 
@@ -47,6 +49,7 @@ class CheckedDict(dict):
         if key in self and value != self[key]:
             logging.debug(self.cmsg, key, self[key], value)
 
+
 @contextlib.contextmanager
 def loading_context(listname, name, index=None):
     """ Context manager for loading lists or files.
@@ -65,6 +68,7 @@ def loading_context(listname, name, index=None):
         ex.args = (msg,) + ex.args[1:]
         raise
 
+
 def hexify(i, length=None):
     """ Converts an integer to a hex string.
 
@@ -80,6 +84,7 @@ def hexify(i, length=None):
     digits = numbytes * 2  # Two hex digits per byte
     fmtstr = "0x{{:0{}X}}".format(digits)
     return fmtstr.format(i)
+
 
 def displaybits(bits, display):
     if not display:
@@ -114,8 +119,10 @@ def undisplaybits(s, display):
             raise ValueError(msg.format(char))
     return out
 
+
 def str_reverse(s):
     return s[::-1]
+
 
 def lbin_reverse(bs):
     """ Reverse the bits in each byte of a bitstring.
@@ -126,6 +133,7 @@ def lbin_reverse(bs):
     substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
     revstrings = [bs[::-1] for bs in substrings]
     return "".join(revstrings)
+
 
 def remap_od(odict, keymap):
     """ Rename the keys in an ordereddict while preserving their order.
@@ -208,6 +216,7 @@ def bit_offset(source):
         return source.pos
     else:
         return 0
+
 
 def bsify(source, cls=ConstBitStream):
     """ Convert source to a bitstream if, and only if, necessary.

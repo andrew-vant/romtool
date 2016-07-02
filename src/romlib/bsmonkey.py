@@ -12,6 +12,7 @@ import bitstring
 
 from . import util
 
+
 def monkeypatch(module=None):
     """ Introduce romlib types into bitstring module."""
 
@@ -50,6 +51,7 @@ def monkeypatch(module=None):
     module.TOKEN_RE = re.compile(r'(?P<name>' + '|'.join(initnames) +
                                  r')((:(?P<len>[^=]+)))?(=(?P<value>.*))?$',
                                  re.IGNORECASE)
+
 
 def _read_lbin(self, length, start):
     s = self._readbin(length, start)
