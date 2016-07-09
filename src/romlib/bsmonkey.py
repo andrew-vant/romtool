@@ -53,6 +53,17 @@ def monkeypatch(module=None):
                                  re.IGNORECASE)
 
 
+def lbin_reverse(bs):
+    """ Reverse the bits in each byte of a bitstring.
+
+    Used when the source data assumes LSB-0. This may not do what you expect
+    if the input is both >1 byte and not an even number of bytes.
+    """
+    substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
+    revstrings = [bs[::-1] for bs in substrings]
+    return "".join(revstrings)
+
+
 def _read_lbin(self, length, start):
     s = self._readbin(length, start)
     return util.lbin_reverse(s)
