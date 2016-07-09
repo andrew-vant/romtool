@@ -6,7 +6,7 @@ import itertools
 from collections import OrderedDict
 from types import SimpleNamespace
 
-from .struct import StructDef, Field
+from .struct import Structure, Field
 from . import util, text
 
 
@@ -42,7 +42,8 @@ class RomMap(object):
         for i, (name, path) in enumerate(structfiles):
             with open(path) as f, util.loading_context('structure', name, i):
                 reader = util.OrderedDictReader(f, delimiter="\t")
-                sdef = StructDef.from_stringdicts(name, reader, self.texttables)
+                fields = [Field(**row) for row in reader]
+                struct = type(name, Structure, fields=fields)
                 self.sdefs[name] = sdef
 
         # Now load the array definitions
@@ -74,7 +75,7 @@ class RomMap(object):
                         display=spec['display'],
                         ttable=self.texttables.get(spec['display'], None)
                         )
-                    sdef = StructDef(spec['name'], [field])
+                    sdef = type(spec['name'], Structure, fields=[field])
             adef = ArrayDef.from_stringdict(spec, sdef, index)
             self.arrays[adef.name] = adef
 
