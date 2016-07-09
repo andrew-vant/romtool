@@ -37,7 +37,7 @@ class CheckedDict(dict):
 
     def __setitem__(self, key, value):
         self._check_conflict(key, value)
-        super().__setitem__(self, key, value)
+        super().__setitem__(key, value)
 
     def update(self, *args, **kwargs):
         d = dict(*args, **kwargs)
