@@ -135,6 +135,8 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         csv.DictReader.
         """
         for key, value in dictionary.items():
+            if key not in self.fieldmap:
+                continue # Probably the input is merged with another struct.
             field = self.fieldmap[key]
             self[key] = field.load(value)
 
@@ -153,7 +155,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
                 bs.pos = (self[pointer.id] + pointer.mod) * 8
                 self[field.id] = field.read(bs)
 
-    def patch(self, offset):
+    def bytemap(self, offset):
         """ Get an offset-to-byte-value dict for use by Patch.
 
         Offset indicates the start point of the structure.

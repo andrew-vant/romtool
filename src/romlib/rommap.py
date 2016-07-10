@@ -276,7 +276,7 @@ class ArrayDef(object):
             indices = self._indices
         bmap = {}
         for offset, struct in zip(indices, structs):
-            bmap.update(self.struct.bytemap(struct, offset))
+            bmap.update(struct.bytemap(offset))
         return bmap
 
     @staticmethod
