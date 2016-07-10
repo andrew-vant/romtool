@@ -7,7 +7,7 @@ from bitstring import ConstBitStream, BitStream, Bits
 
 from . import util
 
-class MetaStructure(type):
+class MetaStruct(type):
     """ Metaclass for structure objects.
 
     The main point of this is to ensure that the class attribute "fields" and
@@ -33,7 +33,7 @@ class MetaStructure(type):
         # allowed.
 
 
-class Structure(object, metaclass=MetaStructure, fields=[]):
+class Structure(object, metaclass=MetaStruct, fields=[]):
     def __init__(self, auto=None):
         self.data = types.SimpleNamespace()
         if isinstance(auto, dict):

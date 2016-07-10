@@ -6,7 +6,7 @@ import itertools
 from collections import OrderedDict
 from types import SimpleNamespace
 
-from .struct import Structure, Field
+from .struct import Structure, Field, MetaStruct
 from . import util, text
 
 
@@ -26,7 +26,7 @@ class RomMap(object):
         """
         # FIXME: Order matters now, texttables are required to build
         # structdefs.
-        self.sdefs = OrderedDict()
+        self.structures = OrderedDict()
         self.texttables = OrderedDict()
         self.arrays = OrderedDict()
 
@@ -42,9 +42,10 @@ class RomMap(object):
         for i, (name, path) in enumerate(structfiles):
             with open(path) as f, util.loading_context('structure', name, i):
                 reader = util.OrderedDictReader(f, delimiter="\t")
-                fields = [Field(**row) for row in reader]
-                struct = type(name, Structure, fields=fields)
-                self.sdefs[name] = sdef
+                fields = [Field.from_stringdict(row, available_tts=self.texttables)
+                          for row in reader]
+                struct = MetaStruct(name, (Structure,), {}, fields=fields)
+                self.structures[name] = struct
 
         # Now load the array definitions
         with open("{}/arrays.tsv".format(root)) as f:
@@ -61,10 +62,10 @@ class RomMap(object):
                                      util.intify(spec.get('priority', 0))))
 
         for i, spec in enumerate(specs):
-            sdef = self.sdefs.get(spec['type'], None)
-            index = self.arrays.get(spec['index'], None)
-            if sdef is None:
-                # We have a primitive
+            try:
+                struct = self.structures[spec['type']]
+            except KeyError:
+                # We have a primitive.
                 with util.loading_context("array spec", spec['name'], i):
                     field = Field(
                         _id=spec['name'],
@@ -75,8 +76,12 @@ class RomMap(object):
                         display=spec['display'],
                         ttable=self.texttables.get(spec['display'], None)
                         )
-                    sdef = type(spec['name'], Structure, fields=[field])
-            adef = ArrayDef.from_stringdict(spec, sdef, index)
+                    name = spec['name']
+                    base = (Structure,)
+                    struct = MetaStruct(name, base, {}, fields=[field])
+
+            index = self.arrays.get(spec['index'], None)
+            adef = ArrayDef.from_stringdict(spec, struct, index)
             self.arrays[adef.name] = adef
 
     def read(self, rom):
@@ -167,12 +172,12 @@ class ArrayDef(object):
     a separate table of pointers, that table will be used when reading,
     writing, or comparing data.
     """
-    def __init__(self, name, _set, sdef, offset=0, length=0, stride=0, index=None):
+    def __init__(self, name, _set, struct, offset=0, length=0, stride=0, index=None):
         """ Define an array.
 
         name -- The name of the objects in the array.
         _set -- The set to which the array belongs.
-        sdef -- The structure definition for items in the array.
+        struct -- The structure class for items in the array.
         offset -- The offset at which the array starts, in bytes.
         length -- the number of items in the array.
         stride -- The offset from the beginning of one item to the beginning of
@@ -191,7 +196,7 @@ class ArrayDef(object):
         self.offset = offset
         self.length = length
         self.stride = stride
-        self.sdef = sdef
+        self.struct = struct
         self.index = index
         if index:
             if self.set != index.set:
@@ -201,19 +206,19 @@ class ArrayDef(object):
                 msg = "Array {} uses index {} but they don't share a set."
                 raise ValueError(msg, self.name, index.name)
             # Indexes should only have one field so this should work...
-            self._indexer = next(iter(index.sdef.fields.values()))
+            self._indexer = index.struct.fields[0]
             self._indices = None
         else:
             self._indexer = None
             self._indices = [offset+i*stride for i in range(length)]
 
     @classmethod
-    def from_stringdict(cls, spec, sdef, index=None):
+    def from_stringdict(cls, spec, struct, index=None):
         """ Create an arraydef from a dictionary of strings.
 
         Mostly this is to make it convenient to get from a .tsv to an arraydef.
         The behavior here is somewhat counterintuitive; you *do* need to create
-        the sdef and index (if applicable) first, and pass them to this
+        the struct and index (if applicable) first, and pass them to this
         function. All this does is unpack and convert non-type-related fields,
         then pass the lot on to the constructor.
         """
@@ -222,7 +227,7 @@ class ArrayDef(object):
                    offset=util.intify(spec['offset']),
                    length=util.intify(spec['length']),
                    stride=util.intify(spec['stride']),
-                   sdef=sdef,
+                   struct=struct,
                    index=index)
 
     def load(self, tsvfile):
@@ -244,7 +249,7 @@ class ArrayDef(object):
                 # return a value.
                 i = item.get(self._indexer.id, item[self._indexer.label])
                 self._indices.append(int(i, 0))
-            yield self.sdef.load(item)
+            yield self.struct(item)
 
     def dump(self, outfile, structures):
         """ Dump an array to a tsv file.
@@ -264,9 +269,11 @@ class ArrayDef(object):
             self._indices = [getattr(struct, attr) + mod
                              for struct in self.index.read(rom)]
 
+        bs = util.bsify(rom)
         for offset in self._indices:
             # FIXME: bits vs. bytes Should really grep for offset.
-            yield self.sdef.read(rom, offset*8)
+            bs.pos = offset * 8
+            yield self.struct(bs)
 
     def bytemap(self, structs, indices=None):
         """ Return a bytemap.
@@ -280,7 +287,7 @@ class ArrayDef(object):
             indices = self._indices
         bmap = {}
         for offset, struct in zip(indices, structs):
-            bmap.update(self.sdef.bytemap(struct, offset))
+            bmap.update(self.struct.bytemap(struct, offset))
         return bmap
 
     @staticmethod
