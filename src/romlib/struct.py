@@ -305,7 +305,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if 'str' in self.type:
             maxbits = self.bitsize if self.bitsize else 1024*8
             pos = bs.pos
-            data = bs[pos:pos+maxbits]
+            data = bs.read(maxbits)
             return self.ttable.decode(data.bytes)
         else:
             try:
