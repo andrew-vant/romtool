@@ -1,6 +1,8 @@
 """This module contains classes for manipulating binary structures in ROMs."""
 
 import types
+import itertools
+import collections
 
 import bitstring
 from bitstring import ConstBitStream, BitStream, Bits
@@ -21,8 +23,8 @@ class MetaStruct(type):
     def __init__(cls, name, bases, dct, *, fields):
         super().__init__(name, bases, dct)
         cls.fields = fields.copy()
-        cls._links = [f for f in fields if not f.pointer]
-        cls._nonlinks = [f for f in fields if f.pointer]
+        cls._links = [f for f in fields if f.pointer]
+        cls._nonlinks = [f for f in fields if not f.pointer]
         cls.fieldmap = {}
         for field in fields:
             cls.fieldmap[field.id] = field
@@ -52,14 +54,14 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
         Attributes can be looked by by label as well as ID.
         """
-        setattr(self.data, _realkey(key), value)
+        setattr(self.data, self._realkey(key), value)
 
     def __getitem__(self, key):
         """ Get an attribute using dictionary syntax.
 
         Attributes can be looked by by label as well as ID.
         """
-        return getattr(self.data, _realkey(key))
+        return getattr(self.data, self._realkey(key))
 
     def __delitem__(self, key):
         """ Unset a field value.
@@ -98,7 +100,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
     def __contains__(self, key):
         try:
-            key = _realkey(key)
+            key = self._realkey(key)
         except KeyError: # FIXME: Should probably use custom exception.
             return False
         return self[key] is not None
@@ -147,7 +149,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         for field in self._links:
             desc = "{} field".format(type(self).__name__)
             with util.loading_context(desc, field.id):
-                pointer = self.fields[field.pointer]
+                pointer = self.fieldmap[field.pointer]
                 bs.pos = (self[pointer.id] + pointer.mod) * 8
                 self[field.id] = field.read(bs)
 
@@ -217,7 +219,7 @@ def output_fields(*structure_classes, use_labels=True):
             ordering = field.sortorder(i)
             fieldnames.append(record(key, ordering))
     fieldnames.sort(key=lambda item: item.ordering)
-    return fieldnames
+    return [item.key for item in fieldnames]
 
 class Field(object):  # pylint: disable=too-many-instance-attributes
     """ An individual field of a structure.

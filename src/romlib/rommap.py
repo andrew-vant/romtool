@@ -5,7 +5,9 @@ import csv
 import itertools
 from collections import OrderedDict
 from types import SimpleNamespace
+from pprint import pprint
 
+from . import struct
 from .struct import Structure, Field, MetaStruct
 from . import util, text
 
@@ -106,8 +108,11 @@ class RomMap(object):
         top-level function for doing the Right Thing?
         """
 
+        os.makedirs(dest, exist_ok=True)
+
         # Group arrays by set.
         arrays = sorted(self.arrays.values(), key=lambda a: a.set)
+
         # FIXME: I've yet to figure out how to iterate over groupby results
         # naturally so screw it for now I'll just listify everything it
         # returns...
@@ -116,28 +121,12 @@ class RomMap(object):
                      in itertools.groupby(arrays, lambda a: a.set)]
 
         for entity, arrays in arraysets:
-            # Get a bunch of merged dictionaries representing the data in the
-            # set.
-            data_subset = zip(*[getattr(data, arr.name) for arr in arrays])
-            odicts = [StructDef.multidump(item) for item in data_subset]
-
-            # Note the original order of items so it can be preserved when
-            # reading back a re-sorted file.
-            for i, odict in enumerate(odicts):
-                odict['_idx_'] = i
-
-            # Now dump
-            os.makedirs(dest, exist_ok=True)
             filename = "{}/{}.tsv".format(dest, entity)
             mode = "w" if allow_overwrite else "x"
-            headers = odicts[0].keys()
+            data_subset = [getattr(data, array.name) for array in arrays]
             with open(filename, mode, newline='') as f:
-                csvopts = {"quoting": csv.QUOTE_ALL,
-                           "delimiter": "\t"}
-                writer = csv.DictWriter(f, headers, **csvopts)
-                writer.writeheader()
-                for item in odicts:
-                    writer.writerow(item)
+                ArrayDef.multidump(f, *data_subset)
+
 
     def load(self, modfolder):
         """ Reload the data from a previous dump."""
@@ -292,13 +281,24 @@ class ArrayDef(object):
 
     @staticmethod
     def multidump(outfile, *arrays):
-        """ Splice and dump multiple arrays that are part of a set. """
-        odicts = [StructDef.multidump(structs) for structs in zip(arrays)]
-        writer = csv.DictWriter(outfile, odicts[0].keys(), delimiter='\t')
-        writer.writeheader()
-        for odict in odicts:
-            writer.writerow(odict)
+        """ Splice and dump multiple arrays that are part of a set.
 
+        This adds an extra '_idx_' column recording the original order of the
+        items in the arrays, so it can be preserved when reading back a
+        re-sorted file.
+        """
+        classes = [type(array[0]) for array in arrays]
+        headers = struct.output_fields(*classes) + ['_idx_']
+        csvopts = {"quoting": csv.QUOTE_ALL,
+                   "delimiter": "\t"}
+        writer = csv.DictWriter(outfile, headers, **csvopts)
+        writer.writeheader()
+        for i, structs in enumerate(zip(*arrays)):
+            out = {}
+            for structure in structs:
+                out.update(structure.dump())
+            out['_idx_'] = i
+            writer.writerow(out)
 
 def _get_subfiles(root, folder, extension):
     try:
