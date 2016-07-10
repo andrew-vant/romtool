@@ -27,6 +27,9 @@ class MetaStruct(type):
         cls._nonlinks = [f for f in fields if not f.pointer]
         cls.fieldmap = {}
         for field in fields:
+            if field.id in dir(cls):
+                msg = "Illegal field id '{}' in struct '{}'."
+                raise ValueError(msg, field.id, name)
             cls.fieldmap[field.id] = field
             cls.fieldmap[field.label] = field
 
