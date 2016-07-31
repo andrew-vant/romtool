@@ -7,7 +7,7 @@ spells		spells	spell	0x301F0	64	8
 specials		specials	special	0x30400	26	8					
 mnames	Name	monsters	strz	0x2D5F0	128			mname_ptrs		names	String lengths differ
 cnames	Name	characters	strz	0x2BF53	6	8		cname_ptrs		names	
-anames	Name	armor	strz	0x2BB0D	40			aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string – which is 9 bytes long.
+anames	Name	armor	strz	0x2BB0D	40			aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
 wnames	Name	weapons	strz	0x2B9CD	40	8		wname_ptrs		names	
 splnames	Name	spells	strz	0x2BE13	64	5		splname_ptrs		names	
 spcnames	Name	specials	strz	0x2B644	26			spcname_ptrs		names	String lengths differ

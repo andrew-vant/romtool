@@ -2,6 +2,6 @@ id	label	size	type	mod	display	order	info	comment
 acc	Accuracy	1	uint					
 effect	Effectivity	1	uint					The nature of this value is determined by the Effect Routine property
 elem	Element	1	lbin		sptdfile			Status Psn/Stn Time Death Fire Ice Lightning Earth
-tgt	Targeting	1	uint		hex			Single target (1) – All targets (2)
+tgt	Targeting	1	uint		hex			Single target (1) - All targets (2)
 code	Effect Routine	1	uint		hex			Determines what the special does.
 unk1	Unknown 1	3	uint		hex			
