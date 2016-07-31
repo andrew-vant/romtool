@@ -142,6 +142,19 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
                 continue # Probably the input is merged with another struct.
             field = self.fieldmap[key]
             self[key] = field.load(value)
+        self.postload(dictionary)
+
+    def postload(self, dictionary):
+        """ Loading hook for weird structures, e.g. containing unions.
+
+        If a given structure contains unions, they are always loaded as
+        strings. This function should replace them with whatever type is
+        appropriate.
+
+        Unions should never be strings and it is an error to leave them that
+        way.
+        """
+        pass
 
     def read(self, source, bit_offset=None):
         """ Read in a new structure"""
@@ -151,12 +164,41 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
         for field in self._nonlinks:
             self[field.id] = field.read(bs)
+        end = bs.pos  # Save this to reset it after reading links.
+
         for field in self._links:
             desc = "{} field".format(type(self).__name__)
             with util.loading_context(desc, field.id):
                 pointer = self.fieldmap[field.pointer]
                 bs.pos = (self[pointer.id] + pointer.mod) * 8
                 self[field.id] = field.read(bs)
+
+        bs.pos = end  # Should be one bit past the fixed structure.
+        self.postread(source)
+
+        # Make sure any hook-requiring fields were actually processed.
+        unset = [field.id for field in self.fields if field.id not in self]
+        if len(unset) > 0:
+            msg = "Fields '{}' in struct '{}' not processed properly."
+            raise Exception(msg, unset, type(self).__name__)
+
+
+    def postread(self, source):
+        """ Reading hook for weird structures, e.g. with optional fields.
+
+        `source` will always be a bitstring, and its position will always be
+        set to the first bit past the "fixed" part of the structure.
+
+        If a given structure contains unions, they are initially left as
+        bitstrings; this function should interpret them, and not doing so will
+        raise an exception.
+
+        If a given structure contains optional fields, they are initially
+        unread. This function should read them. If they are not present, they
+        should be set to None. Not doing one or the other will raise an
+        exception.
+        """
+        pass
 
     def bytemap(self, offset):
         """ Get an offset-to-byte-value dict for use by Patch.
@@ -186,7 +228,21 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
             for i, byte in enumerate(field.bytes(value)):
                 changes[offset+i] = byte
 
+        # Apply hooks.
+        changes.update(postbytemap(self, offset))
         return changes
+
+    def postbytemap(self, offset):
+        """ Bytemap hook for weird structures, e.g. with unions.
+
+        Offset indicates the start point of the structure in ROM.
+
+        This function must return a dictionary of offsets and byte values for
+        union and optional fields. It need not include data for fixed fields or
+        pointers; if it does they will override anything included by the
+        default behavior.
+        """
+        return {}
 
     def dump(self, use_labels=True):
         """ Produce a dictionary of strings from a structure.
