@@ -1,8 +1,14 @@
 """This module contains classes for manipulating binary structures in ROMs."""
 
+# FIXME: What is the canonical internal representation for a bitfield? It
+# probably should not be a string.
+
 import types
 import itertools
 import collections
+import pathlib
+import inspect
+from importlib.machinery import SourceFileLoader
 
 import bitstring
 from bitstring import ConstBitStream, BitStream, Bits
@@ -16,11 +22,11 @@ class MetaStruct(type):
     its related, derived attributes are properly set when Structure is
     inherited.
     """
-    def __new__(cls, name, bases, dct, *, fields):
+    def __new__(cls, name, bases, dct, *, fields, hookmodule=None):
         # See: http://martyalchin.com/2011/jan/20/class-level-keyword-arguments/
         return super().__new__(cls, name, bases, dct)
 
-    def __init__(cls, name, bases, dct, *, fields):
+    def __init__(cls, name, bases, dct, *, fields, hookmodule=None):
         super().__init__(name, bases, dct)
         cls.fields = fields.copy()
         cls._links = [f for f in fields if f.pointer]
@@ -32,8 +38,10 @@ class MetaStruct(type):
                 raise ValueError(msg, field.id, name)
             cls.fieldmap[field.id] = field
             cls.fieldmap[field.label] = field
+        if hookmodule is not None:
+            for name, func in inspect.getmembers(hookmodule, inspect.isfunction):
+                setattr(cls, name, func)
 
-        # FIXME: Check field ids vs. built in methods for conflicts/shadowing?
         # FIXME: Check for overlapping label/ids? Not sure if this should be
         # allowed.
 
@@ -45,7 +53,6 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
             self.load(auto)
         else:
             self.read(auto)
-        # assert(vars(self.data).keys() == (f.id for f in self.fields))
 
     @classmethod
     def _realkey(cls, key):
@@ -249,6 +256,8 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
         The result is suitable for writing out to .tsv or similar.
         """
+        # FIXME: What should this do for unions? str(whatever) *may* work, in
+        # which case a hook isn't needed, but I'm not sure.
         out = {}
         for field in self.fields:
             key = field.label if use_labels else field.id
@@ -358,7 +367,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         if bit_offset is not None:
             bs.pos = bit_offset
 
-        if 'str' in self.type:
+        if self.type == 'union':
+            return bs.read(self.bitsize)
+        elif 'str' in self.type:
             maxbits = self.bitsize if self.bitsize else 1024*8
             pos = bs.pos
             data = bs.read(maxbits)
@@ -431,6 +442,8 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             return util.displaybits(value, self.display)
         if self.type in ['str', 'strz', 'hex']:
             return value
+        if self.type == 'union':
+            return str(value)
         # If we get here something is wrong.
         msg = "Stringification of '{}' not implemented."
         raise NotImplementedError(msg, self.type)
@@ -449,3 +462,21 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         nameorder = 0 if self.label == "Name" else 1
         typeorder = 1 if self.display == "pointer" else 0
         return nameorder, self.order, typeorder, origin_sequence_order
+
+
+def load(path, name=None, tts=None):
+    spec = pathlib.Path(path)  # I hate lines like this so much.
+    hooks = spec.parent.joinpath(spec.stem + '.py')
+    if name is None:
+        name = spec.stem
+    with spec.open() as f:
+        reader = util.OrderedDictReader(f, delimiter="\t")
+        fields = [Field.from_stringdict(row, available_tts=tts)
+                  for row in reader]
+    try:
+        module = SourceFileLoader(hooks.stem, str(hooks)).load_module()
+    except FileNotFoundError:
+        module = None
+    structure = MetaStruct(name, (Structure,), {},
+                           fields=fields, hookmodule=module)
+    return structure

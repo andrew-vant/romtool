@@ -64,3 +64,6 @@ def _set_lbin(self, lbinstring):
     lbinstring = lbinstring.replace('0b', '')
     binstring = util.lbin_reverse(lbinstring)
     self._setbin_unsafe(binstring)
+
+def _read_union(self, length, start):
+    return self[start:length+1]

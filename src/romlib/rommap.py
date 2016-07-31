@@ -34,20 +34,18 @@ class RomMap(object):
 
         # Find all tbl files in the texttables directory and load them into
         # a dictionary keyed by their base name.
-        for name, path in _get_subfiles(root, "texttables", ".tbl"):
+        for name, path in util.get_subfiles(root, "texttables", ".tbl"):
             with open(path) as f:
                 tbl = text.TextTable(name, f)
                 self.texttables[name] = tbl
 
         # Repeat for structs.
-        structfiles = _get_subfiles(root, 'structs', '.tsv')
+        structfiles = util.get_subfiles(root, 'structs', '.tsv')
         for i, (name, path) in enumerate(structfiles):
-            with open(path) as f, util.loading_context('structure', name, i):
-                reader = util.OrderedDictReader(f, delimiter="\t")
-                fields = [Field.from_stringdict(row, available_tts=self.texttables)
-                          for row in reader]
-                struct = MetaStruct(name, (Structure,), {}, fields=fields)
-                self.structures[name] = struct
+            print("loading structure {}".format(name))  # Log as debug?
+            structure = struct.load(path, tts=self.texttables)
+            name = structure.__name__
+            self.structures[name] = structure
 
         # Now load the array definitions
         with open("{}/arrays.tsv".format(root)) as f:
@@ -65,7 +63,7 @@ class RomMap(object):
 
         for i, spec in enumerate(specs):
             try:
-                struct = self.structures[spec['type']]
+                structure = self.structures[spec['type']]
             except KeyError:
                 # We have a primitive.
                 with util.loading_context("array spec", spec['name'], i):
@@ -80,10 +78,10 @@ class RomMap(object):
                         )
                     name = spec['name']
                     base = (Structure,)
-                    struct = MetaStruct(name, base, {}, fields=[field])
+                    structure = MetaStruct(name, base, {}, fields=[field])
 
             index = self.arrays.get(spec['index'], None)
-            adef = ArrayDef.from_stringdict(spec, struct, index)
+            adef = ArrayDef.from_stringdict(spec, structure, index)
             self.arrays[adef.name] = adef
 
     def read(self, rom):
@@ -299,17 +297,3 @@ class ArrayDef(object):
                 out.update(structure.dump())
             out['_idx_'] = i
             writer.writerow(out)
-
-def _get_subfiles(root, folder, extension):
-    try:
-        filenames = [filename for filename
-                     in os.listdir("{}/{}".format(root, folder))
-                     if filename.endswith(extension)]
-        names = [os.path.splitext(filename)[0]
-                 for filename in filenames]
-        paths = ["{}/{}/{}".format(root, folder, filename)
-                 for filename in filenames]
-        return zip(names, paths)
-    except FileNotFoundError:
-        # FIXME: Subfolder missing. Log warning here?
-        return []

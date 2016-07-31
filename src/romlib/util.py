@@ -3,6 +3,7 @@
 import csv
 import contextlib
 import logging
+import os
 from collections import OrderedDict
 
 from bitstring import ConstBitStream
@@ -248,3 +249,17 @@ def intify(x):  # pylint: disable=invalid-name
         return int(x, 0)
     except ValueError:
         return 0
+
+def get_subfiles(root, folder, extension):
+    try:
+        filenames = [filename for filename
+                     in os.listdir("{}/{}".format(root, folder))
+                     if filename.endswith(extension)]
+        names = [os.path.splitext(filename)[0]
+                 for filename in filenames]
+        paths = ["{}/{}/{}".format(root, folder, filename)
+                 for filename in filenames]
+        return zip(names, paths)
+    except FileNotFoundError:
+        # FIXME: Subfolder missing. Log warning here?
+        return []
