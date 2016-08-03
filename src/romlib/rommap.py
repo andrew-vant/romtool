@@ -3,6 +3,7 @@
 import os
 import csv
 import itertools
+import logging
 from collections import OrderedDict
 from types import SimpleNamespace
 from pprint import pprint
@@ -40,11 +41,11 @@ class RomMap(object):
                 self.texttables[name] = tbl
 
         # Repeat for structs.
+        logging.info("Loading structure specs")
         structfiles = util.get_subfiles(root, 'structs', '.tsv')
         for i, (name, path) in enumerate(structfiles):
-            print("loading structure {}".format(name))  # Log as debug?
+            logging.debug("loading structure definition '%s'", name)
             structure = struct.load(path, tts=self.texttables)
-            name = structure.__name__
             self.structures[name] = structure
 
         # Now load the array definitions
@@ -61,7 +62,9 @@ class RomMap(object):
         specs.sort(key=lambda spec: (spec['name'] not in indexnames,
                                      util.intify(spec.get('priority', 0))))
 
+        logging.info("Loading array specs")
         for i, spec in enumerate(specs):
+            logging.debug("Loading array spec '%s'", spec['name'])
             try:
                 structure = self.structures[spec['type']]
             except KeyError:
@@ -81,6 +84,7 @@ class RomMap(object):
                     structure = MetaStruct(name, base, {}, fields=[field])
 
             index = self.arrays.get(spec['index'], None)
+            logging.debug("Loading array spec '%s'", spec['name'])
             adef = ArrayDef.from_stringdict(spec, structure, index)
             self.arrays[adef.name] = adef
 
@@ -257,10 +261,12 @@ class ArrayDef(object):
                              for struct in self.index.read(rom)]
 
         bs = util.bsify(rom)
-        for offset in self._indices:
+        for i, offset in enumerate(self._indices):
             # FIXME: bits vs. bytes Should really grep for offset.
             bs.pos = offset * 8
-            yield self.struct(bs)
+            logging.debug("Reading %s #%s from 0x%06x.", self.name, i, offset)
+            structure = self.struct(bs)
+            yield structure
 
     def bytemap(self, structs, indices=None):
         """ Return a bytemap.
