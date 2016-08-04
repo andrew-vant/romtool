@@ -22,13 +22,15 @@ class MetaStruct(type):
     its related, derived attributes are properly set when Structure is
     inherited.
     """
-    def __new__(cls, name, bases, dct, *, fields, hookmodule=None):
+    def __new__(cls, name, bases, dct, *, fields):
         # See: http://martyalchin.com/2011/jan/20/class-level-keyword-arguments/
         return super().__new__(cls, name, bases, dct)
 
-    def __init__(cls, name, bases, dct, *, fields, hookmodule=None):
+    def __init__(cls, name, bases, dct, *, fields):
         super().__init__(name, bases, dct)
         cls.fields = fields.copy()
+        # Insert field-to-struct callbacks here? I'm still doing something
+        # wrong.
         cls._links = [f for f in fields if f.pointer]
         cls._nonlinks = [f for f in fields if not f.pointer]
         cls.fieldmap = {}
@@ -38,9 +40,6 @@ class MetaStruct(type):
                 raise ValueError(msg, field.id, name)
             cls.fieldmap[field.id] = field
             cls.fieldmap[field.label] = field
-        if hookmodule is not None:
-            for name, func in inspect.getmembers(hookmodule, inspect.isfunction):
-                setattr(cls, name, func)
 
         # FIXME: Check for overlapping label/ids? Not sure if this should be
         # allowed.
@@ -88,8 +87,10 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
     def __getattr__(self, name):
         if name in self.ids():
             return getattr(self.data, name)
-        else:
+        elif hasattr(super(), "__getattr__"):
             return super().__getattr__(name)
+        else:
+            raise AttributeError(name)
 
     def __setattr__(self, name, value):
         if name in self.ids():
@@ -134,6 +135,10 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
     def fields(self):
         return (field for field in self.fields)
 
+    def offset(self, fieldname):
+        """ Get the offset of a field from the start of the structure."""
+        raise NotImplementedError
+
     # Reading and loading routines begin here. If you have a really weird
     # structure, these are the functions you want to override to deal with it.
 
@@ -149,9 +154,9 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
                 continue # Probably the input is merged with another struct.
             field = self.fieldmap[key]
             self[key] = field.load(value)
-        self.postload(dictionary)
+        self.postload()
 
-    def postload(self, dictionary):
+    def postload(self):
         """ Loading hook for weird structures, e.g. containing unions.
 
         If a given structure contains unions, they are always loaded as
@@ -236,7 +241,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
                 changes[offset+i] = byte
 
         # Apply hooks.
-        changes.update(postbytemap(self, offset))
+        changes.update(self.postbytemap(offset))
         return changes
 
     def postbytemap(self, offset):
@@ -404,7 +409,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
 
     def load(self, s):  # pylint: disable=invalid-name
         """ Convert the string *s* to an appropriate value type."""
-        if self.type in ['str', 'strz', 'hex']:
+        if self.type in ['str', 'strz', 'hex', 'union']:
             return s
         elif 'bin' in self.type:
             return util.undisplaybits(s, self.display)
@@ -475,8 +480,7 @@ def load(path, name=None, tts=None):
                   for row in reader]
     try:
         module = SourceFileLoader(hooks.stem, str(hooks)).load_module()
+        structure = module.make_struct(fields)
     except FileNotFoundError:
-        module = None
-    structure = MetaStruct(name, (Structure,), {},
-                           fields=fields, hookmodule=module)
+        structure = MetaStruct(name, (Structure,), {}, fields=fields)
     return structure
