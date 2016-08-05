@@ -1,10 +1,12 @@
 import codecs
 import abc
+from abc import abstractmethod
 from itertools import product, chain
+from pprint import pprint
 
 import bitstring
 
-from . import util.
+from . import util
 
 
 class Field(abc.ABCMeta):
@@ -20,16 +22,15 @@ class Field(abc.ABCMeta):
                 if isinstance(getattr(base, k, None), property):
                     dct["_"+k] = dct.pop(k)
 
-    def __init__(cls, name, bases, dct):
-        for field in required_fields:
-            if dct[field] is None:
-                msg = "Class %s doesn't define required attribute %s"
-                raise ValueError(msg, cvar)
-        super().__init__(cls, name, bases, dct)
+        super().__new__(cls, name, bases, dct)
 
 
-class Field(object, metaclass=MetaField):
+class Value(object, metaclass=Field):
     # Default values
+    #
+    # The mandatory ones should probably be defined as abstract propertymethods
+    # or something similar, but I'm not sure exactly what, or how, or whether
+    # it's worth bothering.
     id = None
     label = None
     type = None
@@ -69,52 +70,52 @@ class Field(object, metaclass=MetaField):
             raise ValueError(msg, len(bs), self.size)
         self.data = BitArray(bs)
 
-    @abstractmethod
     @property
+    @abstractmethod
     def value(self):
         raise NotImplementedError
 
-    @abstractmethod
     @value.setter
+    @abstractmethod
     def value(self, value):
         raise NotImplementedError
 
 
-    @abstractmethod
     @property
+    @abstractmethod
     def string(self):
         raise NotImplementedError
 
+    @string.setter
     @abstractmethod
-    @str.setter
     def string(self, s):
         raise NotImplementedError
 
 
-class NumField(Field):
+class Number(Field):
     size = 8
     mod = 0
     display = ""
 
     @property
     def value(self):
-        return getattr(self.data, self.type) + mod
+        return getattr(self.data, self.type) + self.mod
 
     @value.setter
     def value(self, value):
-        self.data.overwrite(Bits(**{self.type: value - mod}))
+        self.data.overwrite(Bits(**{self.type: value - self.mod}))
 
     @property
     def string(self):
         fstr = util.int_format_str(self.display, self.size)
         return fstr.format(self.value)
 
-    @str.setter
+    @string.setter
     def string(self, s):
         self.value = int(s, 0)
 
 
-class StringField(Field):
+class String(Field):
     display = "ascii"
 
     @property
@@ -126,7 +127,7 @@ class StringField(Field):
         data = codecs.encode(value, self.display)
         if self.size is not None:
             bytesize = self.size // 8
-            if len(data) > bytesize
+            if len(data) > bytesize:
                 msg = "String '%s' (%s bytes) too long for field '%s' (%s bytes)"
                 raise ValueError(msg, value, len(data), self.name, bytesize)
             if len(data) < bytesize:
@@ -147,7 +148,7 @@ class StringField(Field):
         self.string = value
 
 
-class BinField(Field):
+class Bitfield(Field):
     mod = "msb0"
 
     @property
@@ -226,21 +227,24 @@ def define_field(name, spec):
 
 def basecls(tp):
     if "int" in tp or "float" in tp:
-        return NumField
+        return Number
     elif "bin" in tp:
-        return BinField
+        return Bitfield
     elif "str" in tp:
-        return StringField
+        return String
+    elif "union" in tp:
+        return Union
     else:
-        return Field
+        return Value
 
 
 def fixspec(spec):
     """ Unstringify any properties from spec that need it"""
+    # FIXME: Move this into MetaField.__new__?
     unstring = {
             'size': lambda s: util.tobits(s, 0),
             'order': lambda s: util.intify(s),
-            'mod': lambda s: util.intify(s)
+            'mod': lambda s: util.intify(s, s)
             }
 
     # empty strings get stripped out; the parent provides defaults.
