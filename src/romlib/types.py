@@ -172,6 +172,43 @@ class BinField(Field):
             raise NotImplementedError(msg, self.mod)
 
 
+class Union(Number, String, Bitfield):
+    @property
+    @abstractmethod
+    def type(self):
+        return self._type
+
+    @property
+    def mod(self):
+        # Derived classes may need to override this. The default tries to treat
+        # the mod attribute as an integer if the current type is an integer,
+        # and tries to treat it as msb0/lsb0 if the current type is a bitfield;
+        # otherwise it gives up and returns None. This will work for int/bin
+        # unions as long as you don't need to mod both forms.
+        if "int" in self.type:
+            return util.intify(self._mod, 0)
+        elif "bin" in self.type:
+            return self._mod if self._mod else "msb0"
+        else:
+            return None
+
+    @property
+    def value(self):
+        return basecls(self.realtype).value(self)
+
+    @value.setter
+    def value(self, value):
+        basecls(self.realtype).value(self, value)
+
+    @property
+    def string(self):
+        return basecls(self.realtype).string(self)
+
+    @string.setter
+    def string(self, s):
+        basecls(self.realtype).string(self, s)
+
+
 def define_field(name, spec):
     spec = fixspec(spec.copy())
     base = basecls(spec['type'])
