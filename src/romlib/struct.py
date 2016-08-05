@@ -8,6 +8,7 @@ import itertools
 import collections
 import pathlib
 import inspect
+import codecs
 from importlib.machinery import SourceFileLoader
 
 import bitstring
@@ -305,10 +306,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     """
     def __init__(self, _id, label, _type, bits,
                  order=0, mod=0, comment="",
-                 display=None, pointer=None, ttable=None):
-        if 'str' in _type and ttable is None:
-            msg = "String field {} has no text table. Check display attribute?"
-            raise ValueError(msg, _id)
+                 display=None, pointer=None):
         self.id = _id  # pylint: disable=invalid-name
         self.label = label
         self.type = _type
@@ -319,10 +317,9 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         self.comment = comment
         self.display = display
         self.pointer = pointer
-        self.ttable = ttable
 
     @classmethod
-    def from_stringdict(cls, odict, ttable=None, available_tts=None):
+    def from_stringdict(cls, odict):
         """ Create a Field object from a dictionary of strings.
 
         This is a convenience constructor intended to be used on the input from
@@ -332,9 +329,6 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         Missing values are assumed to be empty strings. Extra values are
         ignored.
         """
-        if ttable is None and available_tts is not None:
-            ttable = available_tts.get(odict['display'], None)
-
         expected_fields = ['id', 'label', 'type', 'size', 'order',
                            'mod', 'display', 'comment', 'pointer']
         odict = {key: odict.get(key, "") for key in expected_fields}
@@ -347,8 +341,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
                      mod=util.intify(odict['mod']),
                      comment=odict['comment'],
                      display=odict['display'],
-                     pointer=odict['pointer'],
-                     ttable=ttable)
+                     pointer=odict['pointer'])
 
     @property
     def default(self):
@@ -378,7 +371,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
             maxbits = self.bitsize if self.bitsize else 1024*8
             pos = bs.pos
             data = bs.read(maxbits)
-            return self.ttable.decode(data.bytes)
+            return codecs.decode(data.bytes, self.display)
         else:
             try:
                 fmt = "{}:{}".format(self.type, self.bitsize)
@@ -390,7 +383,7 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
     def bits(self, value):
         """ Convert a value to a Bits object."""
         if 'str' in self.type:
-            return Bits(self.ttable.encode(value))
+            return Bits(codecs.encode(value, self.display))
         elif 'bin' in self.type:
             # Separated because you can't pass length along with bin for some
             # reason.
@@ -472,7 +465,7 @@ def load(path, name=None, tts=None):
         name = spec.stem
     with spec.open() as f:
         reader = util.OrderedDictReader(f, delimiter="\t")
-        fields = [Field.from_stringdict(row, available_tts=tts)
+        fields = [Field.from_stringdict(row)
                   for row in reader]
     try:
         module = SourceFileLoader(hooks.stem, str(hooks)).load_module()

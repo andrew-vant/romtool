@@ -4,6 +4,7 @@ import os
 import csv
 import itertools
 import logging
+import codecs
 from collections import OrderedDict
 from types import SimpleNamespace
 from pprint import pprint
@@ -27,25 +28,23 @@ class RomMap(object):
 
         root: The directory holding the map's spec files.
         """
-        # FIXME: Order matters now, texttables are required to build
-        # structdefs.
         self.structures = OrderedDict()
-        self.texttables = OrderedDict()
         self.arrays = OrderedDict()
 
-        # Find all tbl files in the texttables directory and load them into
-        # a dictionary keyed by their base name.
+        # Find all tbl files in the texttables directory and register them.
+
+        logging.info("loading text tables")
         for name, path in util.get_subfiles(root, "texttables", ".tbl"):
+            logging.debug("loading texttable '%s'", name)
             with open(path) as f:
-                tbl = text.TextTable(name, f)
-                self.texttables[name] = tbl
+                text.add_tt(name, f)
 
         # Repeat for structs.
         logging.info("Loading structure specs")
         structfiles = util.get_subfiles(root, 'structs', '.tsv')
         for i, (name, path) in enumerate(structfiles):
             logging.debug("loading structure definition '%s'", name)
-            structure = struct.load(path, tts=self.texttables)
+            structure = struct.load(path)
             self.structures[name] = structure
 
         # Now load the array definitions
@@ -77,14 +76,12 @@ class RomMap(object):
                         bits=util.tobits(spec['stride'], 0),
                         mod=util.intify(spec['mod']),
                         display=spec['display'],
-                        ttable=self.texttables.get(spec['display'], None)
                         )
                     name = spec['name']
                     base = (Structure,)
                     structure = MetaStruct(name, base, {}, fields=[field])
 
             index = self.arrays.get(spec['index'], None)
-            logging.debug("Loading array spec '%s'", spec['name'])
             adef = ArrayDef.from_stringdict(spec, structure, index)
             self.arrays[adef.name] = adef
 
