@@ -97,13 +97,13 @@ def displaybits(bits, display):
     for bit, letter in zip(bits, display):
         trtable = {'0': letter.lower(),
                    '1': letter.upper()}
-        out += trtable[bit]
+        out += bit if letter == "?" else trtable[bit]
     return out
 
 
 def undisplaybits(s, display):
     if not display:
-        display = 'b' * len(s)
+        display = '?' * len(s)
     if not len(s) == len(display):
         raise ValueError("display length doesn't match string length.")
 
@@ -133,7 +133,8 @@ def lbin_reverse(bs):
     """
     substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
     revstrings = [bs[::-1] for bs in substrings]
-    return "".join(revstrings)
+    # This makes it work both before and after string conversion
+    return type(bs)().join(revstrings)
 
 
 def remap_od(odict, keymap):
@@ -263,3 +264,11 @@ def get_subfiles(root, folder, extension):
     except FileNotFoundError:
         # FIXME: Subfolder missing. Log warning here?
         return []
+
+def int_format_str(displaymode, bitsize):
+    hexfmt = "0x{{:0{}X}}"
+    ifmt = {
+            "pointer": hexfmt.format(divup(bitsize, 4)),
+            "hex": hexfmt.format(divup(bitsize, 4))
+            }
+    return ifmt.get(displaymode, "{}")

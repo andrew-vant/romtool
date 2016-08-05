@@ -428,17 +428,13 @@ class Field(object):  # pylint: disable=too-many-instance-attributes
         ought to have specific formatting in the output -- e.g. pointers should
         be a hex string padded to cover their width.
         """
-        formats = {
-            'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
-            'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
-            }
         # FIXME bin types should have one letter per bit and use
         # upper/lowercase to indicate on/off. This is probably more useful
         # and keeps spreadsheets from trying to compact them to ints. Use the
         # display field to indicate the letters for each bit.
         if 'int' in self.type:
             value += self.mod
-            fstr = formats.get(self.display, '{}')
+            fstr = util.int_format_str(self.display, self.bitsize)
             return fstr.format(value)
         if 'float' in self.type:
             value += self.mod
