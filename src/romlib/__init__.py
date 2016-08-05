@@ -1,6 +1,6 @@
-from . import util, patch, struct, text, bsmonkey
+from . import patch, field, struct, util, text, bsmonkey
 from .rommap import RomMap, ArrayDef
-from .struct import Structure, Field
+from .struct import Structure
 from .patch import Patch
 from .text import TextTable
 

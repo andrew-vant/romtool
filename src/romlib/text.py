@@ -47,6 +47,8 @@ class TextTable(object):
 
     def encode(self, string):
         """ Encode a string into a series of bytes."""
+
+        # FIXME: Needs to append EOS if called for.
         codeseq = []
         i = 0
         raw = r"^\[\$[a-fA-F0-9]{2}\]"

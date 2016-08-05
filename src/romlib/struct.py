@@ -48,7 +48,7 @@ class MetaStruct(type):
 
 class Structure(object, metaclass=MetaStruct, fields=[]):
     def __init__(self, auto=None):
-        self.data = types.SimpleNamespace()
+        self.data = {fld.id: None for fld in self.fields}
         if isinstance(auto, dict):
             self.load(auto)
         else:
@@ -64,14 +64,14 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
         Attributes can be looked by by label as well as ID.
         """
-        setattr(self.data, self._realkey(key), value)
+        self.data[_realkey(key)].value = value
 
     def __getitem__(self, key):
         """ Get an attribute using dictionary syntax.
 
         Attributes can be looked by by label as well as ID.
         """
-        return getattr(self.data, self._realkey(key))
+        return self.data[_realkey(key)].value
 
     def __delitem__(self, key):
         """ Unset a field value.
@@ -83,11 +83,11 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         This doesn't actually delete the underlying attribute, just sets it to
         None.
         """
-        self[key] = None
+        self.data[_realkey(key)].value = None
 
     def __getattr__(self, name):
         if name in self.ids():
-            return getattr(self.data, name)
+            return self.data[name].value
         elif hasattr(super(), "__getattr__"):
             return super().__getattr__(name)
         else:
@@ -95,7 +95,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
 
     def __setattr__(self, name, value):
         if name in self.ids():
-            setattr(self.data, name, value)
+            self.data[name].value = value
         else:
             super().__setattr__(name, value)
 
@@ -106,7 +106,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         field isn't present in the structure in ROM. Use for 'optional' fields.
         """
         if name in self.ids():
-            setattr(self.data, name, None)
+            del self[name]
         else:
             super().__delattr__(name)
 
@@ -127,8 +127,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         return (field.label for field in self.fields)
 
     def values(self):
-        return (getattr(self.data, field.id)
-                for field in self.fields)
+        return (item.value for item in self.data.values())
 
     def items(self, *, labels=False):
         return zip(self.keys(labels), self.values())
@@ -176,7 +175,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
             bs.pos = bit_offset
 
         for field in self._nonlinks:
-            self[field.id] = field.read(bs)
+            self.data[field.id].bits = bs.read(field.size)
         end = bs.pos  # Save this to reset it after reading links.
 
         for field in self._links:
@@ -184,8 +183,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
             with util.loading_context(desc, field.id):
                 pointer = self.fieldmap[field.pointer]
                 bs.pos = (self[pointer.id] + pointer.mod) * 8
-                self[field.id] = field.read(bs)
-
+                self.data[field.id].bits = bs.read(field.size)
         bs.pos = end  # Should be one bit past the fixed structure.
         self.postread(source)
 
@@ -267,7 +265,7 @@ class Structure(object, metaclass=MetaStruct, fields=[]):
         out = {}
         for field in self.fields:
             key = field.label if use_labels else field.id
-            value = field.dump(self[key])
+            value = self.data[field.id].string
             out[key] = value
         return out
 
@@ -297,165 +295,21 @@ def output_fields(*structure_classes, use_labels=True):
     fieldnames.sort(key=lambda item: item.ordering)
     return [item.key for item in fieldnames]
 
-class Field(object):  # pylint: disable=too-many-instance-attributes
-    """ An individual field of a structure.
 
-    For example, a 3-byte integer or a delimiter-terminated string. Most of the
-    methods of Field are intended to transport value types to and from strings,
-    bitstreams, file objects, etc.
+def sortorder(self, origin_sequence_order=0):
+    """ Get the sort order of this field for tabular output.
+
+    This returns a tuple containing several properties relevant to sorting.
+    Sort order is name, order given in definition, pointer/nonpointer
+    (pointers go last), and the binary order of the field.
+
+    This is done with a function rather than greater/less than because the
+    field object doesn't actually know its binary order and needs to have
+    it provided.
     """
-    def __init__(self, _id, label, _type, bits,
-                 order=0, mod=0, comment="",
-                 display=None, pointer=None):
-        self.id = _id  # pylint: disable=invalid-name
-        self.label = label
-        self.type = _type
-        self.bitsize = bits
-        self.bytesize = util.divup(bits, 8)
-        self.order = order
-        self.mod = mod
-        self.comment = comment
-        self.display = display
-        self.pointer = pointer
-
-    @classmethod
-    def from_stringdict(cls, odict):
-        """ Create a Field object from a dictionary of strings.
-
-        This is a convenience constructor intended to be used on the input from
-        tsv structure definitions. All it does is convert values to the
-        appropriate types and then pass them to the regular constructor.
-
-        Missing values are assumed to be empty strings. Extra values are
-        ignored.
-        """
-        expected_fields = ['id', 'label', 'type', 'size', 'order',
-                           'mod', 'display', 'comment', 'pointer']
-        odict = {key: odict.get(key, "") for key in expected_fields}
-
-        return Field(_id=odict['id'],
-                     label=odict['label'],
-                     _type=odict['type'],
-                     bits=util.tobits(odict['size'], 0),
-                     order=util.intify(odict['order']),
-                     mod=util.intify(odict['mod']),
-                     comment=odict['comment'],
-                     display=odict['display'],
-                     pointer=odict['pointer'])
-
-    @property
-    def default(self):
-        if 'str' in self.type:
-            return ""
-        else:
-            return 0
-
-    def read(self, source, bit_offset=None):
-        """ Read a field from a bit offset within a bitstream.
-
-        *source* may be any object that can be converted to a bitstream.
-
-        *bit_offset* defaults to the current read position of *source* if
-        possible, or to zero for objects that don't have a read position (e.g.
-        bytes).
-
-        The returned value will be a string or an int, as appropriate.
-        """
-        bs = util.bsify(source)
-        if bit_offset is not None:
-            bs.pos = bit_offset
-
-        if self.type == 'union':
-            return bs.read(self.bitsize)
-        elif 'str' in self.type:
-            maxbits = self.bitsize if self.bitsize else 1024*8
-            pos = bs.pos
-            data = bs.read(maxbits)
-            return codecs.decode(data.bytes, self.display)
-        else:
-            try:
-                fmt = "{}:{}".format(self.type, self.bitsize)
-                return bs.read(fmt)
-            except ValueError:
-                msg = "Field '{}' of type '{}' isn't a valid type?"
-                raise ValueError(msg, self.id, self.type)
-
-    def bits(self, value):
-        """ Convert a value to a Bits object."""
-        if 'str' in self.type:
-            return Bits(codecs.encode(value, self.display))
-        elif 'bin' in self.type:
-            # Separated because you can't pass length along with bin for some
-            # reason.
-            init = {self.type: value}
-            return Bits(**init)
-        else:
-            init = {self.type: value, 'length': self.bitsize}
-            return Bits(**init)
-
-    def bytes(self, value):
-        """ Convert a value to a bytes object.
-
-        This may fail if the field is not a whole number of bytes long.
-        """
-        return self.bits(value).bytes
-
-    def load(self, s):  # pylint: disable=invalid-name
-        """ Convert the string *s* to an appropriate value type."""
-        if self.type in ['str', 'strz', 'hex', 'union']:
-            return s
-        elif 'bin' in self.type:
-            return util.undisplaybits(s, self.display)
-        elif 'int' in self.type:
-            return int(s, 0) - self.mod
-        elif 'float' in self.type:
-            return float(s) - self.mod
-        else:
-            msg = "Destringification of '{}' not implemented."
-            raise NotImplementedError(msg, self.type)
-
-    def dump(self, value):
-        """ Convert *value* to a string.
-
-        Note that we don't use the *str* builtin for this because some fields
-        ought to have specific formatting in the output -- e.g. pointers should
-        be a hex string padded to cover their width.
-        """
-        # FIXME bin types should have one letter per bit and use
-        # upper/lowercase to indicate on/off. This is probably more useful
-        # and keeps spreadsheets from trying to compact them to ints. Use the
-        # display field to indicate the letters for each bit.
-        if 'int' in self.type:
-            value += self.mod
-            fstr = util.int_format_str(self.display, self.bitsize)
-            return fstr.format(value)
-        if 'float' in self.type:
-            value += self.mod
-            return str(value)
-        if 'bin' in self.type:
-            return util.displaybits(value, self.display)
-        if self.type in ['str', 'strz', 'hex']:
-            return value
-        if self.type == 'union':
-            return str(value)
-        # If we get here something is wrong.
-        msg = "Stringification of '{}' not implemented."
-        raise NotImplementedError(msg, self.type)
-
-    def sortorder(self, origin_sequence_order=0):
-        """ Get the sort order of this field for tabular output.
-
-        This returns a tuple containing several properties relevant to sorting.
-        Sort order is name, order given in definition, pointer/nonpointer
-        (pointers go last), and the binary order of the field.
-
-        This is done with a function rather than greater/less than because the
-        field object doesn't actually know its binary order and needs to have
-        it provided.
-        """
-        nameorder = 0 if self.label == "Name" else 1
-        typeorder = 1 if self.display == "pointer" else 0
-        return nameorder, self.order, typeorder, origin_sequence_order
+    nameorder = 0 if self.label == "Name" else 1
+    typeorder = 1 if self.display == "pointer" else 0
+    return nameorder, self.order, typeorder, origin_sequence_order
 
 
 def load(path, name=None, tts=None):

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from pprint import pprint
 
 from . import struct
-from .struct import Structure, Field, MetaStruct
+from .struct import Structure, MetaStruct
 from . import util, text
 
 
