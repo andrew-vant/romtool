@@ -7,10 +7,18 @@ import bitstring
 from . import util.
 
 
-class MetaField(abc.ABCMeta):
-    required_attrs = ['id', 'label', 'type', 'size', 'order', 'mod',
-                      'display', 'pointer', 'comment']
-    nonone_attrs = ['id','type','size']
+class Field(abc.ABCMeta):
+    def __new__(cls, name, bases, dct):
+        # If a base class defines a propertymethod shadowing part of the field
+        # definition, the propertymethod takes priority and the value in the
+        # definition is prepended with an underscore (so the propmethod has
+        # access to it in a standard place). Right now this is only useful for
+        # unions, which need methods for the type and mod fields (because
+        # they're not fixed)
+        for base in bases:
+            for k in dct.keys():
+                if isinstance(getattr(base, k, None), property):
+                    dct["_"+k] = dct.pop(k)
 
     def __init__(cls, name, bases, dct):
         for field in required_fields:
