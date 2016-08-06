@@ -254,5 +254,6 @@ def fixspec(spec):
 
     # Uncast string values get cast
     for key, func in unstring.items():
-        if isinstance(spec[key], str):
-            spec[key] = unstring[func](spec[key])
+        if key in spec and isinstance(spec[key], str):
+            spec[key] = func(spec[key])
+    return spec
