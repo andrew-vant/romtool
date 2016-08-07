@@ -60,13 +60,50 @@ class MetaStruct(type):
             cls.fieldmap[field.id] = field
             cls.fieldmap[field.label] = field
 
-        # Add convenience properties.
-        cls.base_fields = [field for field in cls.fields.values()
-                           if not field.pointer and field.meta != "extra"]
-        cls.extra_fields = [field for field in cls.fields.values()
-                            if field.meta == "extra"]
-        cls.link_fields = [field for field in cls.fields.values()
-                           if field.pointer]
+    # Deep magic begins here.
+    #
+    # I was trying to make @classproperty convenience methods in Structure for
+    # getting useful subsets of Structure.fields. It seems there is no such
+    # decorator, nor a good way to fake it. Placing them in the metaclass as
+    # @properties works, though; they become class-level properties of whatever
+    # class is being created, in the same way that regular classes' @properties
+    # become instance-level property attributes.
+    #
+    # That makes perfect sense, but it feels like deep magic to me. It's not
+    # enough on its own; accessing them from an instance requires
+    # instance-level dispatchers. See the Structure properties of the same
+    # name.
+
+    @property
+    def base_fields(cls):
+        """ Get a list of primary data fields in the structure.
+
+        The list will be in the same order that they should be read from a rom
+        file, so you can loop over it when reading.
+        """
+        return [field for field in cls.fields.values()
+                if not field.pointer and field.meta != "extra"]
+
+    @property
+    def extra_fields(cls):
+        """ Get a list of extended data fields after the structure.
+
+        These are optional data fields for variable-length structures. They
+        should be read after primary data, but before links. They will be
+        listed in the order they appear in the structure definition file.
+        """
+        return [field for field in cls.fields.values()
+                if field.meta == "extra"]
+
+    @property
+    def link_fields(cls):
+        """ Get a list of data links in the structure.
+
+        These are values that are pointed-to by something in the structure's
+        primary data, so they have to be loaded after the primary data fields.
+        """
+        return [field for field in cls.fields.values()
+                if field.pointer]
 
 
 class Structure(object, metaclass=MetaStruct):
@@ -80,38 +117,17 @@ class Structure(object, metaclass=MetaStruct):
         return cls.fieldmap[key].id
 
     @property
-    @classmethod
-    def base_fields(cls):
-        """ Get a list of primary data fields in the structure.
-
-        The list will be in the same order that they should be read from a rom
-        file, so you can loop over it when reading.
-        """
-        return [field for field in cls.fields.values()
-                if not field.pointer and field.meta != "extra"]
+    def base_fields(self):
+        return type(self).base_fields
 
     @property
-    @classmethod
-    def extra_fields(cls):
-        """ Get a list of extended data fields after the structure.
-
-        These are optional data fields for variable-length structures. They
-        should be read after primary data, but before links. They will be
-        listed in the order they appear in the structure definition file.
-        """
-        return [field for field in cls.fields.values()
-                if field.meta == "extra"]
+    def extra_fields(self):
+        return type(self).extra_fields
 
     @property
-    @classmethod
-    def link_fields(cls):
-        """ Get a list of data links in the structure.
+    def link_fields(self):
+        return type(self).link_fields
 
-        These are values that are pointed-to by something in the structure's
-        primary data, so they have to be loaded after the primary data fields.
-        """
-        return [field for field in cls.fields.values()
-                if field.pointer]
 
     def __init__(self, auto=None):
         # Non-present optional fields are represented by "None." It is an
