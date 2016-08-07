@@ -179,8 +179,22 @@ class Structure(object, metaclass=MetaStruct):
         This reads the main, fixed portion of a data structure. After reading,
         the bit position of `bs` will be one bit past the end of the data read.
         """
+        pos = bs.pos
         for field in type(self).base_fields:
             self.data[field.id] = field(self, bs)
+        # FIXME: The following block doesn't behave as expected for indexed
+        # primitive arrays, e.g. strings with no meaningful base_fields
+        # Still works but I'm pretty sure a bug is waiting in it.
+        """
+
+        try:
+            assert bs.pos == pos + sum(field.size for field in self.base_fields)
+        except TypeError:
+            pprint(self.base_fields)
+            pprint(list(inspect.getmro(field) for field in self.base_fields))
+            pprint(list(field.size for field in self.base_fields))
+            raise
+        """
 
     def read_extra(self, bs):
         """ Read optional data

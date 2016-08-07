@@ -5,11 +5,13 @@ import csv
 import itertools
 import logging
 import codecs
+import inspect
 from collections import OrderedDict
 from types import SimpleNamespace
+from importlib.machinery import SourceFileLoader
 from pprint import pprint
 
-from . import util, text, struct
+from . import util, text, struct, field
 
 
 class RomMap(object):
@@ -29,11 +31,25 @@ class RomMap(object):
         self.structures = OrderedDict()
         self.arrays = OrderedDict()
 
-        # Find all tbl files in the texttables directory and register them.
+        # Import fields.py and register any field types therein
+        logging.info("Loading custom data types")
+        try:
+            path = root + "fields.py"
+            logging.info("Looking in %s", path)
+            modulepath = "{}/fields.py".format(root)
+            module = SourceFileLoader("fields", modulepath).load_module()
+        except FileNotFoundError:
+            logging.info("fields.py not present")
+        else:
+            for name, cls in inspect.getmembers(module):
+                if isinstance(cls, field.Field):
+                    logging.info("Found data type '%s'", name)
+                    field.register(cls)
 
-        logging.info("loading text tables")
+        # Find all tbl files in the texttables directory and register them.
+        logging.info("Loading text tables")
         for name, path in util.get_subfiles(root, "texttables", ".tbl"):
-            logging.debug("loading texttable '%s'", name)
+            logging.info("Loading texttable '%s'", name)
             with open(path) as f:
                 text.add_tt(name, f)
 
