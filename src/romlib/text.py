@@ -9,6 +9,8 @@ codec capabilities.
 import re
 import codecs
 import logging
+import functools
+
 from pprint import pprint
 
 from patricia import trie
@@ -94,16 +96,20 @@ def add_tt(name, f):
             "-clean": (False, True),
             "-raw":   (True, False)}
 
-    for subcodec in args.keys():
+    for subcodec, subargs in args.items():
+        # There has got to be a cleaner way to do this...
+        decoder = functools.partial(tt.decode,
+                                    include_eos=subargs[0],
+                                    stop_on_eos=subargs[1])
+
         codec = codecs.CodecInfo(
                 name=name+subcodec,
                 encode=tt.encode,
-                decode=lambda data: tt.decode(data, *args[subcodec])
+                decode=decoder
                 )
-        tt_codecs[name] = codec
+        tt_codecs[name+subcodec] = codec
 
 def get_tt_codec(name):
-    logging.debug("codec lookup requested for %s", name)
     return tt_codecs.get(name, None)
 
 codecs.register(get_tt_codec)
