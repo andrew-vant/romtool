@@ -95,9 +95,14 @@ def displaybits(bits, display):
 
     out = ""
     for bit, letter in zip(bits, display):
-        trtable = {'0': letter.lower(),
+        trtable = {False: letter.lower(),
+                   True: letter.upper(),
+                   '0': letter.lower(),
                    '1': letter.upper()}
-        out += bit if letter == "?" else trtable[bit]
+        if letter == "?":
+            out += "1" if bit else "0"
+        else:
+            out += trtable[bit]
     return out
 
 

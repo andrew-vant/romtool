@@ -1,10 +1,9 @@
 import codecs
 import abc
-from abc import abstractmethod
 from itertools import product, chain
 from pprint import pprint
 
-import bitstring
+from bitstring import Bits, BitArray
 
 from . import util
 
@@ -19,10 +18,24 @@ class Field(abc.ABCMeta):
         # they're not fixed)
         for base in bases:
             for k in dct.keys():
-                if isinstance(getattr(base, k, None), property):
+                if isinstance(dct[k], property):
+                    # We *do* want to be able to override property methods
+                    # with *other propertymethods* in explicitly derived
+                    # classes...just not raw strings.
+                    continue
+                elif isinstance(getattr(base, k, None), property):
+                    # This blackholes primitives for use by propertymethods
                     dct["_"+k] = dct.pop(k)
 
-        super().__new__(cls, name, bases, dct)
+        return super().__new__(cls, name, bases, dct)
+
+    @property
+    def bytesize(cls):
+        if cls.size is None:
+            return None
+        else:
+            return util.divup(cls.size, 8)
+
 
 
 class Value(object, metaclass=Field):
@@ -40,6 +53,7 @@ class Value(object, metaclass=Field):
     display = None
     pointer = None
     comment = ""
+    meta = None
 
     def __init__(self, parent, auto=None, value=None, bs=None, string=None):
         self.data = BitArray(self.size)
@@ -50,14 +64,6 @@ class Value(object, metaclass=Field):
             self.bits = bs
         elif string is not None:
             self.string = string
-
-    @classmethod
-    @property
-    def bytesize(cls):
-        if self.size is None:
-            return None
-        else:
-            return util.divup(cls.size, 8)
 
     @property
     def bits(self):
@@ -71,28 +77,27 @@ class Value(object, metaclass=Field):
         self.data = BitArray(bs)
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def value(self):
         raise NotImplementedError
 
     @value.setter
-    @abstractmethod
+    @abc.abstractmethod
     def value(self, value):
         raise NotImplementedError
 
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def string(self):
         raise NotImplementedError
 
     @string.setter
-    @abstractmethod
+    @abc.abstractmethod
     def string(self, s):
         raise NotImplementedError
 
-
-class Number(Field):
+class Number(Value):
     size = 8
     mod = 0
     display = ""
@@ -115,7 +120,7 @@ class Number(Field):
         self.value = int(s, 0)
 
 
-class String(Field):
+class String(Value):
     display = "ascii"
 
     @property
@@ -148,7 +153,7 @@ class String(Field):
         self.string = value
 
 
-class Bitfield(Field):
+class Bitfield(Value):
     mod = "msb0"
 
     @property
@@ -183,11 +188,13 @@ class Bitfield(Field):
 
 class Union(Number, String, Bitfield):
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def type(self):
+        """ Get the currently-applicable type of this field."""
         return self._type
 
     @property
+    @abc.abstractmethod
     def mod(self):
         # Derived classes may need to override this. The default tries to treat
         # the mod attribute as an integer if the current type is an integer,

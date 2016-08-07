@@ -121,6 +121,8 @@ class RomMap(object):
             mode = "w" if allow_overwrite else "x"
             data_subset = [getattr(data, array.name) for array in arrays]
             with open(filename, mode, newline='') as f:
+                msg = "Serializing entity set '%s' to %s."
+                logging.info(msg, entity, filename)
                 ArrayDef.multidump(f, *data_subset)
 
 
@@ -251,14 +253,14 @@ class ArrayDef(object):
         if self._indices is None:
             mod = self._indexer.mod
             attr = self._indexer.id
-            self._indices = [getattr(struct, attr) + mod
+            self._indices = [getattr(struct, attr)
                              for struct in self.index.read(rom)]
 
         bs = util.bsify(rom)
         for i, offset in enumerate(self._indices):
             # FIXME: bits vs. bytes Should really grep for offset.
-            bs.pos = offset * 8
             logging.debug("Reading %s #%s from 0x%06x.", self.name, i, offset)
+            bs.pos = offset * 8
             structure = self.struct(bs)
             yield structure
 

@@ -21,7 +21,8 @@ import csv
 import pathlib
 import logging
 import inspect
-from collections import OrderedDict
+from itertools import chain, permutations
+from collections import OrderedDict, namedtuple
 from importlib.machinery import SourceFileLoader
 from pprint import pprint
 
@@ -179,7 +180,6 @@ class Structure(object, metaclass=MetaStruct):
         the bit position of `bs` will be one bit past the end of the data read.
         """
         for field in type(self).base_fields:
-            print(inspect.getmro(field))
             self.data[field.id] = field(bs, self)
 
     def read_extra(self, bs):
@@ -304,8 +304,8 @@ class Structure(object, metaclass=MetaStruct):
         Suitable for putting in a csv file or similar. All display conversions
         are handled by the fields' .string methods.
         """
-        return {fid: (field.string if field is not None else "")
-                for fid, field in self.data.items()}
+        return {field.label: (field.string if field is not None else "")
+                for field in self.data.values()}
 
     def bytemap(self, offset):
         raise NotImplementedError
@@ -313,10 +313,10 @@ class Structure(object, metaclass=MetaStruct):
 
 def conflict_check(structure_classes):
     """ Verify that all ids and labels in a list of structure classes are unique. """
-    for cls1, cls2 in itertools.permutations(structure_classes, r=2):
+    for cls1, cls2 in permutations(structure_classes, r=2):
         for element in ("id", "label"):
-            list1 = (getattr(field, element) for field in cls1.fields)
-            list2 = (getattr(field, element) for field in cls2.fields)
+            list1 = (getattr(field, element) for field in cls1.fields.values())
+            list2 = (getattr(field, element) for field in cls2.fields.values())
             dupes = set(list1).intersection(list2)
             if len(dupes) > 0:
                 msg = "Duplicate {}s '{}' appear in structures '{}' and '{}'."
@@ -337,19 +337,23 @@ def output_fields(*structure_classes, use_labels=True):
     """
     conflict_check(structure_classes)
     # Build a dict mapping field ids/labels to ordering tuples.
-    ordering = {}
+    headers = []
+    record = namedtuple("record", ["header", "order"])
+
     for structorder, structure in enumerate(structure_classes):
-        for specorder, field in enumerate(structure.fields):
+        for specorder, field in enumerate(structure.fields.values()):
             nameorder = 0 if field.label == "Name" else 1
             # Cheap kludge, should really check for other fields pointing to it.
             ptrorder = 1 if field.display == "pointer" else 0
-            output_key = field.label if use_labels else field.id
-            ordering[output_key] = (nameorder, field.order, ptrorder,
-                                    structorder, specorder)
+            header = field.label if use_labels else field.id
+            ordering = (nameorder, field.order, ptrorder,
+                        structorder, specorder)
+            headers.append(record(header, ordering))
 
     # Sort by the ordering tuple and return the corresponding keys.
-    sorter = lambda header, order: order
-    return [fid for fid, order in sorted(ordering.items, key=sorter)]
+    sorter = lambda record: record.order
+    return [header for header, order
+            in sorted(headers, key=sorter)]
 
 
 def define_struct(name, specs):
