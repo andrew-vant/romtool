@@ -20,8 +20,10 @@ import io
 import csv
 import pathlib
 import logging
+import inspect
 from collections import OrderedDict
 from importlib.machinery import SourceFileLoader
+from pprint import pprint
 
 import bitstring
 
@@ -31,16 +33,40 @@ from . import field
 
 class MetaStruct(type):
     def __init__(cls, name, bases, dct):
+        # Self.fields will get set by super().__init__; this is more for
+        # documentation's sake than anything else.
         super().__init__(name, bases, dct)
+        if not hasattr(cls, "fields"):
+            raise ValueError("Fields class variable is required.")
+        if not isinstance(cls.fields, OrderedDict):
+            raise ValueError("Fields class variable must be an ordereddict")
+
         cls.fieldmap = {}
         for field in cls.fields.values():
             # Forbid shadowing
             if field.id in dir(cls):
                 msg = "Field id {}.{} conflicts with builtin method."
                 raise ValueError(msg, name, field.id)
+
             # Make it easy to dereference labels
+            #
+            # I couldn't get these to work as @property @classmethods, either
+            # in the class definition or (as just plain @property) in the
+            # metaclass definition. It is supposedly possible but it is a giant
+            # pain. I might make them instance propertymethods in
+            # Should these be @property methods on instances? Maybe. They
+            # should really be @property methods on classes, but I can't get
+            # that to work. Descriptors MRO doesn't include metaclasses.
             cls.fieldmap[field.id] = field
             cls.fieldmap[field.label] = field
+
+        # Add convenience properties.
+        cls.base_fields = [field for field in cls.fields.values()
+                           if not field.pointer and field.meta != "extra"]
+        cls.extra_fields = [field for field in cls.fields.values()
+                            if field.meta == "extra"]
+        cls.link_fields = [field for field in cls.fields.values()
+                           if field.pointer]
 
 
 class Structure(object, metaclass=MetaStruct):
@@ -91,7 +117,8 @@ class Structure(object, metaclass=MetaStruct):
         # Non-present optional fields are represented by "None." It is an
         # error for non-optional fields to remain None at the end of
         # initialization.
-        self.data = {field.id: None for field in self.fields}
+        data = {field.id: None for field in self.fields.values()}
+        super().__setattr__("data", data)
 
         # Initializing using whichever method is called for by the type of
         # input.
@@ -100,8 +127,11 @@ class Structure(object, metaclass=MetaStruct):
                     dict: self._init_from_dict}
         for tp, func in dispatch.items():
             if isinstance(auto, tp):
-                func[tp](auto)
+                func(auto)
                 break
+        else:
+            msg = "Invalid struct initializer of type %s"
+            raise ValueError(msg, type(auto))
 
         # Make sure no non-optional fields are still None, which would indicate
         # somebody made a mistake.
@@ -121,7 +151,7 @@ class Structure(object, metaclass=MetaStruct):
         bs = bitstring.ConstBitStream(f)
         self._init_from_bs(bs)
 
-    def _init_from_bs(self, bs):
+    def _init_from_bitstring(self, bs):
         self.read_base(bs)
         self.read_extra(bs)
         self.read_links(bs)
@@ -132,7 +162,8 @@ class Structure(object, metaclass=MetaStruct):
         This reads the main, fixed portion of a data structure. After reading,
         the bit position of `bs` will be one bit past the end of the data read.
         """
-        for field in self.base_fields:
+        for field in type(self).base_fields:
+            print(inspect.getmro(field))
             self.data[field.id] = field(bs, self)
 
     def read_extra(self, bs):
