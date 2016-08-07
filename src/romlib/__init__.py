@@ -1,4 +1,4 @@
-from . import patch, field, struct, util, text, bsmonkey
+from . import patch, field, struct, util, text
 from .rommap import RomMap, ArrayDef
 from .struct import Structure
 from .patch import Patch

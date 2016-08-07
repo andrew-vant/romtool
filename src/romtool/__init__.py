@@ -177,9 +177,6 @@ def _get_path(subfile=None):
 def main():
     """ Entry point for romtool."""
 
-    # Patch in the romlib types.
-    romlib.bsmonkey.monkeypatch()
-
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
     # easier to maintain. See args.yaml for the actual available arguments.
