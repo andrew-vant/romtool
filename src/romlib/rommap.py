@@ -9,9 +9,7 @@ from collections import OrderedDict
 from types import SimpleNamespace
 from pprint import pprint
 
-from . import struct
-from .struct import Structure, MetaStruct
-from . import util, text
+from . import util, text, struct
 
 
 class RomMap(object):
@@ -69,17 +67,16 @@ class RomMap(object):
             except KeyError:
                 # We have a primitive.
                 with util.loading_context("array spec", spec['name'], i):
-                    field = Field(
-                        _id=spec['name'],
-                        _type=spec['type'],
-                        label=spec['label'],
-                        bits=util.tobits(spec['stride'], 0),
-                        mod=util.intify(spec['mod']),
-                        display=spec['display'],
-                        )
+                    fspec = {
+                            "id": spec['name'],
+                            "label": spec['label'],
+                            "type": spec['type'],
+                            "size": spec['stride'],
+                            "mod": spec['mod'],
+                            "display": spec['display']
+                            }
                     name = spec['name']
-                    base = (Structure,)
-                    structure = MetaStruct(name, base, {}, fields=[field])
+                    structure = struct.define_struct(name, [fspec])
 
             index = self.arrays.get(spec['index'], None)
             adef = ArrayDef.from_stringdict(spec, structure, index)
@@ -124,6 +121,8 @@ class RomMap(object):
             mode = "w" if allow_overwrite else "x"
             data_subset = [getattr(data, array.name) for array in arrays]
             with open(filename, mode, newline='') as f:
+                msg = "Serializing entity set '%s' to %s."
+                logging.info(msg, entity, filename)
                 ArrayDef.multidump(f, *data_subset)
 
 
@@ -194,7 +193,7 @@ class ArrayDef(object):
                 msg = "Array {} uses index {} but they don't share a set."
                 raise ValueError(msg, self.name, index.name)
             # Indexes should only have one field so this should work...
-            self._indexer = index.struct.fields[0]
+            self._indexer = next(iter(index.struct.fields.values()))
             self._indices = None
         else:
             self._indexer = None
@@ -254,14 +253,14 @@ class ArrayDef(object):
         if self._indices is None:
             mod = self._indexer.mod
             attr = self._indexer.id
-            self._indices = [getattr(struct, attr) + mod
+            self._indices = [getattr(struct, attr)
                              for struct in self.index.read(rom)]
 
         bs = util.bsify(rom)
         for i, offset in enumerate(self._indices):
             # FIXME: bits vs. bytes Should really grep for offset.
-            bs.pos = offset * 8
             logging.debug("Reading %s #%s from 0x%06x.", self.name, i, offset)
+            bs.pos = offset * 8
             structure = self.struct(bs)
             yield structure
 

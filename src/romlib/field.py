@@ -1,10 +1,10 @@
 import codecs
 import abc
-from abc import abstractmethod
+import logging
 from itertools import product, chain
 from pprint import pprint
 
-import bitstring
+from bitstring import Bits, BitArray, ConstBitStream
 
 from . import util
 
@@ -19,10 +19,24 @@ class Field(abc.ABCMeta):
         # they're not fixed)
         for base in bases:
             for k in dct.keys():
-                if isinstance(getattr(base, k, None), property):
+                if isinstance(dct[k], property):
+                    # We *do* want to be able to override property methods
+                    # with *other propertymethods* in explicitly derived
+                    # classes...just not raw strings.
+                    continue
+                elif isinstance(getattr(base, k, None), property):
+                    # This blackholes primitives for use by propertymethods
                     dct["_"+k] = dct.pop(k)
 
-        super().__new__(cls, name, bases, dct)
+        return super().__new__(cls, name, bases, dct)
+
+    @property
+    def bytesize(cls):
+        if cls.size is None:
+            return None
+        else:
+            return util.divup(cls.size, 8)
+
 
 
 class Value(object, metaclass=Field):
@@ -40,10 +54,15 @@ class Value(object, metaclass=Field):
     display = None
     pointer = None
     comment = ""
+    meta = None
 
-    def __init__(self, parent, value=None, bs=None, string=None):
+    def __init__(self, parent, auto=None, value=None, bs=None, string=None):
         self.data = BitArray(self.size)
         self.parent = parent
+        if isinstance(auto, ConstBitStream):
+            bs = auto
+        elif isinstance(auto, str):
+            string = auto
         if value is not None:
             self.value = value
         elif bs is not None:
@@ -51,48 +70,36 @@ class Value(object, metaclass=Field):
         elif string is not None:
             self.string = string
 
-    @classmethod
-    @property
-    def bytesize(cls):
-        if self.size is None:
-            return None
-        else:
-            return util.divup(cls.size, 8)
-
     @property
     def bits(self):
         return Bits(self.data)
 
     @bits.setter
     def bits(self, bs):
-        if self.size is not None and len(bs) != self.size:
-            msg = "Input size %s != field size %s"
-            raise ValueError(msg, len(bs), self.size)
-        self.data = BitArray(bs)
+        self.data = bs.read(self.size)
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def value(self):
         raise NotImplementedError
 
     @value.setter
-    @abstractmethod
+    @abc.abstractmethod
     def value(self, value):
         raise NotImplementedError
 
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def string(self):
         raise NotImplementedError
 
     @string.setter
-    @abstractmethod
+    @abc.abstractmethod
     def string(self, s):
         raise NotImplementedError
 
-
-class Number(Field):
+class Number(Value):
     size = 8
     mod = 0
     display = ""
@@ -115,8 +122,33 @@ class Number(Field):
         self.value = int(s, 0)
 
 
-class String(Field):
+class String(Value):
     display = "ascii"
+
+    @property
+    def bits(self):
+        return super().bits()
+
+    @bits.setter
+    def bits(self, bs):
+        # The issue with reading in strings is that we don't necessarily know
+        # how long the string actually is...and the only way we have of finding
+        # out is decoding it
+        #
+        # This is an ugly hack, the correct was is probably to build a real
+        # bitstring-to-string-and-back codec to go along with the
+        # bytes-to-string codec
+
+        codec = codecs.lookup(self.display)
+        size = self.size if self.size is not None else 1024*8
+        pos = bs.pos
+        tmp = bs.read(size)
+        string, length = codec.decode(tmp.bytes)
+        # What we actually want is not the decoded string but the bits that
+        # made it up...
+        bs.pos = pos
+        self.data = bs.read(length * 8)
+
 
     @property
     def string(self):
@@ -148,7 +180,7 @@ class String(Field):
         self.string = value
 
 
-class Bitfield(Field):
+class Bitfield(Value):
     mod = "msb0"
 
     @property
@@ -183,11 +215,13 @@ class Bitfield(Field):
 
 class Union(Number, String, Bitfield):
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def type(self):
+        """ Get the currently-applicable type of this field."""
         return self._type
 
     @property
+    @abc.abstractmethod
     def mod(self):
         # Derived classes may need to override this. The default tries to treat
         # the mod attribute as an integer if the current type is an integer,
@@ -248,11 +282,12 @@ def fixspec(spec):
             }
 
     # empty strings get stripped out; the parent provides defaults.
-    for k, v in spec.items():
+    for k, v in spec.copy().items():
         if v == "":
             del(spec[k])
 
     # Uncast string values get cast
     for key, func in unstring.items():
-        if isinstance(spec[key], str):
-            spec[key] = unstring[func](spec[key])
+        if key in spec and isinstance(spec[key], str):
+            spec[key] = func(spec[key])
+    return spec
