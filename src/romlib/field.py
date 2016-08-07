@@ -237,30 +237,33 @@ class Union(Number, String, Bitfield):
 
     @property
     def value(self):
-        return basecls(self.realtype).value(self)
+        return lookup(self.type).value(self)
 
     @value.setter
     def value(self, value):
-        basecls(self.realtype).value(self, value)
+        lookup(self.type).value(self, value)
 
     @property
     def string(self):
-        return basecls(self.realtype).string(self)
+        return lookup(self.type).string(self)
 
     @string.setter
     def string(self, s):
-        basecls(self.realtype).string(self, s)
+        lookup(self.type).string(self, s)
 
 
 def define_field(name, spec):
     spec = fixspec(spec.copy())
-    base = basecls(spec['type'])
+    base = lookup(spec['type'])
     cls = type(name, (base,), spec)
     return cls
 
+_registered_fields = {}
 
-def basecls(tp):
-    if "int" in tp or "float" in tp:
+def lookup(tp):
+    if tp in _registered_fields:
+        return _registered_fields[tp]
+    elif "int" in tp or "float" in tp:
         return Number
     elif "bin" in tp:
         return Bitfield
@@ -271,6 +274,9 @@ def basecls(tp):
     else:
         return Value
 
+def register(field):
+    """ Make a custom field type available as a base."""
+    _registered_fields[field.__name__] = field
 
 def fixspec(spec):
     """ Unstringify any properties from spec that need it"""
