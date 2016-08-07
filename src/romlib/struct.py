@@ -390,7 +390,6 @@ def define_struct(name, specs):
 def load(path):
     path = pathlib.Path(path)  # I hate lines like this so much.
     name = path.stem
-    logging.info("Loading '%s' from %s", name, str(path))
     with path.open() as f:
         specs = list(csv.DictReader(f, delimiter="\t"))
     base = define_struct(name, specs)

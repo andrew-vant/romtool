@@ -28,41 +28,44 @@ class RomMap(object):
 
         root: The directory holding the map's spec files.
         """
+        logging.info("Loading ROM map from %s", root)
         self.structures = OrderedDict()
         self.arrays = OrderedDict()
 
         # Import fields.py and register any field types therein
-        logging.info("Loading custom data types")
         try:
             path = root + "fields.py"
-            logging.info("Looking in %s", path)
+            logging.info("Loading primitive types from %s", path)
             modulepath = "{}/fields.py".format(root)
             module = SourceFileLoader("fields", modulepath).load_module()
         except FileNotFoundError:
-            logging.info("fields.py not present")
+            logging.info("%s not present", path)
         else:
             for name, cls in inspect.getmembers(module):
                 if isinstance(cls, field.Field):
-                    logging.info("Found data type '%s'", name)
+                    logging.info("Registering data type '%s'", name)
                     field.register(cls)
 
         # Find all tbl files in the texttables directory and register them.
         logging.info("Loading text tables")
         for name, path in util.get_subfiles(root, "texttables", ".tbl"):
-            logging.info("Loading texttable '%s'", name)
+            msg = "Loading text table '%s' from %s"
+            logging.info(msg, name, path)
             with open(path) as f:
                 text.add_tt(name, f)
 
         # Repeat for structs.
-        logging.info("Loading structure specs")
+        logging.info("Loading structures")
         structfiles = util.get_subfiles(root, 'structs', '.tsv')
         for i, (name, path) in enumerate(structfiles):
-            logging.debug("loading structure definition '%s'", name)
+            logging.info("Loading structure '%s' from '%s'", name, path)
             structure = struct.load(path)
             self.structures[name] = structure
 
         # Now load the array definitions
-        with open("{}/arrays.tsv".format(root)) as f:
+        path = root + "/arrays.tsv"
+        logging.info("Loading array specs from %s", path)
+        with open(path) as f:
             specs = list(util.OrderedDictReader(f, delimiter="\t"))
 
         # The order in which arrays get loaded matters. Indexes need to be
@@ -75,9 +78,8 @@ class RomMap(object):
         specs.sort(key=lambda spec: (spec['name'] not in indexnames,
                                      util.intify(spec.get('priority', 0))))
 
-        logging.info("Loading array specs")
         for i, spec in enumerate(specs):
-            logging.debug("Loading array spec '%s'", spec['name'])
+            logging.debug("Loading array: '%s'", spec['name'])
             try:
                 structure = self.structures[spec['type']]
             except KeyError:
@@ -134,11 +136,12 @@ class RomMap(object):
 
         for entity, arrays in arraysets:
             filename = "{}/{}.tsv".format(dest, entity)
+            msg = "Serializing entity set '%s' (%s) to %s."
+            structs = ", ".join(a.name for a in arrays)
+            logging.info(msg, entity, structs, filename)
             mode = "w" if allow_overwrite else "x"
             data_subset = [getattr(data, array.name) for array in arrays]
             with open(filename, mode, newline='') as f:
-                msg = "Serializing entity set '%s' to %s."
-                logging.info(msg, entity, filename)
                 ArrayDef.multidump(f, *data_subset)
 
 
@@ -272,6 +275,13 @@ class ArrayDef(object):
             self._indices = [getattr(struct, attr)
                              for struct in self.index.read(rom)]
 
+        # Would like to log something like this, but it's misleading for
+        # indexed arrays.
+        #
+        # msg = "Reading ROM array starting at 0x%06x: %s"
+        # logging.info(msg, self.offset, self.name)
+
+        logging.info("Reading ROM array: %s", self.name)
         bs = util.bsify(rom)
         for i, offset in enumerate(self._indices):
             # FIXME: bits vs. bytes Should really grep for offset.

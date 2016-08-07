@@ -56,12 +56,12 @@ def dump(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    msg = "Dumping data from %s to %s using map %s."
-    logging.info(msg, args.rom, args.datafolder, args.map)
+    logging.info("Opening ROM file: %s", args.rom)
     with open(args.rom, "rb") as rom:
         data = rmap.read(rom)
+    logging.info("Dumping ROM data")
     rmap.dump(data, args.datafolder, allow_overwrite=args.force)
-    logging.info("Dump finished.")
+    logging.info("Dump finished")
 
 
 def build(args):
