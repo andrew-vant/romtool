@@ -180,7 +180,7 @@ class Structure(object, metaclass=MetaStruct):
         the bit position of `bs` will be one bit past the end of the data read.
         """
         for field in type(self).base_fields:
-            self.data[field.id] = field(bs, self)
+            self.data[field.id] = field(self, bs)
 
     def read_extra(self, bs):
         """ Read optional data
@@ -209,7 +209,7 @@ class Structure(object, metaclass=MetaStruct):
             pointer = self.fieldmap[field.pointer]
             offset = self[pointer.id] + pointer.mod
             bs.pos = offset * 8
-            self.data[field.id] = field(bs.read(field.size), parent)
+            self.data[field.id] = field(self, bs)
         bs.pos = oldpos
 
     def __setitem__(self, key, value):
@@ -292,7 +292,7 @@ class Structure(object, metaclass=MetaStruct):
         return (self[field.id] for field in self.fields)
 
     def items(self, *, labels=False):
-        return ((field.id, self[field.id]) for field in self.fields)
+        return ((field.id, self[field.id]) for field in self.fields.values())
 
     def offset(self, fieldname):
         """ Get the offset of a field from the start of the structure."""

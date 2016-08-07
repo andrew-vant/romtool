@@ -1,9 +1,10 @@
 import codecs
 import abc
+import logging
 from itertools import product, chain
 from pprint import pprint
 
-from bitstring import Bits, BitArray
+from bitstring import Bits, BitArray, ConstBitStream
 
 from . import util
 
@@ -58,6 +59,10 @@ class Value(object, metaclass=Field):
     def __init__(self, parent, auto=None, value=None, bs=None, string=None):
         self.data = BitArray(self.size)
         self.parent = parent
+        if isinstance(auto, ConstBitStream):
+            bs = auto
+        elif isinstance(auto, str):
+            string = auto
         if value is not None:
             self.value = value
         elif bs is not None:
@@ -71,10 +76,7 @@ class Value(object, metaclass=Field):
 
     @bits.setter
     def bits(self, bs):
-        if self.size is not None and len(bs) != self.size:
-            msg = "Input size %s != field size %s"
-            raise ValueError(msg, len(bs), self.size)
-        self.data = BitArray(bs)
+        self.data = bs.read(self.size)
 
     @property
     @abc.abstractmethod
@@ -122,6 +124,31 @@ class Number(Value):
 
 class String(Value):
     display = "ascii"
+
+    @property
+    def bits(self):
+        return super().bits()
+
+    @bits.setter
+    def bits(self, bs):
+        # The issue with reading in strings is that we don't necessarily know
+        # how long the string actually is...and the only way we have of finding
+        # out is decoding it
+        #
+        # This is an ugly hack, the correct was is probably to build a real
+        # bitstring-to-string-and-back codec to go along with the
+        # bytes-to-string codec
+
+        codec = codecs.lookup(self.display)
+        size = self.size if self.size is not None else 1024*8
+        pos = bs.pos
+        tmp = bs.read(size)
+        string, length = codec.decode(tmp.bytes)
+        # What we actually want is not the decoded string but the bits that
+        # made it up...
+        bs.pos = pos
+        self.data = bs.read(length * 8)
+
 
     @property
     def string(self):
