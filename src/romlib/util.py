@@ -253,7 +253,7 @@ def intify(x, default=0):  # pylint: disable=invalid-name
     """ A forgiving int() cast; returns default if typecast fails."""
     try:
         return int(x, 0)
-    except ValueError:
+    except (ValueError, TypeError):
         return default
 
 

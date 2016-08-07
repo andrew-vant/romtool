@@ -1,6 +1,7 @@
 import codecs
 import abc
 import logging
+import inspect
 from itertools import product, chain
 from pprint import pprint
 
@@ -29,6 +30,9 @@ class Field(abc.ABCMeta):
                     dct["_"+k] = dct.pop(k)
 
         return super().__new__(cls, name, bases, dct)
+
+    def __init__(cls, name, bases, dct):
+        super().__init__(name, bases, dct)
 
     @property
     def bytesize(cls):
@@ -214,20 +218,24 @@ class Bitfield(Value):
 
 
 class Union(Number, String, Bitfield):
+    # These need sane defaults if subclasses don't override them.
+    _type = "uint"
+    _mod = 0
+
     @property
     @abc.abstractmethod
     def type(self):
         """ Get the currently-applicable type of this field."""
+        raise NotImplementedError
         return self._type
 
     @property
-    @abc.abstractmethod
     def mod(self):
-        # Derived classes may need to override this. The default tries to treat
-        # the mod attribute as an integer if the current type is an integer,
-        # and tries to treat it as msb0/lsb0 if the current type is a bitfield;
-        # otherwise it gives up and returns None. This will work for int/bin
-        # unions as long as you don't need to mod both forms.
+        # Derived classes may or may not need to override this. The default
+        # tries to treat the mod attribute as an integer if the current type is
+        # an integer, and tries to treat it as msb0/lsb0 if the current type is
+        # a bitfield; otherwise it gives up and returns None. This will work
+        # for int/bin unions as long as you don't need to mod both forms.
         if "int" in self.type:
             return util.intify(self._mod, 0)
         elif "bin" in self.type:
@@ -236,20 +244,28 @@ class Union(Number, String, Bitfield):
             return None
 
     @property
+    def bits(self):
+        return lookup(self.type).bits.fget(self)
+
+    @bits.setter
+    def bits(self, bs):
+        lookup(self.type).bits.fset(self, bs)
+
+    @property
     def value(self):
-        return lookup(self.type).value(self)
+        return lookup(self.type).value.fget(self)
 
     @value.setter
     def value(self, value):
-        lookup(self.type).value(self, value)
+        lookup(self.type).value.fset(self, value)
 
     @property
     def string(self):
-        return lookup(self.type).string(self)
+        return lookup(self.type).string.fget(self)
 
     @string.setter
     def string(self, s):
-        lookup(self.type).string(self, s)
+        lookup(self.type).string.fset(self, s)
 
 
 def define_field(name, spec):
