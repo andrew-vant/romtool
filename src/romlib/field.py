@@ -41,7 +41,7 @@ class Value(object, metaclass=Field):
     pointer = None
     comment = ""
 
-    def __init__(self, parent, value=None, bs=None, string=None):
+    def __init__(self, parent, auto=None, value=None, bs=None, string=None):
         self.data = BitArray(self.size)
         self.parent = parent
         if value is not None:
@@ -248,7 +248,7 @@ def fixspec(spec):
             }
 
     # empty strings get stripped out; the parent provides defaults.
-    for k, v in spec.items():
+    for k, v in spec.copy().items():
         if v == "":
             del(spec[k])
 

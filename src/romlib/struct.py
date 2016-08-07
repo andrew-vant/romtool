@@ -17,17 +17,22 @@
 # No, should be explicit in map. Just not sure which field it belongs in.
 
 import io
+import csv
+import pathlib
+import logging
 from collections import OrderedDict
+from importlib.machinery import SourceFileLoader
 
 import bitstring
 
 from . import util
+from . import field
 
 
 class MetaStruct(type):
     def __init__(cls, name, bases, dct):
         super().__init__(name, bases, dct)
-        fieldmap = {}
+        cls.fieldmap = {}
         for field in cls.fields.values():
             # Forbid shadowing
             if field.id in dir(cls):
@@ -211,8 +216,9 @@ class Structure(object, metaclass=MetaStruct):
     def __delattr__(self, name):
         """ Remove a field by id.
 
-        This sets the underlying data to None, which is interpreted as "this
-        field isn't present in the structure in ROM. Use for 'optional' fields.
+        This sets the underlying data to None, which is interpreted as
+        "this field isn't present in the structure in ROM. Use for
+        'optional' fields.
         """
         if name in self.ids():
             del self[name]
@@ -236,14 +242,96 @@ class Structure(object, metaclass=MetaStruct):
         return (field.label for field in self.fields)
 
     def values(self):
-        return (item.value for item in self.data.values())
+        return (self[field.id] for field in self.fields)
 
     def items(self, *, labels=False):
-        return field.id, self[field.id] for field in self.fields
+        return ((field.id, self[field.id]) for field in self.fields)
 
     def offset(self, fieldname):
         """ Get the offset of a field from the start of the structure."""
         raise NotImplementedError
 
+    def dump(self):
+        """ Get a string-to-string dictionary of the structure's contents.
+
+        Suitable for putting in a csv file or similar. All display conversions
+        are handled by the fields' .string methods.
+        """
+        return {fid: (field.string if field is not None else "")
+                for fid, field in self.data.items()}
+
     def bytemap(self, offset):
         raise NotImplementedError
+
+
+def conflict_check(structure_classes):
+    """ Verify that all ids and labels in a list of structure classes are unique. """
+    for cls1, cls2 in itertools.permutations(structure_classes, r=2):
+        for element in ("id", "label"):
+            list1 = (getattr(field, element) for field in cls1.fields)
+            list2 = (getattr(field, element) for field in cls2.fields)
+            dupes = set(list1).intersection(list2)
+            if len(dupes) > 0:
+                msg = "Duplicate {}s '{}' appear in structures '{}' and '{}'."
+                msg = msg.format(element, dupes, cls1.__name__, cls2.__name__)
+                raise ValueError(msg)
+
+
+def output_fields(*structure_classes, use_labels=True):
+    """ Return a list of field names in a sensible order for tabular output.
+
+    This sorts based on a number of properties, in order of priority
+
+    1. Name vs. non-name (name comes first).
+    2. Explicit order in field spec.
+    3. Pointer vs. non-pointer (non-pointer comes first).
+    4. Order of parent structure in structure_classes.
+    5. Order the field appears in the structure spec.
+    """
+    conflict_check(structure_classes)
+    # Build a dict mapping field ids/labels to ordering tuples.
+    ordering = {}
+    for structorder, structure in enumerate(structure_classes):
+        for specorder, field in enumerate(structure.fields):
+            nameorder = 0 if field.label == "Name" else 1
+            # Cheap kludge, should really check for other fields pointing to it.
+            ptrorder = 1 if field.display == "pointer" else 0
+            output_key = field.label if use_labels else field.id
+            ordering[output_key] = (nameorder, field.order, ptrorder,
+                                    structorder, specorder)
+
+    # Sort by the ordering tuple and return the corresponding keys.
+    sorter = lambda header, order: order
+    return [fid for fid, order in sorted(ordering.items, key=sorter)]
+
+
+def define_struct(name, specs):
+    # spec should be an iterable of dictionaries, each in the format used by
+    # romlib.Field.
+    # Can this be done by mucking with the input dictionary in MetaStruct
+    # safely?
+
+    fields = OrderedDict()
+    for spec in specs:
+        logging.debug("Processing field '%s'", spec['id'])
+        fid = spec['id']
+        fields[fid] = field.define_field(fid, spec)
+    bases = (Structure,)
+    clsdict = {"fields": fields}
+    cls = type(name, bases, clsdict)
+    return cls
+
+
+def load(path):
+    path = pathlib.Path(path)  # I hate lines like this so much.
+    name = path.stem
+    logging.info("Loading '%s' from %s", name, str(path))
+    with path.open() as f:
+        specs = list(csv.DictReader(f, delimiter="\t"))
+    base = define_struct(name, specs)
+    try:
+        modulepath = str(path.parent.joinpath(name + '.py'))
+        module = SourceFileLoader(name, modulepath).load_module()
+        return module.make_struct(base)
+    except FileNotFoundError:
+        return base
