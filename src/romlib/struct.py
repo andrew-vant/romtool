@@ -28,6 +28,7 @@ from pprint import pprint
 
 import bitstring
 
+import romlib
 from . import util
 from . import field
 
@@ -49,6 +50,11 @@ class MetaStruct(type):
                 msg = "Field id {}.{} conflicts with builtin method."
                 raise ValueError(msg, name, field.id)
 
+            # If a field in this array serves as an index, note it
+            if field.meta == "index":
+                cls.indexer = field
+            else:
+                cls.indexer = None
             # Make it easy to dereference labels
             #
             # I couldn't get these to work as @property @classmethods, either
@@ -72,8 +78,9 @@ class MetaStruct(type):
     #
     # That makes perfect sense, but it feels like deep magic to me. It's not
     # enough on its own; accessing them from an instance requires
-    # instance-level dispatchers. See the Structure properties of the same
-    # name.
+    # instance-level dispatchers, because the MRO on instances does not by
+    # default include metaclass properties. See the Structure properties of the
+    # same name.
 
     @property
     def base_fields(cls):
@@ -155,14 +162,21 @@ class Structure(object, metaclass=MetaStruct):
         mandatory = chain(self.base_fields, self.link_fields)
         assert(not any(self[field.id] is None for field in mandatory))
 
-    def _init_from_dict(self, dct):
-        for key, string in dct:
-            self[key] = string
+    @classmethod
+    def _delabel(cls, dct):
+        for field in cls.fields.values():
+            if field.label in dct:
+                dct[field.id] = dct.pop(field.label)
 
-        # Empty strings in optional fields indicate that they're not present.
+    def _init_from_dict(self, dct):
+        dct = dct.copy()
+        self._delabel(dct)
+        for field in chain(self.base_fields, self.link_fields):
+            self.data[field.id] = field(self, dct[field.id])
         for field in self.extra_fields:
-            if self[field.id] == "":
-                del self[field.id]
+            newfield = (field(self, dct[field.id])
+                        if string else None)
+            self.data[field.id] = newfield
 
     def _init_from_file(self, f):
         bs = bitstring.ConstBitStream(f)
@@ -219,12 +233,20 @@ class Structure(object, metaclass=MetaStruct):
         this is not guaranteed if an exception is thrown.
         """
         oldpos = bs.pos # Save this to reset it after reading links.
+        for offset, valobj in self._linkmap.items():
+            bs.pos = offset * 8
+            valobj.bits = bs
+
+    @property
+    def _linkmap(self):
+        """ Get an offset-to-value-instance map"""
+        linkmap = {}
         for field in self.link_fields:
             pointer = self.fieldmap[field.pointer]
             offset = self[pointer.id] + pointer.mod
-            bs.pos = offset * 8
-            self.data[field.id] = field(self, bs)
-        bs.pos = oldpos
+            linkmap[offset] = self.data[field.id]
+        return linkmap
+
 
     def __setitem__(self, key, value):
         """ Set an attribute using dictionary syntax.
@@ -322,7 +344,19 @@ class Structure(object, metaclass=MetaStruct):
                 for field in self.data.values()}
 
     def bytemap(self, offset):
-        raise NotImplementedError
+        # First get contiguous data from the main structure, then follow links.
+        # Both the main structure and linked objects are assumed to be an even
+        # number of bytes total. This has been the case for everything so
+        # far...but I'm pretty sure this assumption won't hold forever.
+        bits = [self.data[field.id].bits
+                for field in chain(self.base_fields, self.extra_fields)]
+        bytemap = {offset + i: byte
+                   for i, byte
+                   in enumerate(bits.bytes)}
+        for offset, valobj in self._linkmap.items():
+            for i, byte in enumerate(valobj.bits.bytes):
+                bytemap[offset+i] = byte
+        return bytemap
 
 
 def conflict_check(structure_classes):
@@ -385,6 +419,12 @@ def define_struct(name, specs):
     clsdict = {"fields": fields}
     cls = type(name, bases, clsdict)
     return cls
+
+def index_struct(indexfield, structure):
+    # Return a new structure class with two fields: one of the same type as
+    # indexfield, one of the same type as structure. Unsolved problem:
+    # recursive sub-structures.
+    raise NotImplementedError
 
 
 def load(path):

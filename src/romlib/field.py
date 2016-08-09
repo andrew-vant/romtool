@@ -7,6 +7,7 @@ from pprint import pprint
 
 from bitstring import Bits, BitArray, ConstBitStream
 
+import romlib
 from . import util
 
 
@@ -62,6 +63,8 @@ class Value(object, metaclass=Field):
 
     def __init__(self, parent, auto=None, value=None, bs=None, string=None):
         self.data = BitArray(self.size)
+        if not isinstance(parent, romlib.struct.Structure):
+            raise ValueError("Invalid field parent: {}".format(parent))
         self.parent = parent
         if isinstance(auto, ConstBitStream):
             bs = auto
@@ -114,7 +117,9 @@ class Number(Value):
 
     @value.setter
     def value(self, value):
-        self.data.overwrite(Bits(**{self.type: value - self.mod}))
+        args = {self.type: value - self.mod,
+                "length": self.size}
+        self.bits = ConstBitStream(**args)
 
     @property
     def string(self):
@@ -167,12 +172,14 @@ class String(Value):
                 msg = "String '%s' (%s bytes) too long for field '%s' (%s bytes)"
                 raise ValueError(msg, value, len(data), self.name, bytesize)
             if len(data) < bytesize:
-                # Pad short strings with spaces
+                # Pad short strings with spaces. Note that padbyte here is a
+                # bytes object (i.e. an iterable), even though it's only a
+                # single byte long.
                 padbyte = codecs.encode(" ", self.display)
-                padding = [padbyte] * (bytesize - len(data))
+                padding = padbyte * (bytesize - len(data))
                 data += bytes(padding)
         bs = BitArray(bytes=data)
-        assert size is not None or len(bs) == self.size
+        assert self.size is not None or len(bs) == self.size
         self.data = bs
 
     @property
@@ -193,7 +200,7 @@ class Bitfield(Value):
 
     @string.setter
     def string(self, s):
-        self.value = Bits(bin=util.undisplaybits(s, self.display))
+        self.value = ConstBitStream(bin=util.undisplaybits(s, self.display))
 
     @property
     def value(self):

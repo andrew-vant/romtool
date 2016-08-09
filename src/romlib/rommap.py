@@ -154,6 +154,8 @@ class RomMap(object):
             try:
                 with open(filename, 'rt', newline='') as f:
                     for arr in arrays:
+                        msg = "Loading array data for '%s' from %s"
+                        logging.info(msg, arr.name, filename)
                         setattr(data, arr.name, list(arr.load(f)))
                         f.seek(0)
             except FileNotFoundError:
