@@ -191,3 +191,15 @@ probably Googled the answer before you got here anyway.
    -  ZSNES
    -  snes9x
    -  FCEUX (name as romname.nes.ips instead of romname.ips)
+
+Map Files
+---------
+
+Notes on creating map files propertly go here...
+
+Notes: the various map spec files may have any number of extra columns not
+used by romlib.  This is intentional; extensions or client applications can
+implement UI hints by looking for extra columns in the spec.
+
+(there probably needs to be a naming convention for app-specific columns vs
+extension columns vs official columns...)
