@@ -91,7 +91,7 @@ tt_codecs = {}
 def add_tt(name, f):
     tt = TextTable(name, f)
     # Arguments to pass to tt.decode for each codec.
-    args = {"":       (False, True),
+    args = {"":       (True, True),
             "-std":   (True, True),
             "-clean": (False, True),
             "-raw":   (True, False)}

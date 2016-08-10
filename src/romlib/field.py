@@ -136,7 +136,7 @@ class String(Value):
 
     @property
     def bits(self):
-        return super().bits()
+        return super().bits
 
     @bits.setter
     def bits(self, bs):
@@ -179,7 +179,7 @@ class String(Value):
                 padding = padbyte * (bytesize - len(data))
                 data += bytes(padding)
         bs = BitArray(bytes=data)
-        assert self.size is not None or len(bs) == self.size
+        assert self.size is None or len(bs) == self.size
         self.data = bs
 
     @property

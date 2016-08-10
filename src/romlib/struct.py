@@ -27,6 +27,7 @@ from importlib.machinery import SourceFileLoader
 from pprint import pprint
 
 import bitstring
+from bitstring import ConstBitStream, Bits
 
 import romlib
 from . import util
@@ -171,12 +172,16 @@ class Structure(object, metaclass=MetaStruct):
     def _init_from_dict(self, dct):
         dct = dct.copy()
         self._delabel(dct)
-        for field in chain(self.base_fields, self.link_fields):
-            self.data[field.id] = field(self, dct[field.id])
-        for field in self.extra_fields:
-            newfield = (field(self, dct[field.id])
-                        if string else None)
-            self.data[field.id] = newfield
+        # Unions and extra fields must be loaded last, because they may rely on
+        # data from other fields.
+        sorter = lambda fld: (issubclass(fld, field.Union),
+                              fld not in self.extra_fields)
+        for fld in sorted(self.fields.values(), key=sorter):
+            string = dct[fld.id]
+            if fld in self.extra_fields and not string:
+                self.data[fld.id] = None
+            else:
+                self.data[fld.id] = fld(self, string)
 
     def _init_from_file(self, f):
         bs = bitstring.ConstBitStream(f)
@@ -350,9 +355,10 @@ class Structure(object, metaclass=MetaStruct):
         # far...but I'm pretty sure this assumption won't hold forever.
         bits = [self.data[field.id].bits
                 for field in chain(self.base_fields, self.extra_fields)]
+
         bytemap = {offset + i: byte
                    for i, byte
-                   in enumerate(bits.bytes)}
+                   in enumerate(Bits().join(bits).bytes)}
         for offset, valobj in self._linkmap.items():
             for i, byte in enumerate(valobj.bits.bytes):
                 bytemap[offset+i] = byte
