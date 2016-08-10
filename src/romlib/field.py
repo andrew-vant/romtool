@@ -70,6 +70,10 @@ class Value(object, metaclass=Field):
             bs = auto
         elif isinstance(auto, str):
             string = auto
+        else:
+            value = auto
+        numargs = sum(1 for arg in (value, bs, string) if arg is not None)
+        assert numargs == 1
         if value is not None:
             self.value = value
         elif bs is not None:

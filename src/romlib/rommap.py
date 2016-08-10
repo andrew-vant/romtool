@@ -94,6 +94,8 @@ class RomMap(object):
                             "display": spec['display']
                             }
                     name = spec['name']
+                    if not spec['label']:
+                        spec['label'] = spec['id']
                     structure = struct.define_struct(name, [fspec])
 
             index = self.arrays.get(spec['index'], None)

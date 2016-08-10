@@ -260,7 +260,7 @@ class Structure(object, metaclass=MetaStruct):
         """
         key = self._realkey(key)
         if self.data[key] is None:
-            self.data[key] = self.fields[key](value, self)
+            self.data[key] = self.fields[key](self, value)
         else:
             self.data[key].value = value
 
@@ -346,7 +346,8 @@ class Structure(object, metaclass=MetaStruct):
         are handled by the fields' .string methods.
         """
         return {field.label: (field.string if field is not None else "")
-                for field in self.data.values()}
+                for field in self.data.values()
+                if field is not None}
 
     def bytemap(self, offset):
         # First get contiguous data from the main structure, then follow links.
