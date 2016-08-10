@@ -10,9 +10,9 @@ hits	Hits	1	uint			4
 acc	Accuracy	1	uint			3		
 str	Strength	1	uint			2		
 crit	Crit Rate	1	uint			5		Ranges from 0-64 (0%-100%)
-eatk	Attack Element	1	lbin		sptdfile	10		Status Psn/Stn Time Death Fire Ice Lightning Earth
-satk	Attack Status	1	lbin		dspbtlmc	11		Death Stone Poison Blind Stun Sleep Mute Confuse
-fam	Family	1	lbin		mdguwacr	14		Magical Dragon Giant Undead Were Aquatic Caster Regen
+eatk	Attack Element	1	bin	lsb0	sptdfile	10		Status Psn/Stn Time Death Fire Ice Lightning Earth
+satk	Attack Status	1	bin	lsb0	dspbtlmc	11		Death Stone Poison Blind Stun Sleep Mute Confuse
+fam	Family	1	bin	lsb0	mdguwacr	14		Magical Dragon Giant Undead Were Aquatic Caster Regen
 mdef	Mag. Defense	1	uint			7		
-weak	Weaknesses	1	lbin		sptdfile	12		Status Psn/Stn Time Death Fire Ice Lightning Earth
-res	Resistances	1	lbin		sptdfile	13		Status Psn/Stn Time Death Fire Ice Lightning Earth
+weak	Weaknesses	1	bin	lsb0	sptdfile	12		Status Psn/Stn Time Death Fire Ice Lightning Earth
+res	Resistances	1	bin	lsb0	sptdfile	13		Status Psn/Stn Time Death Fire Ice Lightning Earth

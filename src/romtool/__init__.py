@@ -11,6 +11,7 @@ import sys
 import hashlib
 import logging
 import os
+import textwrap
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
@@ -56,12 +57,12 @@ def dump(args):
     if args.map is None:
         args.map = detect(args.rom)
     rmap = romlib.RomMap(args.map)
-    msg = "Dumping data from %s to %s using map %s."
-    logging.info(msg, args.rom, args.datafolder, args.map)
+    logging.info("Opening ROM file: %s", args.rom)
     with open(args.rom, "rb") as rom:
         data = rmap.read(rom)
+    logging.info("Dumping ROM data")
     rmap.dump(data, args.datafolder, allow_overwrite=args.force)
-    logging.info("Dump finished.")
+    logging.info("Dump finished")
 
 
 def build(args):
@@ -177,9 +178,6 @@ def _get_path(subfile=None):
 def main():
     """ Entry point for romtool."""
 
-    # Patch in the romlib types.
-    romlib.bsmonkey.monkeypatch()
-
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
     # easier to maintain. See args.yaml for the actual available arguments.
@@ -240,8 +238,22 @@ def main():
         topparser.print_help()
         sys.exit(1)
 
-    # Pass the args on as appropriate
-    args.func(args)
+    # Probable crash behavior: Normally, log exception message as CRITICAL. If
+    # --debug is enabled, also print the full trace. If --pdb is enabled, print
+    # the trace and also break into the debugger.
+    try:
+        args.func(args)
+    except Exception as e:
+        # logging.critical("Unhandled exception: '{}'".format(str(e)))
+        logging.exception(e)
+        if getattr(args, "pdb", False):
+            import pdb, traceback
+            print("\n\nCRASH -- UNHANDLED EXCEPTION")
+            msg = ("Starting debugger post-mortem. If you got here by "
+                   "accident (perhaps by trying to see what --pdb does), "
+                   "you can get out with 'quit'.\n\n")
+            print("\n{}\n\n".format("\n".join(textwrap.wrap(msg))))
+            pdb.post_mortem()
 
 if __name__ == "__main__":
     main()

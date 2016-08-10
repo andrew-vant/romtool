@@ -3,6 +3,7 @@
 import csv
 import contextlib
 import logging
+import os
 from collections import OrderedDict
 
 from bitstring import ConstBitStream
@@ -94,15 +95,20 @@ def displaybits(bits, display):
 
     out = ""
     for bit, letter in zip(bits, display):
-        trtable = {'0': letter.lower(),
+        trtable = {False: letter.lower(),
+                   True: letter.upper(),
+                   '0': letter.lower(),
                    '1': letter.upper()}
-        out += trtable[bit]
+        if letter == "?":
+            out += "1" if bit else "0"
+        else:
+            out += trtable[bit]
     return out
 
 
 def undisplaybits(s, display):
     if not display:
-        display = 'b' * len(s)
+        display = '?' * len(s)
     if not len(s) == len(display):
         raise ValueError("display length doesn't match string length.")
 
@@ -122,6 +128,18 @@ def undisplaybits(s, display):
 
 def str_reverse(s):
     return s[::-1]
+
+
+def lbin_reverse(bs):
+    """ Reverse the bits in each byte of a bitstring.
+
+    Used when the source data assumes LSB-0. This may not do what you expect
+    if the input is both >1 byte and not an even number of bytes.
+    """
+    substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
+    revstrings = [bs[::-1] for bs in substrings]
+    # This makes it work both before and after string conversion
+    return type(bs)().join(revstrings)
 
 
 def remap_od(odict, keymap):
@@ -231,9 +249,32 @@ def divup(a, b):  # pylint: disable=invalid-name
     return (a + (-a % b)) // b
 
 
-def intify(x):  # pylint: disable=invalid-name
-    """ A forgiving int() cast; returns zero for non-int strings."""
+def intify(x, default=0):  # pylint: disable=invalid-name
+    """ A forgiving int() cast; returns default if typecast fails."""
     try:
         return int(x, 0)
-    except ValueError:
-        return 0
+    except (ValueError, TypeError):
+        return default
+
+
+def get_subfiles(root, folder, extension):
+    try:
+        filenames = [filename for filename
+                     in os.listdir("{}/{}".format(root, folder))
+                     if filename.endswith(extension)]
+        names = [os.path.splitext(filename)[0]
+                 for filename in filenames]
+        paths = ["{}/{}/{}".format(root, folder, filename)
+                 for filename in filenames]
+        return zip(names, paths)
+    except FileNotFoundError:
+        # FIXME: Subfolder missing. Log warning here?
+        return []
+
+def int_format_str(displaymode, bitsize):
+    hexfmt = "0x{{:0{}X}}"
+    ifmt = {
+            "pointer": hexfmt.format(divup(bitsize, 4)),
+            "hex": hexfmt.format(divup(bitsize, 4))
+            }
+    return ifmt.get(displaymode, "{}")

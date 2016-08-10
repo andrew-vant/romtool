@@ -7,9 +7,13 @@ codec capabilities.
 """
 
 import re
+import codecs
+import logging
+import functools
+
+from pprint import pprint
 
 from patricia import trie
-
 
 class TextTable(object):
     """ A ROM text table, used for decoding and encoding text strings."""
@@ -43,29 +47,10 @@ class TextTable(object):
             if prefix == "/":
                 self.eos.append(codeseq)
 
-    def readstr(self, f, pos=None, include_eos=True, maxlen=1000):
-        """ Read and decode an eos-terminated string from a file.
-
-            Keyword arguments:
-            maxlen -- Fail if no eos encountered before this many bytes.
-        """
-        if pos is not None:
-            f.seek(pos)
-        data = f.read(maxlen)
-        return self.decode(data, include_eos, True)
-
-    def readstr_bs(self, bs, pos=None, include_eos=True, maxlen=1024):
-        """ Read and decode an eos-terminated string from a bitstring.
-
-        Note that maxlen is *bytes*, not bits.
-        """
-        if pos is None:
-            pos = bs.pos
-        data = bs[pos:pos+maxlen]
-        return self.decode(data.bytes, include_eos, True)
-
     def encode(self, string):
         """ Encode a string into a series of bytes."""
+
+        # FIXME: Needs to append EOS if called for.
         codeseq = []
         i = 0
         raw = r"^\[\$[a-fA-F0-9]{2}\]"
@@ -79,7 +64,7 @@ class TextTable(object):
                 match, code = self.enc.item(string[i:])
                 codeseq.extend(code)
                 i += len(match)
-        return bytes(codeseq)
+        return bytes(codeseq), len(string)
 
     def decode(self, data, include_eos=True, stop_on_eos=True):
         """ Decode a series of bytes.
@@ -93,9 +78,38 @@ class TextTable(object):
             match, string = self.dec.item(data[i:], default=raw)
             if match is None:
                 match = data[i:i+1]
-            if include_eos or match not in self.eos:
+            if include_eos or (match not in self.eos):
                 text += string
-            if stop_on_eos and match in self.eos:
+            if stop_on_eos and (match in self.eos):
+                i += len(match)
                 break
             i += len(match)
-        return text
+        return text, i
+
+
+tt_codecs = {}
+def add_tt(name, f):
+    tt = TextTable(name, f)
+    # Arguments to pass to tt.decode for each codec.
+    args = {"":       (True, True),
+            "-std":   (True, True),
+            "-clean": (False, True),
+            "-raw":   (True, False)}
+
+    for subcodec, subargs in args.items():
+        # There has got to be a cleaner way to do this...
+        decoder = functools.partial(tt.decode,
+                                    include_eos=subargs[0],
+                                    stop_on_eos=subargs[1])
+
+        codec = codecs.CodecInfo(
+                name=name+subcodec,
+                encode=tt.encode,
+                decode=decoder
+                )
+        tt_codecs[name+subcodec] = codec
+
+def get_tt_codec(name):
+    return tt_codecs.get(name, None)
+
+codecs.register(get_tt_codec)

@@ -1,0 +1,3 @@
+name	label	set	type	offset	length	stride	mod	index	priority	display	comment
+monsters		monsters	monster	0xB0780	224			monster_ptrs			
+monster_ptrs	Monster Pointer	monsters	uintle	0xB05C0	224	2	0xB05C0			pointer	

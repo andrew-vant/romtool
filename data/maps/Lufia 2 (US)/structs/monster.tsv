@@ -1,0 +1,19 @@
+id	label	size	type	mod	display	order	meta	comment
+name	Name	13	str		ascii			
+lvl	Level	1	uint					
+unk	Unknown 1	1	uint					
+gfx	Sprite	1	uint					
+pal	Palette	1	uint					Labeled as pattern in editor I'm working from, not sure what it means
+hp	HP	2	uintle					
+mp	MP	2	uintle					
+atk	ATK	2	uintle					
+def	DEF	2	uintle					
+agl	AGL (/2)	1	uint					
+int	INT (/2)	1	uint					
+gut	GUT (/2)	1	uint					
+mgr	MGR (/2)	1	uint					
+exp	EXP	2	uintle					
+gld	GOLD	2	uintle					
+drop	Drop Pointer	2	uintle		hex		extra	
+script	Script Pointer	2	uintle		hex		extra	
+resist	Resists Pointer	2	uintle		hex		extra	

@@ -1,340 +1,448 @@
-"""This module contains classes for manipulating binary structures in ROMs."""
+# A structure type needs a list of fields and some way of describing how they
+# relate to each other for pointer purposes.
 
-from collections import OrderedDict
-from types import SimpleNamespace
+# A structure instance gets an attribute for each field in the structure type.
+
+# There must be some way for modules to create their own structure types for
+# purposes like loading extra data after the main struct. Field descriptions
+# need some way of indicating whether they should be loaded or not
+
+# Perhaps a meta field indicating data, pointer, optional? No, pointer is
+# already implied by the pointer field, so I need default-vs-optional.
+
+# Possibility: structure type contains a list of fields to treat as
+# baseload/postload/dereference, defaults to all except
+# pointers/nothing/pointers
+
+# No, should be explicit in map. Just not sure which field it belongs in.
+
+import io
+import csv
+import pathlib
+import logging
+import inspect
+from itertools import chain, permutations
+from collections import OrderedDict, namedtuple
+from importlib.machinery import SourceFileLoader
+from pprint import pprint
 
 import bitstring
-from bitstring import ConstBitStream, BitStream, Bits
+from bitstring import ConstBitStream, Bits
 
+import romlib
 from . import util
+from . import field
 
 
-class StructDef(object):
-    """ A definition of a type of structure.
+class MetaStruct(type):
+    def __init__(cls, name, bases, dct):
+        # Self.fields will get set by super().__init__; this is more for
+        # documentation's sake than anything else.
+        super().__init__(name, bases, dct)
+        if not hasattr(cls, "fields"):
+            raise ValueError("Fields class variable is required.")
+        if not isinstance(cls.fields, OrderedDict):
+            raise ValueError("Fields class variable must be an ordereddict")
 
-    For example, a structure containing monster data, or weapon data. This
-    class is used to read, convert, textualize, or diff structures against
-    roms. The actual structures it creates are just SimpleNamespaces with a
-    private attribute linking back to their definition.
-    """
-    def __init__(self, name, fdefs):
-        """ Create a new structure type containing the fields *fdefs*."""
-        self.name = name
-        self.fields = OrderedDict((fdef.id, fdef) for fdef in fdefs)
-        self.links = [f for f in self.fields.values() if f.pointer]
-        self.data = [f for f in self.fields.values() if not f.pointer]
-        self.cls = type(name, (SimpleNamespace,), {"_sdef": self})
+        cls.fieldmap = {}
+        for field in cls.fields.values():
+            # Forbid shadowing
+            if field.id in dir(cls):
+                msg = "Field id {}.{} conflicts with builtin method."
+                raise ValueError(msg, name, field.id)
 
-    @classmethod
-    def from_stringdicts(cls, name, fdef_dicts, ttables=None):
-        """ Create a new structure from a list of dictionaries.
+            # If a field in this array serves as an index, note it
+            if field.meta == "index":
+                cls.indexer = field
+            else:
+                cls.indexer = None
+            # Make it easy to dereference labels
+            #
+            # I couldn't get these to work as @property @classmethods, either
+            # in the class definition or (as just plain @property) in the
+            # metaclass definition. It is supposedly possible but it is a giant
+            # pain. I might make them instance propertymethods in
+            # Should these be @property methods on instances? Maybe. They
+            # should really be @property methods on classes, but I can't get
+            # that to work. Descriptors MRO doesn't include metaclasses.
+            cls.fieldmap[field.id] = field
+            cls.fieldmap[field.label] = field
 
-        The dictionaries must be valid input to Field.from_stringdict.
-        *ttables* should be a dictionary of text tables to use for decoding
-        string fields. String fields will be mapped to text tables by the
-        'display' key.
-        """
-        if ttables is None:
-            ttables = {}
-        fdefs = []
-        desc = "{} field".format(name)
-        for i, fdict in enumerate(fdef_dicts):
-            with util.loading_context(desc, fdict['id'], i):
-                display = fdict.get('display', None)
-                ttable = ttables.get(display, None)
-                fdef = Field.from_stringdict(fdict, ttable)
-                fdefs.append(fdef)
-        return StructDef(name, fdefs)
-
-    def load(self, d):  # pylint: disable=invalid-name
-        """Create a new structure from a dictionary.
-
-        The structure's fields will be initialized from the corresponding items
-        in the dictionary. They dictionary may be keyed by either the field id
-        or the field label. The field id is checked first. Superfluous items
-        are ignored. If the values are strings of non-string types, as when
-        read from a .tsv, they will be converted.
-        """
-        initializers = dict()
-        for field in self.fields.values():
-            # Look for fields both by id and by label.
-            value = d.get(field.id, d[field.label])
-            if isinstance(value, str):
-                value = field.load(value)
-            initializers[field.id] = value
-        return self.cls(**initializers)
-
-    def read(self, source, bit_offset=None):
-        """ Read in a new structure
-
-        source -- The data source to read from. This may be a bitstring or any
-                  object that can be converted to one, e.g a file object.
-
-        bit_offset -- The offset to start reading from.
-
-        If the offset is not provided, it will try to use the read position of
-        *source* by looking for f.tell() (on file objects) or bs.pos (for
-        bitstrings). Otherwise it will default to zero.
-
-        If *source* is a file object, it must be opened in binary mode.
-        """
-        bs = util.bsify(source)
-        if bit_offset is not None:
-            bs.pos = bit_offset
-        data = dict()
-
-        for field in self.data:
-            data[field.id] = field.read(bs, bit_offset)
-            bit_offset += field.bitsize
-
-        for field in self.links:
-            desc = "{} field".format(self.name)
-            with util.loading_context(desc, field.id):
-                pointer = self.fields[field.pointer]
-                bs.pos = (data[pointer.id] + pointer.mod) * 8
-                data[field.id] = field.read(bs)
-                # try:
-                #     bs.pos = (data[pointer.id] + pointer.mod) * 8
-                # except ValueError:
-                #     # Bogus pointer. FIXME: Log warning?
-                #     data[field.id] = field.default
-                # else:
-                #     data[field.id] = field.read(bs)
-        return self.cls(**data)
-
-    def bytemap(self, struct, offset=0):
-        """ Get an offset-to-byte-value dict.
-
-        Offset indicates the start point of the structure.
-        """
-        changes = {}
-        # Deal with regular data fields first. These are expected to all be
-        # bitstring-supported types because I've yet to see a ROM that wasn't
-        # that way. For now the main data of the structure must be of
-        # whole-byte size.
-        bs = BitStream()
-        for field in self.data:
-            value = getattr(struct, field.id)
-            bs.append(field.bits(value))
-        try:
-            for i, byte in enumerate(bs.bytes):
-                changes[offset+i] = byte
-        except bitstring.InterpretError as e:
-            msg = "Problem bytemapping main data of {}: {}"
-            # FIXME: more appropriate exception type here.
-            raise Exception(msg.format(self.name, e.msg))
-
-        # Deal with pointers. For now pointers require whole-byte values.
-        # Note that we no longer care about the struct's start point so we can
-        # reuse offset.
-        for field in self.links:
-            value = getattr(struct, field.id)
-            pointer = self.fields[field.pointer]
-            offset = getattr(struct, field.pointer) + pointer.mod
-            for i, byte in enumerate(field.bytes(value)):
-                changes[offset+i] = byte
-
-        # Done
-        return changes
-
-    def dump(self, struct, stringify=True, use_labels=True):
-        """ Get an ordered dictionary of the structure's data.
-
-        By default, the field labels will be used as keys if available, and all
-        values will be converted to strings. The returned OrderedDict is
-        suitable for sending to a tsv or similar.
-        """
-        return StructDef.multidump([struct], stringify, use_labels)
-
-    @staticmethod
-    def multidump(structures, stringify=True, use_labels=True):
-        """ Turn a list of structures into an ordereddict for serialization.
-
-        The odict will contain all their values and be ordered in a sane manner
-        for outputting to (for example) tsv. By default, field labels will be
-        used as keys if available, and values will be converted to strings.
-
-        None of the structures may have overlapping field ids/labels.
-        """
-
-        data = []
-        for i, struct in enumerate(structures):
-            for field in struct._sdef.fields.values():
-                key = field.label if field.label and use_labels else field.id
-                value = getattr(struct, field.id)
-                if stringify:
-                    value = field.dump(value)
-                ordering = field.sortorder(i)
-                data.append((key, value, ordering))
-
-        data.sort(key=lambda d: d[-1])
-        return OrderedDict(d[:2] for d in data)
-
-
-class Field(object):  # pylint: disable=too-many-instance-attributes
-    """ An individual field of a structure.
-
-    For example, a 3-byte integer or a delimiter-terminated string. Most of the
-    methods of Field are intended to transport value types to and from strings,
-    bitstreams, file objects, etc.
-    """
-    def __init__(self, _id, label, _type, bits,
-                 order=0, mod=0, comment="",
-                 display=None, pointer=None, ttable=None):
-        if 'str' in _type and ttable is None:
-            msg = "String field {} has no text table. Check display attribute?"
-            raise ValueError(msg, _id)
-        self.id = _id  # pylint: disable=invalid-name
-        self.label = label
-        self.type = _type
-        self.bitsize = bits
-        self.bytesize = util.divup(bits, 8)
-        self.order = order
-        self.mod = mod
-        self.comment = comment
-        self.display = display
-        self.pointer = pointer
-        self.ttable = ttable
-
-    @classmethod
-    def from_stringdict(cls, odict, ttable=None, available_tts=None):
-        """ Create a Field object from a dictionary of strings.
-
-        This is a convenience constructor intended to be used on the input from
-        tsv structure definitions. All it does is convert values to the
-        appropriate types and then pass them to the regular constructor.
-
-        Missing values are assumed to be empty strings. Extra values are
-        ignored.
-        """
-        if ttable is None and available_tts is not None:
-            ttable = available_tts.get(odict['display'], None)
-
-        expected_fields = ['id', 'label', 'type', 'size', 'order',
-                           'mod', 'display', 'comment', 'pointer']
-        odict = {key: odict.get(key, "") for key in expected_fields}
-
-        return Field(_id=odict['id'],
-                     label=odict['label'],
-                     _type=odict['type'],
-                     bits=util.tobits(odict['size'], 0),
-                     order=util.intify(odict['order']),
-                     mod=util.intify(odict['mod']),
-                     comment=odict['comment'],
-                     display=odict['display'],
-                     pointer=odict['pointer'],
-                     ttable=ttable)
+    # Deep magic begins here.
+    #
+    # I was trying to make @classproperty convenience methods in Structure for
+    # getting useful subsets of Structure.fields. It seems there is no such
+    # decorator, nor a good way to fake it. Placing them in the metaclass as
+    # @properties works, though; they become class-level properties of whatever
+    # class is being created, in the same way that regular classes' @properties
+    # become instance-level property attributes.
+    #
+    # That makes perfect sense, but it feels like deep magic to me. It's not
+    # enough on its own; accessing them from an instance requires
+    # instance-level dispatchers, because the MRO on instances does not by
+    # default include metaclass properties. See the Structure properties of the
+    # same name.
 
     @property
-    def default(self):
-        if 'str' in self.type:
-            return ""
-        else:
-            return 0
+    def base_fields(cls):
+        """ Get a list of primary data fields in the structure.
 
-    def read(self, source, bit_offset=None):
-        """ Read a field from a bit offset within a bitstream.
-
-        *source* may be any object that can be converted to a bitstream.
-
-        *bit_offset* defaults to the current read position of *source* if
-        possible, or to zero for objects that don't have a read position (e.g.
-        bytes).
-
-        The returned value will be a string or an int, as appropriate.
+        The list will be in the same order that they should be read from a rom
+        file, so you can loop over it when reading.
         """
-        bs = util.bsify(source)
-        if bit_offset is not None:
-            bs.pos = bit_offset
+        return [field for field in cls.fields.values()
+                if not field.pointer and field.meta != "extra"]
 
-        if 'str' in self.type:
-            maxbits = self.bitsize if self.bitsize else 1024*8
-            pos = bs.pos
-            data = bs[pos:pos+maxbits]
-            return self.ttable.decode(data.bytes)
-        else:
-            try:
-                fmt = "{}:{}".format(self.type, self.bitsize)
-                return bs.read(fmt)
-            except ValueError:
-                msg = "Field '{}' of type '{}' isn't a valid type?"
-                raise ValueError(msg, self.id, self.type)
+    @property
+    def extra_fields(cls):
+        """ Get a list of extended data fields after the structure.
 
-    def bits(self, value):
-        """ Convert a value to a Bits object."""
-        if 'str' in self.type:
-            return Bits(self.ttable.encode(value))
-        elif 'bin' in self.type:
-            # Separated because you can't pass length along with bin for some
-            # reason.
-            init = {self.type: value}
-            return Bits(**init)
-        else:
-            init = {self.type: value, 'length': self.bitsize}
-            return Bits(**init)
-
-    def bytes(self, value):
-        """ Convert a value to a bytes object.
-
-        This may fail if the field is not a whole number of bytes long.
+        These are optional data fields for variable-length structures. They
+        should be read after primary data, but before links. They will be
+        listed in the order they appear in the structure definition file.
         """
-        return self.bits(value).bytes
+        return [field for field in cls.fields.values()
+                if field.meta == "extra"]
 
-    def load(self, s):  # pylint: disable=invalid-name
-        """ Convert the string *s* to an appropriate value type."""
-        if self.type in ['str', 'strz', 'hex']:
-            return s
-        elif 'bin' in self.type:
-            return util.undisplaybits(s, self.display)
-        elif 'int' in self.type:
-            return int(s, 0) - self.mod
-        elif 'float' in self.type:
-            return float(s) - self.mod
+    @property
+    def link_fields(cls):
+        """ Get a list of data links in the structure.
+
+        These are values that are pointed-to by something in the structure's
+        primary data, so they have to be loaded after the primary data fields.
+        """
+        return [field for field in cls.fields.values()
+                if field.pointer]
+
+
+class Structure(object, metaclass=MetaStruct):
+    # Map of field names to field classes
+    # Problem: inherting must specify explicitly?
+    fields = OrderedDict()
+
+    @classmethod
+    def _realkey(cls, key):
+        """ Dereference labels to ids if needed."""
+        return cls.fieldmap[key].id
+
+    @property
+    def base_fields(self):
+        return type(self).base_fields
+
+    @property
+    def extra_fields(self):
+        return type(self).extra_fields
+
+    @property
+    def link_fields(self):
+        return type(self).link_fields
+
+
+    def __init__(self, auto=None):
+        # Non-present optional fields are represented by "None." It is an
+        # error for non-optional fields to remain None at the end of
+        # initialization.
+        data = {field.id: None for field in self.fields.values()}
+        super().__setattr__("data", data)
+
+        # Initializing using whichever method is called for by the type of
+        # input.
+        dispatch = {bitstring.Bits: self._init_from_bitstring,
+                    io.IOBase: self._init_from_file,
+                    dict: self._init_from_dict}
+        for tp, func in dispatch.items():
+            if isinstance(auto, tp):
+                func(auto)
+                break
         else:
-            msg = "Destringification of '{}' not implemented."
-            raise NotImplementedError(msg, self.type)
+            msg = "Invalid struct initializer of type %s"
+            raise ValueError(msg, type(auto))
 
-    def dump(self, value):
-        """ Convert *value* to a string.
+        # Make sure no non-optional fields are still None, which would indicate
+        # somebody made a mistake.
+        mandatory = chain(self.base_fields, self.link_fields)
+        assert(not any(self[field.id] is None for field in mandatory))
 
-        Note that we don't use the *str* builtin for this because some fields
-        ought to have specific formatting in the output -- e.g. pointers should
-        be a hex string padded to cover their width.
+    @classmethod
+    def _delabel(cls, dct):
+        for field in cls.fields.values():
+            if field.label in dct:
+                dct[field.id] = dct.pop(field.label)
+
+    def _init_from_dict(self, dct):
+        dct = dct.copy()
+        self._delabel(dct)
+        # Unions and extra fields must be loaded last, because they may rely on
+        # data from other fields.
+        sorter = lambda fld: (issubclass(fld, field.Union),
+                              fld not in self.extra_fields)
+        for fld in sorted(self.fields.values(), key=sorter):
+            string = dct[fld.id]
+            if fld in self.extra_fields and not string:
+                self.data[fld.id] = None
+            else:
+                self.data[fld.id] = fld(self, string)
+
+    def _init_from_file(self, f):
+        bs = bitstring.ConstBitStream(f)
+        self._init_from_bs(bs)
+
+    def _init_from_bitstring(self, bs):
+        self.read_base(bs)
+        self.read_extra(bs)
+        self.read_links(bs)
+
+    def read_base(self, bs):
+        """ Read primary data
+
+        This reads the main, fixed portion of a data structure. After reading,
+        the bit position of `bs` will be one bit past the end of the data read.
         """
-        formats = {
-            'pointer': '0x{{:0{}X}}'.format(self.bytesize*2),
-            'hex': '0x{{:0{}X}}'.format(self.bytesize*2)
-            }
-        # FIXME bin types should have one letter per bit and use
-        # upper/lowercase to indicate on/off. This is probably more useful
-        # and keeps spreadsheets from trying to compact them to ints. Use the
-        # display field to indicate the letters for each bit.
-        if 'int' in self.type:
-            value += self.mod
-            fstr = formats.get(self.display, '{}')
-            return fstr.format(value)
-        if 'float' in self.type:
-            value += self.mod
-            return str(value)
-        if 'bin' in self.type:
-            return util.displaybits(value, self.display)
-        if self.type in ['str', 'strz', 'hex']:
-            return value
-        # If we get here something is wrong.
-        msg = "Stringification of '{}' not implemented."
-        raise NotImplementedError(msg, self.type)
-
-    def sortorder(self, origin_sequence_order=0):
-        """ Get the sort order of this field.
-
-        This returns a tuple containing several properties relevant to sorting.
-        Sort order is name, order given in definition, pointer/nonpointer
-        (pointers go last), and the binary order of the field.
-
-        This is done with a function rather than greater/less than because the
-        field object doesn't actually know its binary order and needs to have
-        it provided.
+        pos = bs.pos
+        for field in type(self).base_fields:
+            self.data[field.id] = field(self, bs)
+        # FIXME: The following block doesn't behave as expected for indexed
+        # primitive arrays, e.g. strings with no meaningful base_fields
+        # Still works but I'm pretty sure a bug is waiting in it.
         """
-        nameorder = 0 if self.label == "Name" else 1
-        typeorder = 1 if self.display == "pointer" else 0
-        return nameorder, self.order, typeorder, origin_sequence_order
+
+        try:
+            assert bs.pos == pos + sum(field.size for field in self.base_fields)
+        except TypeError:
+            pprint(self.base_fields)
+            pprint(list(inspect.getmro(field) for field in self.base_fields))
+            pprint(list(field.size for field in self.base_fields))
+            raise
+        """
+
+    def read_extra(self, bs):
+        """ Read optional data
+
+        This is a hook for variable-length structs or structs with
+        context-dependent data. It must be overridden to be of any use.
+        After reading, the bit position of `bs` must be set one bit past the
+        end of the data read. This will happen automatically with repeated
+        bs.read calls.
+        """
+        if len(self.extra_fields) > 0:
+            msg = "'{}' has extra fields but didn't implement them"
+            raise NotImplementedError(msg, type(self))
+
+    def read_links(self, bs):
+        """ Read linked data.
+
+        Order matters; this shouldn't be run until after pointers are read in.
+        FIXME: Recursive pointers would be nice to support.
+
+        read_links should restore the read position of `bs` before returning, but
+        this is not guaranteed if an exception is thrown.
+        """
+        oldpos = bs.pos # Save this to reset it after reading links.
+        for offset, valobj in self._linkmap.items():
+            bs.pos = offset * 8
+            valobj.bits = bs
+
+    @property
+    def _linkmap(self):
+        """ Get an offset-to-value-instance map"""
+        linkmap = {}
+        for field in self.link_fields:
+            pointer = self.fieldmap[field.pointer]
+            offset = self[pointer.id] + pointer.mod
+            linkmap[offset] = self.data[field.id]
+        return linkmap
+
+
+    def __setitem__(self, key, value):
+        """ Set an attribute using dictionary syntax.
+
+        Attributes can be looked by by label as well as ID.
+        """
+        key = self._realkey(key)
+        if self.data[key] is None:
+            self.data[key] = self.fields[key](self, value)
+        else:
+            self.data[key].value = value
+
+    def __getitem__(self, key):
+        """ Get an attribute using dictionary syntax.
+
+        Attributes can be looked by by label as well as ID.
+        """
+        key = self._realkey(key)
+        if self.data[key] is None:
+            return None
+        else:
+            return self.data[key].value
+
+    def __delitem__(self, key):
+        """ Unset a field value.
+
+        For variable-length structures or other weird edge cases, this
+        indicates that a given field is unused or omitted and should be skipped
+        or ignored when generating patches.
+
+        This doesn't actually delete the underlying attribute, just sets it to
+        None.
+        """
+        self.data[_realkey(key)] = None
+
+    def __getattr__(self, name):
+        if name in self.data:
+            return self[name]
+        elif hasattr(super(), "__getattr__"):
+            return super().__getattr__(name)
+        else:
+            raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        if name in self.data:
+            self[name] = value
+        else:
+            super().__setattr__(name, value)
+
+    def __delattr__(self, name):
+        """ Remove a field by id.
+
+        This sets the underlying data to None, which is interpreted as
+        "this field isn't present in the structure in ROM. Use for
+        'optional' fields.
+        """
+        if name in self.ids():
+            del self[name]
+        else:
+            super().__delattr__(name)
+
+    def __contains__(self, key):
+        try:
+            key = self._realkey(key)
+        except KeyError: # FIXME: Should probably use custom exception.
+            return False
+        return self[key] is not None
+
+    def keys(self, *, labels=False):
+        return self.labels() if labels else self.ids()
+
+    def ids(self):
+        return (field.id for field in self.fields)
+
+    def labels(self):
+        return (field.label for field in self.fields)
+
+    def values(self):
+        return (self[field.id] for field in self.fields)
+
+    def items(self, *, labels=False):
+        return ((field.id, self[field.id]) for field in self.fields.values())
+
+    def offset(self, fieldname):
+        """ Get the offset of a field from the start of the structure."""
+        raise NotImplementedError
+
+    def dump(self):
+        """ Get a string-to-string dictionary of the structure's contents.
+
+        Suitable for putting in a csv file or similar. All display conversions
+        are handled by the fields' .string methods.
+        """
+        return {field.label: (field.string if field is not None else "")
+                for field in self.data.values()
+                if field is not None}
+
+    def bytemap(self, offset):
+        # First get contiguous data from the main structure, then follow links.
+        # Both the main structure and linked objects are assumed to be an even
+        # number of bytes total. This has been the case for everything so
+        # far...but I'm pretty sure this assumption won't hold forever.
+        bits = [self.data[field.id].bits
+                for field in chain(self.base_fields, self.extra_fields)]
+
+        bytemap = {offset + i: byte
+                   for i, byte
+                   in enumerate(Bits().join(bits).bytes)}
+        for offset, valobj in self._linkmap.items():
+            for i, byte in enumerate(valobj.bits.bytes):
+                bytemap[offset+i] = byte
+        return bytemap
+
+
+def conflict_check(structure_classes):
+    """ Verify that all ids and labels in a list of structure classes are unique. """
+    for cls1, cls2 in permutations(structure_classes, r=2):
+        for element in ("id", "label"):
+            list1 = (getattr(field, element) for field in cls1.fields.values())
+            list2 = (getattr(field, element) for field in cls2.fields.values())
+            dupes = set(list1).intersection(list2)
+            if len(dupes) > 0:
+                msg = "Duplicate {}s '{}' appear in structures '{}' and '{}'."
+                msg = msg.format(element, dupes, cls1.__name__, cls2.__name__)
+                raise ValueError(msg)
+
+
+def output_fields(*structure_classes, use_labels=True):
+    """ Return a list of field names in a sensible order for tabular output.
+
+    This sorts based on a number of properties, in order of priority
+
+    1. Name vs. non-name (name comes first).
+    2. Explicit order in field spec.
+    3. Pointer vs. non-pointer (non-pointer comes first).
+    4. Order of parent structure in structure_classes.
+    5. Order the field appears in the structure spec.
+    """
+    conflict_check(structure_classes)
+    # Build a dict mapping field ids/labels to ordering tuples.
+    headers = []
+    record = namedtuple("record", ["header", "order"])
+
+    for structorder, structure in enumerate(structure_classes):
+        for specorder, field in enumerate(structure.fields.values()):
+            nameorder = 0 if field.label == "Name" else 1
+            # Cheap kludge, should really check for other fields pointing to it.
+            ptrorder = 1 if field.display == "pointer" else 0
+            header = field.label if use_labels else field.id
+            ordering = (nameorder, field.order, ptrorder,
+                        structorder, specorder)
+            headers.append(record(header, ordering))
+
+    # Sort by the ordering tuple and return the corresponding keys.
+    sorter = lambda record: record.order
+    return [header for header, order
+            in sorted(headers, key=sorter)]
+
+
+def define_struct(name, specs):
+    # spec should be an iterable of dictionaries, each in the format used by
+    # romlib.Field.
+    # Can this be done by mucking with the input dictionary in MetaStruct
+    # safely?
+
+    fields = OrderedDict()
+    for spec in specs:
+        logging.debug("Processing field '%s'", spec['id'])
+        fid = spec['id']
+        fields[fid] = field.define_field(fid, spec)
+    bases = (Structure,)
+    clsdict = {"fields": fields}
+    cls = type(name, bases, clsdict)
+    return cls
+
+def index_struct(indexfield, structure):
+    # Return a new structure class with two fields: one of the same type as
+    # indexfield, one of the same type as structure. Unsolved problem:
+    # recursive sub-structures.
+    raise NotImplementedError
+
+
+def load(path):
+    path = pathlib.Path(path)  # I hate lines like this so much.
+    name = path.stem
+    with path.open() as f:
+        specs = list(csv.DictReader(f, delimiter="\t"))
+    base = define_struct(name, specs)
+    try:
+        modulepath = str(path.parent.joinpath(name + '.py'))
+        module = SourceFileLoader(name, modulepath).load_module()
+        return module.make_struct(base)
+    except FileNotFoundError:
+        return base

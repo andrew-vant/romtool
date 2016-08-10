@@ -4,6 +4,7 @@ global:
   flags: !omap
     -v|--verbose: Verbose output
     --debug: Print debug information
+    --pdb: Start interactive debugger on crash
 
 dump:
   spec:
