@@ -350,20 +350,37 @@ class Structure(object, metaclass=MetaStruct):
                 if field is not None}
 
     def bytemap(self, offset):
-        # First get contiguous data from the main structure, then follow links.
         # Both the main structure and linked objects are assumed to be an even
         # number of bytes total. This has been the case for everything so
         # far...but I'm pretty sure this assumption won't hold forever.
-        bits = [self.data[field.id].bits
-                for field in chain(self.base_fields, self.extra_fields)]
+        bytemap = {}
+        bytemap.update(self.base_bytes(offset))
+        bytemap.update(self.extra_bytes(offset))
+        bytemap.update(self.link_bytes(offset))
+        return bytemap
 
-        bytemap = {offset + i: byte
-                   for i, byte
-                   in enumerate(Bits().join(bits).bytes)}
+    def base_bytes(self, offset):
+        bits = [self.data[field.id].bits
+                for field in self.base_fields]
+        bits = Bits().join(bits)
+        return {offset + i: byte
+                for i, byte
+                in enumerate(bits.bytes)}
+
+    def extra_bytes(self, offset):
+        if len(self.extra_fields) > 0:
+            msg = "'{}' has extra fields but didn't implement them"
+            raise NotImplementedError(msg, type(self))
+        else:
+            return {}
+
+    def link_bytes(self, offset):
+        bytemap = {}
         for offset, valobj in self._linkmap.items():
             for i, byte in enumerate(valobj.bits.bytes):
                 bytemap[offset+i] = byte
         return bytemap
+
 
 
 def conflict_check(structure_classes):
