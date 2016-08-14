@@ -192,6 +192,13 @@ class Structure(object, metaclass=MetaStruct):
         self.read_extra(bs)
         self.read_links(bs)
 
+    @property
+    def base_size(self):
+        """ Get size of base structure in bytes."""
+        bitsize = sum(field.size for field in self.base_fields)
+        assert bitsize % 8 == 0
+        return bitsize // 8
+
     def read_base(self, bs):
         """ Read primary data
 
