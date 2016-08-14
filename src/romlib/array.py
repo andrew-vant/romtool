@@ -2,9 +2,6 @@ import struct
 from collections import OrderedDict
 from itertools import chain
 
-# FIXME: I'm overloading the term "index" too much here. I should probably use
-# something else for what's currently the idx column.
-
 # When arrays are serialized to an external file, the user will probably want
 # to be able to rearrange them to suit whatever they're working on. But they
 # need to be in their original order for patching to work correctly. Array
@@ -16,9 +13,10 @@ class FixedIndex(object):
     def __init__(self, offset, stride, length, **kwargs):
         # kwargs is just there to eat extras so you can double splat a spec
         # dict.
-        self.offset = int(spec['offset'], 0)
-        self.stride = int(spec['stride'], 0)
-        self.length = int(spec['length'], 0)
+        intify = lambda i: int(i, 0) if isinstance(str, i) else i
+        self.offset = intify(offset)
+        self.stride = intify(stride)
+        self.length = intify(length)
 
     def indices(self):
         for i in range(self.length):
@@ -48,48 +46,30 @@ class CrossIndex(object):
             yield item[self.attr]
 
 
-class Array(object):
-    def __init__(self, name, struct, index):
-        """
-        Index must be either an iterable of integers, or an object with a .indices()
-        method that returns an iterable of integers. The method must take no
-        arguments.
+def read(rom, cls, index):
+    bs = util.bsify(rom)
+    for offset in index.indices():
+        bs.pos = offset * 8
+        yield cls(bs)
 
-        In practice this will be an array.FixedIndex or an array.CrossIndex.
-        """
-        self.name = name
-        self.struct = struct
-        self.index = index
-        self.reindex(index)
 
-    def reindex(self, index):
-        if hasattr(index, "indices"):
-            self._indices = list(index.indices())
-        else:
-            self._indices = list(index)
+def load(dicts, cls):
+    """ Deserialize this array from an iterable of dicts."""
+    sorter = lambda d: util.intify(d.get('_idx_', None))
+    for dct in sorted(dicts, sorter):
+        yield cls(dct)
 
-    def read(self, rom):
-        bs = util.bsify(rom)
-        logging.info("Reading ROM array: %s", self.name)
-        for offset in self._indices:
-            bs.pos = offset * 8
-            yield self.struct(bs)
 
-    def load(self, dicts):
-        """ Deserialize this array from an iterable of dicts."""
-        sorter = lambda d: util.intify(d.get('_idx_', None))
-        for dct in sorted(dicts, sorter):
-            yield self.struct(dct)
+def dump(structs):
+    for struct in structs:
+        yield struct.dump()
 
-    def dump(self, structs):
-        for i, struct in enumerate(structs):
-            yield struct.dump()
 
-    def bytemap(self, structs):
-        bytemap = {}
-        for offset, struct in zip(self._indices, structs):
-            bytemap.update(struct.bytemap(offset))
-        return bytemap
+def bytemap(structs, index):
+    bytemap = {}
+    for offset, struct in zip(index.indices(), structs):
+        bytemap.update(struct.bytemap(offset))
+    return bytemap
 
 
 def primitive(aspec):
