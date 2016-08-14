@@ -461,12 +461,28 @@ def index_struct(indexfield, structure):
 def load(path):
     path = pathlib.Path(path)  # I hate lines like this so much.
     name = path.stem
+    logging.debug("Loading '%s' definition from %s", name, path)
     with path.open() as f:
         specs = list(csv.DictReader(f, delimiter="\t"))
     base = define_struct(name, specs)
+    modpath = path.parent.joinpath(name + '.py')
+    logging.debug("Looking for make_struct hook in %s", modpath)
     try:
-        modulepath = str(path.parent.joinpath(name + '.py'))
-        module = SourceFileLoader(name, modulepath).load_module()
-        return module.make_struct(base)
+        module = SourceFileLoader(name, str(modpath)).load_module()
     except FileNotFoundError:
+        msg = "Nothing at %s, skipping"
+        logging.debug(msg, modpath)
         return base
+    if not hasattr(module, "make_struct"):
+        msg = "%s doesn't contain make_struct, skipping"
+        logging.debug(msg, modpath)
+        return base
+    msg = "Processing hook %s.make_struct for '%s' in %s"
+    logging.debug(msg, module.__name__, name, path)
+    newbase = module.make_struct(base)
+    if not isinstance(newbase, type) or not issubclass(newbase, base):
+        msg = ("{}.make_struct() in {} failed to return subclass of {}; "
+               "actually returned: {}")
+        msg = msg.format(module.__name__, path, base.__name__, newbase)
+        raise Exception(msg)
+    return newbase
