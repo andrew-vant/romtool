@@ -201,6 +201,9 @@ class ArrayDef(object):
         if not index and not all([offset, stride, length]):
             msg = "Array {} requires either an index or offset/length/stride."
             raise ValueError(msg, name)
+        if struct is None:
+            msg = "Tried to build array '{}' without a structure"
+            raise ValueError(msg.format(name))
         self.name = name
         self.set = _set or name
         self.offset = offset
