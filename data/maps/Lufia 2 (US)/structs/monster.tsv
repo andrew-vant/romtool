@@ -14,6 +14,7 @@ gut	GUT (/2)	1	uint
 mgr	MGR (/2)	1	uint					
 exp	EXP	2	uintle					
 gld	GOLD	2	uintle					
-drop	Drop Pointer	2	uintle		hex		extra	
-script	Script Pointer	2	uintle		hex		extra	
+dchance	Drop Chance	b7	uint				extra	
+drop	Drop Item	b9	uint				extra	
 resist	Resists Pointer	2	uintle		hex		extra	
+script	Script Pointer	2	uintle		hex		extra	
