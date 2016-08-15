@@ -278,3 +278,20 @@ def int_format_str(displaymode, bitsize):
             "hex": hexfmt.format(divup(bitsize, 4))
             }
     return ifmt.get(displaymode, "{}")
+
+def writetsv(path, data, force=False, headers=None):
+    mode = "w" if force else "x"
+    data = list(data)
+    if headers is None:
+        headers = data[0].keys()
+    with open(path, mode, newline='') as f:
+        csvopts = {"quoting": csv.QUOTE_ALL,
+                   "delimiter": "\t"}
+        writer = csv.DictWriter(f, headers, **csvopts)
+        writer.writeheader()
+        for item in data:
+            writer.writerow(item)
+
+def readtsv(path):
+    with open(path, newline='') as f:
+        return list(csv.DictReader(f, delimiter="\t"))
