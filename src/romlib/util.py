@@ -108,7 +108,7 @@ def displaybits(bits, display):
 
 def undisplaybits(s, display):
     if not display:
-        display = '?' * len(s)
+        display = 'b' * len(s)
     if not len(s) == len(display):
         raise ValueError("display length doesn't match string length.")
 
