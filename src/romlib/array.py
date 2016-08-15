@@ -1,5 +1,6 @@
 import struct
 import collections
+import logging
 from collections import OrderedDict
 from itertools import chain
 
@@ -63,7 +64,8 @@ class Array(object):
         if not index:
             index = self.index
         bs = util.bsify(rom)
-        for offset in index.indices():
+        for i, offset in enumerate(index.indices()):
+            logging.debug("Reading %s #%s", self.name, i)
             bs.pos = offset * 8
             yield self.struct(bs)
 
