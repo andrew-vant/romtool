@@ -45,32 +45,46 @@ class CrossIndex(object):
         for item in self.array:
             yield item[self.attr]
 
+class Array(object):
+    """ Really just an unpacker for specs"""
+    def __init__(self, spec, struct=None):
+        self.name = spec['name']
+        self.set = spec['set']
+        self.struct = struct if struct else primitive(spec)
+        self.index = spec['index']
+        self.priority = util.intify(spec['priority'], 0)
+        if not self.index:
+            self.index = FixedIndex(**spec)
 
-def read(rom, cls, index):
-    bs = util.bsify(rom)
-    for offset in index.indices():
-        bs.pos = offset * 8
-        yield cls(bs)
+    def read(self, rom, index=None):
+        if not index:
+            index = self.index
+        bs = util.bsify(rom)
+        for offset in index.indices():
+            bs.pos = offset * 8
+            yield self.struct(bs)
 
 
-def load(dicts, cls):
-    """ Deserialize this array from an iterable of dicts."""
-    sorter = lambda d: util.intify(d.get('_idx_', None))
-    for dct in sorted(dicts, sorter):
-        yield cls(dct)
+    def load(self, dicts):
+        """ Deserialize this array from an iterable of dicts."""
+        sorter = lambda d: util.intify(d.get('_idx_', None))
+        for dct in sorted(dicts, key=sorter):
+            yield self.struct(dct)
 
 
-def dump(structs):
-    for struct in structs:
-        yield struct.dump()
+    def dump(self, structs):
+        # This could be top-level but it's here for API consistency
+        for struct in structs:
+            yield struct.dump()
 
 
-def bytemap(structs, index):
-    bytemap = {}
-    for offset, struct in zip(index.indices(), structs):
-        bytemap.update(struct.bytemap(offset))
-    return bytemap
-
+    def bytemap(self, structs, index=None):
+        if not index:
+            index = self.index
+        bytemap = {}
+        for offset, struct in zip(index.indices(), structs):
+            bytemap.update(struct.bytemap(offset))
+        return bytemap
 
 def primitive(aspec):
     """ Create a structure for use by an array of primitives"""
