@@ -24,6 +24,9 @@ class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
     pass
 
+# FIXME: Add subcommand to list available maps on the default search paths.
+# Probably its output should advice the user that it's only what shipped with
+# romtool and they're free to supply their own.
 
 def detect(romfile, maproot=None):
     """ Detect the map to use with a given ROM.
@@ -61,7 +64,7 @@ def dump(args):
     with open(args.rom, "rb") as rom:
         data = rmap.read(rom)
     logging.info("Dumping ROM data")
-    rmap.dump(data, args.datafolder, allow_overwrite=args.force)
+    rmap.dump(data, args.datafolder, force=args.force)
     logging.info("Dump finished")
 
 
@@ -70,6 +73,9 @@ def build(args):
 
     Intended to be applied to a directory created by the dump subcommand.
     """
+    # FIXME: Really ought to support --include for auto-merging other patches.
+    # Have it do the equivalent of build and then merge.
+
     if args.map is None and args.rom is None:
         raise ValueError("At least one of -r or -m must be provided.")
     if args.map is None:
@@ -228,9 +234,9 @@ def main():
     args = topparser.parse_args()
 
     # Set up logging.
-    if getattr(args, "verbose", False):
+    if args.verbose:
         logging.basicConfig(level=logging.INFO)
-    if getattr(args, "debug", False):
+    if args.debug:
         logging.basicConfig(level=logging.DEBUG)
 
     # If no subcommand supplied, print help.
@@ -246,7 +252,7 @@ def main():
     except Exception as e:
         # logging.critical("Unhandled exception: '{}'".format(str(e)))
         logging.exception(e)
-        if getattr(args, "pdb", False):
+        if args.pdb:
             import pdb, traceback
             print("\n\nCRASH -- UNHANDLED EXCEPTION")
             msg = ("Starting debugger post-mortem. If you got here by "
