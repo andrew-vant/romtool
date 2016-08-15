@@ -116,29 +116,24 @@ class RomMap(object):
         else:
             return None
 
-    def dump(self, data, dest, force=False):
-        """ Dump ROM data to a collection of tsv files.
+    def dump(self, data):
+        """ Dump all available ROM data.
 
-        This produces one file for each array set.
-
-        FIXME: Perhaps this should actually produce a dict of lists of
-        orderedicts, and leave file output up to the caller? and have a
-        top-level function for doing the Right Thing?
+        Returns a dictionary of lists of ordereddicts, suitable for sending to
+        util.tsvwriter.
         """
-
-        os.makedirs(dest, exist_ok=True)
-
+        output = {}
         # Group arrays by set.
-        arrays = sorted(self.arrays.values(), key=lambda a: a.set)
-        for entity, arrays in itertools.groupby(arrays, lambda a: a.set):
+        keyfunc = lambda a: a.set
+        arrays = sorted(self.arrays.values(), key=keyfunc)
+        for entity, arrays in itertools.groupby(arrays, keyfunc):
             arrays = list(arrays)
-            filename = "{}/{}.tsv".format(dest, entity)
-            msg = "Serializing entity set '%s' (%s) to %s."
+            msg = "Serializing entity set '%s' (%s)"
             structnames = ", ".join(a.name for a in arrays)
-            logging.info(msg, entity, structnames, filename)
+            logging.info(msg, entity, structnames)
             data_subset = [getattr(data, array.name) for array in arrays]
-            out = array.mergedump(data_subset, True, True)
-            util.writetsv(filename, out, force)
+            output[entity] = array.mergedump(data_subset, True, True)
+        return output
 
 
     def load(self, modfolder):

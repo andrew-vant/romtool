@@ -63,8 +63,13 @@ def dump(args):
     logging.info("Opening ROM file: %s", args.rom)
     with open(args.rom, "rb") as rom:
         data = rmap.read(rom)
-    logging.info("Dumping ROM data")
-    rmap.dump(data, args.datafolder, force=args.force)
+    logging.info("Dumping ROM data to: %s", args.datafolder)
+    output = rmap.dump(data)
+    os.makedirs(args.datafolder, exist_ok=True)
+    for entity, dicts in output.items():
+        filename = "{}/{}.tsv".format(args.datafolder, entity)
+        logging.info("Writing output file: %s", filename)
+        romlib.util.writetsv(filename, dicts, args.force)
     logging.info("Dump finished")
 
 
