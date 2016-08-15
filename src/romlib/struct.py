@@ -331,7 +331,7 @@ class Structure(object, metaclass=MetaStruct):
         return self.labels() if labels else self.ids()
 
     def ids(self):
-        return (field.id for field in self.fields)
+        return iter(self.fields)
 
     def labels(self):
         return (field.label for field in self.fields)
@@ -339,8 +339,12 @@ class Structure(object, metaclass=MetaStruct):
     def values(self):
         return (self[field.id] for field in self.fields)
 
-    def items(self, *, labels=False):
-        return ((field.id, self[field.id]) for field in self.fields.values())
+    def items(self, labels=False):
+        for field in self.fields.values():
+            if labels:
+                yield field.label, self[field.label]
+            else:
+                yield field.id, self[field.id]
 
     def offset(self, fieldname):
         """ Get the offset of a field from the start of the structure."""
@@ -450,12 +454,6 @@ def define_struct(name, specs):
     clsdict = {"fields": fields}
     cls = type(name, bases, clsdict)
     return cls
-
-def index_struct(indexfield, structure):
-    # Return a new structure class with two fields: one of the same type as
-    # indexfield, one of the same type as structure. Unsolved problem:
-    # recursive sub-structures.
-    raise NotImplementedError
 
 
 def load(path):
