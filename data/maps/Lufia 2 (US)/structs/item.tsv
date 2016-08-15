@@ -1,0 +1,25 @@
+id	label	size	type	mod	display	order	meta	comment
+battle	Usable in Battle	b1	uint					
+menu	Usable in Menu	b1	uint					
+sticky	Undroppable	b1	uint					
+fruitinv	Fruit (Inventory)	b1	uint					
+cursed	Cursed	b1	uint					
+unk1	Unknown Inventory Flag 1	b1	uint			1		
+equip	Equipment	b1	uint					
+priority	Top of Inventory	b1	uint					
+fruit	Fruit?	b1	uint					
+unk2	Unknown 2	b1	uint			1		
+unk3	Unknown 3	b1	uint			1		
+unk4	Unknown 4	b1	uint			1		
+ring	Tool Ring Order?	b4	uint					
+party	Target Enemies	b1	uint					
+unk5	Unknown 5	b5	uint			1		
+tgt	Target Mode	b2	uint					
+icon	Icon	1	uint					
+sprite	Sprite	1	uint					
+cost	Cost	2	uintle					
+slot	Equip Slot	b6	bin	lsb0	washrj			Weapon Armor Shield Helmet Ring Jewel
+unslot	Unused Equip Slot	b2	bin	lsb0		2		
+users	Users	b7	bin	lsb0	msgatdl			Maxim Selan Guy Artea Tia Dekar Lexis
+unusers	Unused Users	b1	bin	lsb0		2		
+effects	Effect Flags	2	bin	lsb0				

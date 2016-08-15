@@ -1,5 +1,5 @@
 id	label	size	type	mod	display	order	meta	comment
-name	Name	13	str		ascii			
+name	Name	13	str		main			
 lvl	Level	1	uint					
 unk	Unknown 1	1	uint					
 gfx	Sprite	1	uint					
