@@ -1,6 +1,9 @@
 import struct
+import collections
 from collections import OrderedDict
 from itertools import chain
+
+from . import util, struct
 
 # When arrays are serialized to an external file, the user will probably want
 # to be able to rearrange them to suit whatever they're working on. But they
@@ -13,10 +16,10 @@ class FixedIndex(object):
     def __init__(self, offset, stride, length, **kwargs):
         # kwargs is just there to eat extras so you can double splat a spec
         # dict.
-        intify = lambda i: int(i, 0) if isinstance(str, i) else i
-        self.offset = intify(offset)
-        self.stride = intify(stride)
-        self.length = intify(length)
+        convert = lambda i: int(i, 0) if isinstance(i, str) else i
+        self.offset = convert(offset)
+        self.stride = convert(stride)
+        self.length = convert(length)
 
     def indices(self):
         for i in range(self.length):
@@ -37,7 +40,7 @@ class CrossIndex(object):
         index returns.
         """
         if not attr:
-            attr = next(sorted(data[0].ids()))
+            attr = sorted(data[0].ids())[0]
         self.attr = attr
         self.array = data
 
@@ -97,10 +100,10 @@ def primitive(aspec):
             "display": aspec['display']
             }
     name = aspec['name']
-    return struct.define_struct(name, [aspec])
+    return struct.define_struct(name, [sspec])
 
 
-def mergedump(*arraydata, use_labels=True, record_order=True):
+def mergedump(arraydata, use_labels=True, record_order=True):
     """ Splice and dump multiple arrays that are part of a set.
 
     record_order adds an extra key recording the original order of the items in
@@ -110,9 +113,11 @@ def mergedump(*arraydata, use_labels=True, record_order=True):
     the appropriate headers for exporting to tsv.
     """
     keys = None
-    for structs in zip(arraydata):
+    for i, structs in enumerate(zip(*arraydata)):
         if keys is None:
             classes = [type(structure) for structure in structs]
-            keys = struct.output_fields(*classes) + ['_idx_']
-        cm = itertools.ChainMap(s.dump() for s in structs)
-        yield OrderedDict((key, cm[key]) for key in keys)
+            keys = struct.output_fields(*classes)
+        merged = dict(chain.from_iterable(s.dump().items() for s in structs))
+        od = OrderedDict((key, merged.get(key, "")) for key in keys)
+        od['_idx_'] = i
+        yield od
