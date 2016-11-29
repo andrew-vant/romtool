@@ -363,6 +363,77 @@ def _backup(filename, skip=False):
         logging.warning("Backup suppressed")
 
 
+def img(args):
+    """ Read CHR images from a rom and display them.
+
+    FIXME: Just a proof of concept for now. The `args` argument contains
+    command line arguments from argparse.
+    """
+    import tkinter
+    from bitstring import Bits
+
+    # Argument type corrections
+    args.count = int(args.count, 0)
+    args.offset = int(args.offset, 0)
+    args.zoom = int(args.zoom, 0) if args.zoom else 1
+
+    def unpack(data):
+        """ Turn raw bytes into a list of pixel color values
+
+        The returned list ordering is left to right, top to bottom."""
+        lowbits = Bits(data[:8])
+        highbits = Bits(data[8:])
+        pixels = [2 * int(high) + int(low)
+                  for high, low
+                  in zip(highbits, lowbits)]
+        return pixels
+
+    def makeimage(pixels):
+        """ Initialize a PhotoImage from pixel colors"""
+        image = tkinter.PhotoImage(width=8,height=8)
+        palette = {0: "#000000",
+                   1: "#22AA22",
+                   2: "#2222FF",
+                   3: "#DDDDDD"}
+        for i, pixel in enumerate(pixels):
+            x = i % 8
+            y = i // 8
+            image.put(palette[pixel], (x, y))
+        return image
+
+    # Read our data in 16-byte chunks and unpack each of them.
+    images = []
+    with open(args.rom, "rb") as rom:
+        rom.seek(args.offset, 0)
+        for n in range(args.count):
+            data = rom.read(16)
+            image = unpack(data)
+            images.append(image)
+
+    # Create the display canvas
+    window = tkinter.Tk()
+    canvas = tkinter.Canvas(window, width=640, height=480, bg="#000000")
+    canvas.pack()
+
+    # Create Tk.PhotoImages for each image and keep a handle to them in the
+    # canvas for Reasons.
+    canvas.sprites = []
+    for image in images:
+        pimg = makeimage(image)
+        pimg = pimg.zoom(args.zoom, args.zoom) # Ow.
+        canvas.sprites.append(pimg)
+
+    # Now draw everything.
+    for i, pimg in enumerate(canvas.sprites):
+        columns = 640 // (8 * args.zoom)
+        row = i // columns
+        col = i % columns
+        pos = (col * 8 * args.zoom, row * 8 * args.zoom)
+        canvas.create_image(pos, image=pimg, anchor=tkinter.NW)
+
+    window.mainloop()
+
+
 def _filterpatch(patch, romfile):
     # Fixme: Ask forgiveness, not permission here? And should the check be
     # handled by the caller?

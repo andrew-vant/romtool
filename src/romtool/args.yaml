@@ -95,6 +95,16 @@ blocks:
     -m|--min: Minimum block size to bother with
     -n|--num: Print only the N largest blocks   # Because windows has no head.
 
+img:
+  spec:
+    description: Dump sprite images from rom
+  args: !omap
+    rom: ROM file to search in
+    offset: Offset to start at
+    count: Number of sprites to read
+  opts:
+    -f|--format: Format of sprite
+    -z|--zoom:   Zoom the display
 
 
 # an alternate approach: specify arguments and commands separately. Why
