@@ -12,12 +12,14 @@ import hashlib
 import logging
 import os
 import textwrap
+import itertools
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
 import yaml
 
 import romlib
+import romlib.charset
 
 
 class RomDetectionError(Exception):
@@ -134,6 +136,62 @@ def diff(args):
         with open(args.modified, "rb") as changed:
             patch = romlib.Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
+
+
+def charmap(args):
+    logging.info("Loading strings")
+    with open(args.strings) as f:
+        strings = [s.strip() for s in f]
+
+    logging.info("Loading rom")
+    with open(args.rom, "rb") as rom:
+        data = rom.read()
+        view = memoryview(data)
+
+    logging.info("Starting search")
+    maps = {s: [] for s in strings}
+    for s in strings:
+        logging.debug("Searching for %s", s)
+        pattern = romlib.charset.Pattern(s)
+        for i in range(len(data)):
+            chunk = view[i:i+len(s)]
+            try:
+                cmap = pattern.buildmap(chunk)
+            except romlib.charset.NoMapping:
+                pass
+            else:
+                logging.debug("Found match for %s at %s", s, i)
+                if cmap not in maps[s]:
+                    maps[s].append(cmap)
+                else:
+                    logging.debug("Duplicate mapping, skipping")
+
+        found = len(maps[s])
+        msg = "Found %s possible mappings for '%s'"
+        logging.info(msg, found, s)
+
+    charsets = []
+    for m in itertools.product(*maps.values()):
+        try:
+            merged = romlib.charset.merge(*m)
+        except romlib.charset.MappingConflictError:
+            logging.debug("Mapping conflict")
+            pass
+        else:
+            logging.info("Found consistent character map.")
+            charsets.append(merged)
+
+    if len(charsets) == 0:
+        logging.error("Could not find any consistent character set")
+    else:
+        logging.info("Found %s consistent character sets", len(charsets))
+
+    for i, cs in enumerate(charsets):
+        print("### {} ###".format(i))
+        out = sorted((byte, char) for char, byte in cs.items())
+        for byte, char in out:
+            print("{:02X}={}".format(byte, char))
+
 
 
 def _filterpatch(patch, romfile):
