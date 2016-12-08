@@ -24,6 +24,23 @@ class NoMapping(Exception):
 class MappingConflictError(Exception):
     pass
 
+class UnusedSubset(Exception):
+    pass
+
+class Subset(object):
+    def __init__(self, domain, text):
+        try:
+            first = next(i for i, c in enumerate(text) if c in domain)
+        except StopIteration:
+            raise UnusedSubset
+
+        self.string = domain
+        self.refidx = first
+        self.refchar = self.string[self.refidx]
+        self.reford = ord(self.refchar)
+        self.rootchar = domain[0]
+        self.rootord = ord(self.rootchar)
+
 class Pattern(object):
     def __init__(self, s):
         self.string = s
