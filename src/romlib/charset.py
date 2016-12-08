@@ -29,14 +29,22 @@ class Pattern(object):
         self.string = s
         self.length = len(s)
 
-        self.lowers =  [char if char.islower() else None
-                        for char in s]
-        self.uppers =  [char if char.isupper() else None
-                        for char in s]
-        self.numbers = [char if char in string.digits else None
-                        for char in s]
-        self.other =   [char if not char.isalnum() else None
-                        for char in s]
+
+        # Precalculate the first upper, lower and digit character in the
+        # string, because we'll need them repeatedly and the scan is
+        # surprisingly expensive.
+        self.subsets = []
+        lowercase = string.ascii_lowercase
+        uppercase = string.ascii_uppercase
+        digits = string.digits[1:]
+        first = lambda x, subset: next((i for i, c in enumerate(subset)), None)
+        for subset in lowercase, uppercase, digits:
+            try:
+                first = next(i for i, c in enumerate(s) if c in subset)
+            except StopIteration:
+                pass
+            else:
+                self.subsets.append((subset, first, s[first]))
 
     def buildmap(self, data):
         if len(self.string) != len(data):
@@ -45,31 +53,18 @@ class Pattern(object):
 
         charmap = {}
 
-        # Assume the first digit, lowercase, and uppercase character are all
-        # accurate; build a speculative map based on those and assuming each
-        # character subset is contiguous. Then look for contradictions.
+        for subset, i, refchar in self.subsets:
+            refbyte = data[i]
+            root = refbyte - (ord(refchar) - ord(subset[0]))
 
-        subsets = (string.ascii_lowercase,
-                   string.ascii_uppercase,
-                   string.digits[1:]) # Zero might be on either end
-
-        for subset in subsets:
-            try:
-                refchar, refbyte = next((c, b) for c, b
-                                        in zip(self.string, data)
-                                        if c in subset)
-            except StopIteration:
-                pass
-            else:
-                # My head hurts
-                root = subset.index(refchar)
-                for i, char in enumerate(subset):
-                    byte = refbyte - (root - i)
-                    assert(char not in charmap)
-                    if byte in charmap.values():
-                        raise NoMapping("Same byte mapped twice")
-                    else:
-                        charmap[char] = byte
+            # My head hurts
+            for i, char in enumerate(subset):
+                byte = root + i
+                assert(char not in charmap)
+                if byte in charmap.values():
+                    raise NoMapping("Same byte mapped twice")
+                else:
+                    charmap[char] = byte
 
         # Now go down the string. Look for contradictions and add
         # non-contradictions (e.g. punctuation) to the map.

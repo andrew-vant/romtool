@@ -147,6 +147,7 @@ def charmap(args):
     with open(args.rom, "rb") as rom:
         data = rom.read()
         view = memoryview(data)
+    logging.debug("rom length: %s bytes", len(data))
 
     logging.info("Starting search")
     maps = {s: [] for s in strings}
@@ -158,13 +159,13 @@ def charmap(args):
             try:
                 cmap = pattern.buildmap(chunk)
             except romlib.charset.NoMapping:
-                pass
+                continue
+            logging.debug("Found match for %s at %s", s, i)
+            if cmap in maps[s]:
+                logging.debug("Duplicate mapping, skipping")
             else:
-                logging.debug("Found match for %s at %s", s, i)
-                if cmap not in maps[s]:
-                    maps[s].append(cmap)
-                else:
-                    logging.debug("Duplicate mapping, skipping")
+                logging.info("New mapping found for '%s' at %s", s, i)
+                maps[s].append(cmap)
 
         found = len(maps[s])
         msg = "Found %s possible mappings for '%s'"
