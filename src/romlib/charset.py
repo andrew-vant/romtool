@@ -51,20 +51,30 @@ class Pattern(object):
             # Happens near EOF
             raise NoMapping()
 
-        charmap = {}
-
-        for subset, i, refchar in self.subsets:
-            refbyte = data[i]
+        subsets = []
+        for subset, refpoint, refchar in self.subsets:
+            refbyte = data[refpoint]
             root = refbyte - (ord(refchar) - ord(subset[0]))
+            subsets.append((subset, refpoint, refchar, refbyte, root))
 
-            # My head hurts
+            # Check and reject mappings that go out of bounds. This is a cheap way
+            # of detecting most misses.
+            if root < 0 or root + len(subset) > 255:
+                raise NoMapping("Mapping would go out of bounds")
+
+        # Check that none of the subsets overlap
+        subsets.sort(key=lambda t: t[-1])
+        last = 0
+        for subset, refpoint, refchar, refbyte, root in subsets:
+            if root < last:
+               raise NoMapping("Overlapping submaps")
+            last = root + len(subset)
+
+        # Build a speculative character set
+        charmap = {}
+        for subset, refpoint, refchar, refbyte, root in subsets:
             for i, char in enumerate(subset):
-                byte = root + i
-                assert(char not in charmap)
-                if byte in charmap.values():
-                    raise NoMapping("Same byte mapped twice")
-                else:
-                    charmap[char] = byte
+                charmap[char] = root + i
 
         # Now go down the string. Look for contradictions and add
         # non-contradictions (e.g. punctuation) to the map.
