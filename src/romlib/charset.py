@@ -35,11 +35,15 @@ class Subset(object):
             raise UnusedSubset
 
         self.string = domain
+        self.slen = len(self.string)
         self.refidx = first
         self.refchar = text[self.refidx]
         self.reford = ord(self.refchar)
         self.rootchar = domain[0]
         self.rootord = ord(self.rootchar)
+
+        self.rootdiffs = [domain.find(c) for c in text]
+        self.rootdiffs = [(i if i != -1 else None) for i in self.rootdiffs]
 
 class Pattern(object):
     def __init__(self, s):
@@ -61,24 +65,34 @@ class Pattern(object):
             except UnusedSubset:
                 pass
 
-
     def _refpoints(self, data):
         for subset in self.subsets:
-            subset.refbyte = data[subset.refidx]
-            subset.rootbyte = subset.refbyte - (subset.reford - subset.rootord)
+            refbyte = data[subset.refidx]
+            rootbyte = refbyte - (subset.reford - subset.rootord)
             # Check and reject mappings that go out of bounds. This is a cheap way
-            # of detecting most misses.
+            # of detecting many misses.
+            if rootbyte < 0 or rootbyte + subset.slen > 255:
+                raise NoMapping("Mapping would go out of bounds")
+            subset.refbyte = refbyte
+            subset.rootbyte = rootbyte
 
     def _overlapcheck(self):
         # Check that none of the subsets overlap
         self.subsets.sort(key=lambda ss: ss.rootbyte)
         last = 0
         for subset in self.subsets:
-            if subset.rootbyte < 0 or subset.rootbyte + len(subset.string) > 255:
-                raise NoMapping("Mapping would go out of bounds")
             if subset.rootbyte < last:
                 raise NoMapping("Overlapping submaps")
             last = subset.rootbyte + len(subset.string)
+
+    def _diffcheck(self, data):
+        for i, byte in enumerate(data):
+            for subset in self.subsets:
+                diff = subset.rootdiffs[i]
+                if diff is None:
+                    continue
+                if byte - diff != subset.rootbyte:
+                    raise NoMapping("Diff failure")
 
     def _speculativecharset(self):
         # Build a speculative character set
@@ -100,6 +114,7 @@ class Pattern(object):
 
     def buildmap(self, data):
         self._refpoints(data)
+        self._diffcheck(data)
         self._overlapcheck()
         charset = self._speculativecharset()
         self._contradictioncheck(data, charset)
