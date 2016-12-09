@@ -36,7 +36,7 @@ class Subset(object):
 
         self.string = domain
         self.refidx = first
-        self.refchar = self.string[self.refidx]
+        self.refchar = text[self.refidx]
         self.reford = ord(self.refchar)
         self.rootchar = domain[0]
         self.rootord = ord(self.rootchar)
@@ -50,48 +50,43 @@ class Pattern(object):
         # Precalculate the first upper, lower and digit character in the
         # string, because we'll need them repeatedly and the scan is
         # surprisingly expensive.
-        self.subsets = []
         lowercase = string.ascii_lowercase
         uppercase = string.ascii_uppercase
         digits = string.digits[1:]
-        first = lambda x, subset: next((i for i, c in enumerate(subset)), None)
-        for subset in lowercase, uppercase, digits:
+
+        self.subsets = []
+        for domain in lowercase, uppercase, digits:
             try:
-                first = next(i for i, c in enumerate(s) if c in subset)
-            except StopIteration:
+                self.subsets.append(Subset(domain, self.string))
+            except UnusedSubset:
                 pass
-            else:
-                self.subsets.append((subset, first, s[first]))
 
     def buildmap(self, data):
         if len(self.string) != len(data):
             # Happens near EOF
-            raise NoMapping()
+            raise NoMapping("Length mismatch")
 
-        subsets = []
-        for subset, refpoint, refchar in self.subsets:
-            refbyte = data[refpoint]
-            root = refbyte - (ord(refchar) - ord(subset[0]))
-            subsets.append((subset, refpoint, refchar, refbyte, root))
-
+        for subset in self.subsets:
+            subset.refbyte = data[subset.refidx]
+            subset.rootbyte = subset.refbyte - (subset.reford - subset.rootord)
             # Check and reject mappings that go out of bounds. This is a cheap way
             # of detecting most misses.
-            if root < 0 or root + len(subset) > 255:
+            if subset.rootbyte < 0 or subset.rootbyte + len(subset.string) > 255:
                 raise NoMapping("Mapping would go out of bounds")
 
         # Check that none of the subsets overlap
-        subsets.sort(key=lambda t: t[-1])
+        self.subsets.sort(key=lambda ss: ss.rootbyte)
         last = 0
-        for subset, refpoint, refchar, refbyte, root in subsets:
-            if root < last:
+        for subset in self.subsets:
+            if subset.rootbyte < last:
                raise NoMapping("Overlapping submaps")
-            last = root + len(subset)
+            last = subset.rootbyte + len(subset.string)
 
         # Build a speculative character set
         charmap = {}
-        for subset, refpoint, refchar, refbyte, root in subsets:
-            for i, char in enumerate(subset):
-                charmap[char] = root + i
+        for subset in self.subsets:
+            for i, char in enumerate(subset.string):
+                charmap[char] = subset.rootbyte + i
 
         # Now go down the string. Look for contradictions and add
         # non-contradictions (e.g. punctuation) to the map.
@@ -99,7 +94,7 @@ class Pattern(object):
             if char not in charmap:
                 charmap[char] = byte
             elif charmap[char] != byte:
-                raise NoMapping
+                raise NoMapping("Contradiction detected")
 
         # If we get here, we have a consistent and mostly-complete map.
         return charmap
