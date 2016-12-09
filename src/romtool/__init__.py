@@ -154,7 +154,7 @@ def charmap(args):
     for s in strings:
         logging.debug("Searching for %s", s)
         pattern = romlib.charset.Pattern(s)
-        for i in range(len(data)):
+        for i in range(len(data) - len(s) + 1):
             chunk = view[i:i+len(s)]
             try:
                 cmap = pattern.buildmap(chunk)

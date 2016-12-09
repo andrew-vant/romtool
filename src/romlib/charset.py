@@ -61,43 +61,50 @@ class Pattern(object):
             except UnusedSubset:
                 pass
 
-    def buildmap(self, data):
-        if len(self.string) != len(data):
-            # Happens near EOF
-            raise NoMapping("Length mismatch")
 
+    def _refpoints(self, data):
         for subset in self.subsets:
             subset.refbyte = data[subset.refidx]
             subset.rootbyte = subset.refbyte - (subset.reford - subset.rootord)
             # Check and reject mappings that go out of bounds. This is a cheap way
             # of detecting most misses.
-            if subset.rootbyte < 0 or subset.rootbyte + len(subset.string) > 255:
-                raise NoMapping("Mapping would go out of bounds")
 
+    def _overlapcheck(self):
         # Check that none of the subsets overlap
         self.subsets.sort(key=lambda ss: ss.rootbyte)
         last = 0
         for subset in self.subsets:
+            if subset.rootbyte < 0 or subset.rootbyte + len(subset.string) > 255:
+                raise NoMapping("Mapping would go out of bounds")
             if subset.rootbyte < last:
-               raise NoMapping("Overlapping submaps")
+                raise NoMapping("Overlapping submaps")
             last = subset.rootbyte + len(subset.string)
 
+    def _speculativecharset(self):
         # Build a speculative character set
-        charmap = {}
+        charset = {}
         for subset in self.subsets:
             for i, char in enumerate(subset.string):
-                charmap[char] = subset.rootbyte + i
+                charset[char] = subset.rootbyte + i
+        return charset
 
+    def _contradictioncheck(self, data, charset):
         # Now go down the string. Look for contradictions and add
         # non-contradictions (e.g. punctuation) to the map.
         for char, byte in zip(self.string, data):
-            if char not in charmap:
-                charmap[char] = byte
-            elif charmap[char] != byte:
+            if char not in charset:
+                charset[char] = byte
+            elif charset[char] != byte:
                 raise NoMapping("Contradiction detected")
 
+
+    def buildmap(self, data):
+        self._refpoints(data)
+        self._overlapcheck()
+        charset = self._speculativecharset()
+        self._contradictioncheck(data, charset)
         # If we get here, we have a consistent and mostly-complete map.
-        return charmap
+        return charset
 
 def merge(*dicts):
     out = {}
