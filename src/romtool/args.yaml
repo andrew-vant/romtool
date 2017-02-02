@@ -52,3 +52,9 @@ diff:
   opts:
     -o|--out: Patch file to write. Detects format by extension.
 
+charmap:
+  spec:
+    description: Generate a text character set
+  args: !omap
+    rom: ROM file
+    strings: Known strings
