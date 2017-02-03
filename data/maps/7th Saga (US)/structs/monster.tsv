@@ -31,7 +31,7 @@ rvac	Death Resist	1	uintle					stats
 reff	Effect Resist	1	uintle					stats	
 gld	Gold/Exp	2	uintle					stats	Experience is always 2.201 * Gold
 drp	Dropset	1	uintle					misc	
-unk1	Unknown 1	1	uintle		hex			unknown	Appears to be used only by bosses. Purpose unknown.
+hook	Death Hook	1	uintle		hex			misc	Routine to run on boss death (actually an index to a pointer array)
 boss	Boss Flag	1	uintle					flag	Monster won't run, can't be run from, and is immune to effects.
 nmp	Name Pointer	3	uintle		pointer		-0xC00000	pointer	
 name	Name		strz	nmp	main			name	
