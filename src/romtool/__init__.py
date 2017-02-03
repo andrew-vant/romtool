@@ -16,11 +16,14 @@ import itertools
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
+from signal import signal, SIGPIPE, SIG_DFL
+
 import yaml
 
 import romlib
 import romlib.charset
 
+signal(SIGPIPE, SIG_DFL) # Do the right thing when piping to head, etc.
 
 class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
