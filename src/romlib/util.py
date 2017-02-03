@@ -294,9 +294,10 @@ def writetsv(path, data, force=False, headers=None):
     if headers is None:
         headers = data[0].keys()
     with open(path, mode, newline='') as f:
-        csvopts = {"quoting": csv.QUOTE_ALL,
-                   "delimiter": "\t"}
-        writer = csv.DictWriter(f, headers, **csvopts)
+        # FIXME: Wonder if I can auto-generate per-struct dialects that do the
+        # right thing with validate() on loading, so we find out about size or
+        # type mismatches right away.
+        writer = csv.DictWriter(f, headers, delimiter="\t")
         writer.writeheader()
         for item in data:
             writer.writerow(item)
