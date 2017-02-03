@@ -245,9 +245,10 @@ class Structure(object, metaclass=MetaStruct):
         this is not guaranteed if an exception is thrown.
         """
         oldpos = bs.pos # Save this to reset it after reading links.
-        for offset, valobj in self._linkmap.items():
+        for field in type(self).link_fields:
+            offset = self[field.pointer]
             bs.pos = offset * 8
-            valobj.bits = bs
+            self.data[field.id] = field(self, bs)
 
     @property
     def _linkmap(self):
@@ -255,7 +256,7 @@ class Structure(object, metaclass=MetaStruct):
         linkmap = {}
         for field in self.link_fields:
             pointer = self.fieldmap[field.pointer]
-            offset = self[pointer.id] + pointer.mod
+            offset = self[pointer.id]
             linkmap[offset] = self.data[field.id]
         return linkmap
 
