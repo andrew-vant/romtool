@@ -88,12 +88,21 @@ def hexify(i, length=None):
 
 
 def displaybits(bits, display):
+    # FIXME: The chronic problem here is that spreadsheets insist on
+    # interpreting bitfields like 00001000 as 1000. Fields that are all
+    # numerals are treated as integers, and tsv provides no method of
+    # indicating otherwise.
+    #
+    # For now I'm going to use the 0b prefix on unformatted strings to force
+    # spreadsheets to treat it as a string (because it has a letter in it)
+    # while still being implicitly binary.
+    out = ""
     if not display:
-        display = 'b' * len(bits)
-    if not len(bits) == len(display):
+        out += "0b"
+        display = "?" * len(bits)
+    if len(bits) != len(display):
         raise ValueError("display length doesn't match bitfield length.")
 
-    out = ""
     for bit, letter in zip(bits, display):
         trtable = {False: letter.lower(),
                    True: letter.upper(),
@@ -108,21 +117,21 @@ def displaybits(bits, display):
 
 def undisplaybits(s, display):
     if not display:
-        display = 'b' * len(s)
+        if not s.startswith("0b"):
+            raise ValueError("Unformatted bitfields must start with 0b")
+        return s[2:]
     if not len(s) == len(display):
         raise ValueError("display length doesn't match string length.")
 
     out = ""
-    for char, letter in zip(s, display):
-        trtable = {'0': '0',
-                   '1': '1',
-                   letter.lower(): '0',
+    for i, (char, letter) in enumerate(zip(s, display)):
+        trtable = {letter.lower(): '0',
                    letter.upper(): '1'}
         try:
             out += trtable[char]
         except KeyError:
-            msg = "Unrecognized or out of order bitfield character: {}"
-            raise ValueError(msg.format(char))
+            msg = "Unrecognized or out of order bitfield character: {}, pos {}"
+            raise ValueError(msg.format(char, i))
     return out
 
 
