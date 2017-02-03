@@ -109,7 +109,9 @@ developing a map of your own you will almost certainly need to do this.
 
 After dumping is finished, make whatever changes you want to the files
 in ``moddir``. Any spreadsheet application should do the job; I use
-LibreOffice, but Excel should also work.
+LibreOffice, but Excel should also work. Be aware that you may have to turn off
+any auto-formatting features, especially if you plan to edit textual elements
+such as names.
 
 When saving your changes, be sure you save them in place in .tsv format, *not*
 .xls, .ods, .csv, or anything else. It's probably a good idea to turn off
