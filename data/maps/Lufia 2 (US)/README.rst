@@ -37,3 +37,13 @@ nptr = New pointer value
 
 nptr = tmptr - smptr + tptr
 
+---
+
+If making a Lufia 2 editor, doing almost anything non-trivial with monsters or
+items is likely to break things. One approach that may escape that would be to
+move monster script data from immediately following the monster to the end of
+the monster list, while moving the standard monster data forward and
+standardizing its length at [base data + 9 optional bytes]. I'm not sure if
+there's any empty space after the current monster data; if there is none, this
+technique would make modding much safer but reduce the available space for
+monster scripts. 
