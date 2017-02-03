@@ -193,6 +193,48 @@ def charmap(args):
         for byte, char in out:
             print("{:02X}={}".format(byte, char))
 
+def blocks(args):
+    # Most users likely use Windows, so I can't rely on them having sort, head,
+    # etc or equivalents available, nor that they'll know how to use them.
+    # Hence some extra args that shouldn't be necessary but are.
+    args.byte = romlib.util.intify(args.byte, None)
+    args.num = romlib.util.intify(args.num, None)
+    args.min = romlib.util.intify(args.min, 16)
+
+    logging.info("Loading rom")
+    with open(args.rom, "rb") as rom:
+        data = rom.read()
+
+    logging.debug("rom length: %s bytes", len(data))
+    logging.info("Starting search")
+
+    blocks = []
+    blocklen = 1
+    last = None
+    for i, byte in enumerate(data):
+        if last is not None and byte != last:
+            # End of block. Add to the list if it's long enough to care. If the
+            # user specified a byte to search for and this isn't it, skip it.
+            if blocklen > args.min:
+                if args.byte is None or last == args.byte:
+                    logging.debug("Noting block at %s", i-blocklen)
+                    blocks.append((blocklen, i-blocklen, last))
+            blocklen = 1
+            last = None
+        else:
+            blocklen += 1
+            last = byte
+
+    blocks.sort(reverse=True)
+    print("offset\tblkbyte\tlength\thexlen")
+    for length, offset, byte in blocks[0:args.num]:
+        fmt = "{:06X}\t0x{:02X}\t{}\t{:X}"
+        print(fmt.format(offset, byte, length, length))
+
+
+
+
+
 
 
 def _filterpatch(patch, romfile):

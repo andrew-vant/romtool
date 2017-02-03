@@ -58,3 +58,13 @@ charmap:
   args: !omap
     rom: ROM file
     strings: Known strings
+
+blocks:
+  spec:
+    description: Search for blocks of unused space
+  args: !omap
+    rom: ROM file
+  opts:
+    -b|--byte: Search for blocks of a specific byte
+    -m|--min: Minimum block size to bother with
+    -n|--num: Print only the N largest blocks   # Because windows has no head.
