@@ -142,6 +142,8 @@ def diff(args):
 
 
 def charmap(args):
+    # FIXME: Much of this should probably be moved into the text module or
+    # something.
     logging.info("Loading strings")
     with open(args.strings) as f:
         strings = [s.strip() for s in f]

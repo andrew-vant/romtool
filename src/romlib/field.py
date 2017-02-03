@@ -100,6 +100,7 @@ class Value(object, metaclass=Field):
         raise NotImplementedError
 
 
+    # FIXME: Implement __str__ and maybe __repr__ instead?
     @property
     @abc.abstractmethod
     def string(self):

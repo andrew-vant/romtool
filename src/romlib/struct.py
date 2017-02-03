@@ -142,6 +142,16 @@ class Structure(object, metaclass=MetaStruct):
         # Non-present optional fields are represented by "None." It is an
         # error for non-optional fields to remain None at the end of
         # initialization.
+        #
+        # FIXME: Should structs remember their address? If they did, it would
+        # make serializing and deserializing things like nested structs and
+        # pointers easier, I think. Right now address saving/loading is kludged
+        # in by arrays, I think.
+        #
+        # If I do it that way init would probably need an optional address
+        # argument; otherwise it would be difficult to handle things like a
+        # struct built from a bitstring slice rather than a whole file.
+
         data = {field.id: None for field in self.fields.values()}
         super().__setattr__("data", data)
 
@@ -371,6 +381,7 @@ class Structure(object, metaclass=MetaStruct):
         bytemap.update(self.link_bytes(offset))
         return bytemap
 
+    # FIXME: Implement some of the below as __bytes__ instead?
     def base_bytes(self, offset):
         bits = [self.data[field.id].bits
                 for field in self.base_fields]
