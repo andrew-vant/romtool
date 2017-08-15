@@ -125,13 +125,18 @@ def undisplaybits(s, display):
 
     out = ""
     for i, (char, letter) in enumerate(zip(s, display)):
-        trtable = {letter.lower(): '0',
-                   letter.upper(): '1'}
+        if letter == "?":
+            trtable = {'0': '0',
+                       '1': '1'}
+        else:
+            trtable = {letter.lower(): '0',
+                       letter.upper(): '1'}
         try:
             out += trtable[char]
         except KeyError:
-            msg = "Unrecognized or out of order bitfield character: {}, pos {}"
-            raise ValueError(msg.format(char, i))
+            errstr = "{}[{}]{}".format(s[:i], char , s[i+1:])
+            msg = "Unrecognized or out of order bitfield character: {}"
+            raise ValueError(msg.format(errstr))
     return out
 
 
