@@ -81,7 +81,7 @@ mode. Consider forking the repo on github, then working from your fork:
 
     git clone git@github.com:yourghname/romlib.git
     cd romlib
-    python3 setup.py develop
+    python setup.py develop
 
 The installation process should place the ``romtool`` command somewhere in
 your PATH, but I don't trust this yet and would like feedback.
@@ -89,9 +89,12 @@ your PATH, but I don't trust this yet and would like feedback.
 Usage
 -----
 
-You can get help at any time with ``romtool -h`` or ``romtool <subcommand>
--h``. Trust the help output more than this section, because I may forget to
+You can get help at any time with ``romtool --help`` or ``romtool <subcommand>
+--help``. Trust the help output more than this section, because I may forget to
 update it from time to time.
+
+You can add ``--verbose`` to any of the commands below to show more information
+about what they're doing.
 
 The following command will extract all known data from the ROM named
 ``some_game.smc``, and save it as .tsv files in ``moddir``. Each file
@@ -105,7 +108,7 @@ stats.
 
 Note that you do not need to specify which rom map to use; romtool will
 attempt to autodetect it. If autodetection fails, you can force it to use a
-map in a particular folder by appending ``-m <pathtomap>``. If you are
+map in a particular folder by appending ``-m <mapdir>``. If you are
 developing a map of your own you will almost certainly need to do this.
 
 After dumping is finished, make whatever changes you want to the files
@@ -124,35 +127,31 @@ give it >255 attack (the maximum single-byte value). If you're lucky, romtool
 will complain. Not so lucky, and it will cheerfully make a patch that breaks
 the game.
 
-When you're done making changes, do this:
+When you're done making changes, do this to preview the patch:
 
 ::
 
-    romtool build -r some_game.rom -o some_game.ips moddir
+    romtool build moddir --rom some_game.rom
 
-That will create an IPS patch containing your changes. It should be
-given the same name as the ROM, but with a .ips extension (this will
-probably be the default in future versions). The reason the name should
-match is that it will cause some emulators (ZSNES and SNES9x at least,
-probably others) to automatically make use of it, without physically
-modifying the original ROM.
+This prints out a textualized version of the IPS patch that will result from
+your changes. If you made a small change but get a huge patch, something is
+wrong.
 
-If you want to view the binary changes the patch is going to make, name
-the output file with a .ipst extension instead of .ips. This will create
-a textualized representation of the ips patch that is readable in any
-editor. Omitting ``-o some_game.ips`` will do the same thing, but instead
-prints the textualized representation to stdout.
-
-To test your patch, fire up an emulator and point it to the ROM.
-Assuming the emulator supports implicit patching and your patch is named
-correctly, you should see your changes in-game.
-
-If you have an existing, modified ROM and want to create an IPS patch
-from it, you can do it this way:
+If it looks okay, you can build the actual patch with:
 
 ::
 
-    romtool diff original.rom modified.rom -o patch.ips
+    romtool build moddir --rom some_game.rom --out some_game.ips
+
+That will create an IPS patch containing your changes. Give it the same name as
+the ROM, but with a .ips extension (this will probably be the default in future
+versions). The reason the name should match is that it will cause some emulators
+(ZSNES and SNES9x at least, probably others) to automatically make use of it,
+without physically modifying the original ROM.
+
+Now you can fire up an emulator and point it to the ROM. Assuming the emulator
+supports implicit patching and your patch is named correctly, you should see
+your changes in-game.
 
 Troubleshooting
 ---------------
@@ -196,6 +195,32 @@ probably Googled the answer before you got here anyway.
    -  FCEUX (name as romname.nes.ips instead of romname.ips)
    -  Add more here....
 
+**Q. My patch changes produce garbage.**
+
+Probably your spreadsheet application's autoformat function is trying to be
+smart. Turn it off.
+
+**Q. I already have a modified ROM and want to make a patch from it.**
+
+Do this:
+
+::
+
+    romtool diff original.rom modified.rom -o patch.ips
+
+**Q. I have an IPS patch and want to see what's in it.**
+
+Do this:
+
+::
+
+    romtool merge patch.ips
+
+(yes, I know that doesn't make sense. It's taking advantage of the fact that the
+merge command accepts any number of patches, even just one; and that by default
+it prints the merged changes to stdout. Needs syntactic sugar.)
+
+
 Map Files
 ---------
 
@@ -207,3 +232,10 @@ implement UI hints by looking for extra columns in the spec.
 
 (there probably needs to be a naming convention for app-specific columns vs
 extension columns vs official columns...)
+
+Maps in this repo that actually work:
+
+- 7th Saga works fine
+- FF1 works fine
+- Lufia 2 dumps okay but I would be surprised if it creates patches okay.
+- I think SMRPG worked last time I checked, not sure if it still does
