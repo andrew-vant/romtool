@@ -16,14 +16,21 @@ import itertools
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
-from signal import signal, SIGPIPE, SIG_DFL
 
 import yaml
 
 import romlib
 import romlib.charset
 
-signal(SIGPIPE, SIG_DFL) # Do the right thing when piping to head, etc.
+try:
+    # Try to do the right thing when piping to head, etc.
+    from signal import signal, SIGPIPE, SIG_DFL
+    signal(SIGPIPE, SIG_DFL)
+except ImportError:
+    # SIGPIPE isn't available on Windows, at least not on my machine. For now
+    # just ignore it, but I should probably test piping on windows at some
+    # point.
+    pass
 
 class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
