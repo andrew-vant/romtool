@@ -63,18 +63,19 @@ mind as I am writing:
 Installation
 ------------
 
-Romlib requires Python 3.4 or later.
+Romlib requires Python 3.4 or later. Install that first.
 
-I really want to have platform-native packages for the major operating
-systems, but that's a ways in the future still. In the meantime, once Python
-is installed, you can install romlib from Pip:
+I haven't built pip or OS packages yet, mainly because I'm still not sure if
+I want to break it into multiple packages. For now you can install it using the
+provided setup.py script:
 
 ::
 
-    pip3 install romlib
+    python setup.py install
 
-If you're looking to work on the code, you probably want to fork the repo on
-github, then clone your fork and install from there:
+
+If you want to fiddle with the code yourself, you should install in development
+mode. Consider forking the repo on github, then working from your fork:
 
 ::
 
@@ -100,7 +101,7 @@ stats.
 
 ::
 
-    romtool dump some_game.smc moddir
+    romtool dump some_game.rom moddir
 
 Note that you do not need to specify which rom map to use; romtool will
 attempt to autodetect it. If autodetection fails, you can force it to use a
@@ -140,7 +141,7 @@ If you want to view the binary changes the patch is going to make, name
 the output file with a .ipst extension instead of .ips. This will create
 a textualized representation of the ips patch that is readable in any
 editor. Omitting ``-o some_game.ips`` will do the same thing, but instead
-print the textualized representation to stdout.
+prints the textualized representation to stdout.
 
 To test your patch, fire up an emulator and point it to the ROM.
 Assuming the emulator supports implicit patching and your patch is named
@@ -175,7 +176,7 @@ Possible causes:
 
 **Q. My system doesn't know what program to use to open .tsv files.**
 
-The tsv file type may not be properly associated. The method for associating
+The tsv file type may not be associated with anything. The method for associating
 filetypes differs by OS. On Windows 7 you can do it from the file properties;
 look for "Opens With <something>" followed by a button marked 'Change'. Other
 Windows versions should be pretty similar. On Linux you're on your own, but you
@@ -183,7 +184,7 @@ probably Googled the answer before you got here anyway.
 
 **Q. The changes in my patch don't show up in-game.**
 
-1. Your patch may be named incorrectly. It should have the same filename
+1. Your patch may be named incorrectly. It should usually have the same filename
    as the ROM, but with a .ips extension.
 2. Your emulator may not support implicit patching. Either physically
    apply the patch (romtool will support this eventually, but KEEP A
@@ -193,11 +194,12 @@ probably Googled the answer before you got here anyway.
    -  ZSNES
    -  snes9x
    -  FCEUX (name as romname.nes.ips instead of romname.ips)
+   -  Add more here....
 
 Map Files
 ---------
 
-Notes on creating map files propertly go here...
+Notes on creating map files properly go here...
 
 Notes: the various map spec files may have any number of extra columns not
 used by romlib.  This is intentional; extensions or client applications can
