@@ -1,12 +1,12 @@
 name	label	set	type	offset	length	stride	mod	index	priority	display	comment
-characters		characters	character	0x3050	6	16					
+classes		classes	class	0x3050	6	16					
 monsters		monsters	monster	0x30530	128	20					
 weapons		weapons	weapon	0x30010	40	8					
 armor		armor	armor	0x30150	40	4					
 spells		spells	spell	0x301F0	64	8					
 specials		specials	special	0x30400	26	8					
 mnames	Name	monsters	strz	0x2D5F0	128			mname_ptrs		names	String lengths differ
-cnames	Name	characters	strz	0x2BF53	6	8		cname_ptrs		names	
+cnames	Name	classes	strz	0x2BF53	6	8		cname_ptrs		names	
 anames	Name	armor	strz	0x2BB0D	40			aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
 wnames	Name	weapons	strz	0x2B9CD	40	8		wname_ptrs		names	
 splnames	Name	spells	strz	0x2BE13	64	5		splname_ptrs		names	
@@ -14,7 +14,7 @@ spcnames	Name	specials	strz	0x2B644	26			spcname_ptrs		names	String lengths diff
 mname_ptrs	Name Pointer	monsters	uintle	0x2D4F0	128	2	0x24010			pointer	
 spcname_ptrs	Name Pointer	specials	uintle	0x2B610	26	2	0x20010			pointer	
 aname_ptrs	Name Pointer	armor	uintle	0x2B798	40	2	0x20010			pointer	
-cname_ptrs	Name Pointer	characters	uintle	0x2B8F0	6	2	0x20010			pointer	
+cname_ptrs	Name Pointer	classes	uintle	0x2B8F0	6	2	0x20010			pointer	
 wname_ptrs	Name Pointer	weapons	uintle	0x2B748	40	2	0x20010			pointer	
 splname_ptrs	Name Pointer	spells	uintle	0x2B870	64	2	0x20010			pointer	
 wp_price	Price	weapons	uintle	0x37C48	40	2					
