@@ -65,6 +65,17 @@ apply:
   flags:
     --nobackup: Don''t make a backup.
 
+sanitize:
+  spec:
+    description: Sanitize a ROM or save file with checksums etc
+  args: !omap
+    target: Target file
+  opts: !omap
+    -m|--map: Specify ROM map.
+    -t|--type: Specify rom/save file if extension doesn''t say.
+  flags:
+    --nobackup: Don''t make a backup.
+
 charmap:
   spec:
     description: Generate a text character set

@@ -44,7 +44,8 @@ class RomDetectionError(Exception):
         logging.error("Couldn't autodetect ROM map for %s", self.filename)
         logging.error("%s", self)
         logging.error("The rom may be unsupported, or your copy may "
-                      "be modified")
+                      "be modified, or this may be a save file")
+        logging.error("You will probably have to explicitly supply --map")
 
 # FIXME: Add subcommand to list available maps on the default search paths.
 # Probably its output should advice the user that it's only what shipped with
@@ -198,6 +199,59 @@ def apply(args):
     logging.info("Applying patch")
     with open(tgt, "r+b") as f:
         patch.apply(f)
+    logging.warning("Patch applied. Note: You may want to run `romtool "
+                    "sanitize` next, especially if this is a save file.")
+
+
+def sanitize(args):
+    """ Sanitize a ROM or save file
+
+    This uses map-specific hooks to correct any checksum errors or similar
+    file-level issues in a rom or savegame.
+    """
+    if args.map is None:
+        try:
+            args.map = detect(args.rom)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+    rmap = romlib.RomMap(args.map)
+
+    # Maps must supply sanitize_save and sanitize_rom hooks. If they're not
+    # found, assume nothing needs to be done. FIXME: separate sanatization into
+    # mandatory parts (e.g checksums) and linting (e.g. hp > max hp, oops).
+    # Call the latter lint_save, lint_rom, etc.
+
+    try:
+        path = args.map + "/hooks.py"
+        logging.info("Loading map hooks from %s", path)
+        hooks = SourceFileLoader("hooks", path)
+    except FileNotFoundError:
+        logging.info("%s not present", path)
+        logging.info("Nothing needs to be done")
+        sys.exit(0)
+    else:
+        logging.debug("Done loading hooks.")
+
+    if not args.type:
+        args.type = "rom"
+    funcname = "sanitize_" + args.type
+    try:
+        sanitize = getattr(hooks, funcname)
+    except AttributeError:
+        logging.info("No hook for %s", funcname)
+        logging.info("Nothing needs to be done")
+        sys.exit(0)
+    else:
+        logging.debug("Found hook %s", funcname)
+
+    # Well that was ugly. Here's the actual work:
+
+    _backup(args.target, args.nobackup)
+    with open(args.target, "r+b") as f:
+        logging.info("Sanitizing %s")
+        sanitize(f)
+
 
 def charmap(args):
     # FIXME: Much of this should probably be moved into the text module or
