@@ -145,10 +145,12 @@ class RomMap(object):
         return data
 
 
-    def bytemap(self, data):
+    def bytemap(self, data, source="rom"):
         """ Get all possible changes from a data set."""
         bmap = util.CheckedDict()
         for name, adef in self.arrays.items():
+            if adef.source != source:
+                continue
             adata = getattr(data, name, None)
             if not adata:
                 msg = "Tried to patch data from '%s' but it isn't there"

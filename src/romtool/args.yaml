@@ -25,9 +25,11 @@ build:
   args: !omap
     moddir: Directory containing mod data.
   opts: !omap
-    -r|--rom: Filter against a ROM, removing no-op changes.
+    -s|--source: Filter patch against source file, removing no-ops
     -m|--map: Specify ROM map instead of autodetecting.
     -o|--out: Patch file to write. Detects format by extension.
+  flags: !omap
+    --save: Create save-file patch instead of ROM patch
 
 merge:
   spec:

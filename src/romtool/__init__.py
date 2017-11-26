@@ -116,18 +116,19 @@ def dump(args):
 
 
 def build(args):
-    """ Build a patch from a data set containing changes.
+    """ Build patches from a data set containing changes.
 
     Intended to be applied to a directory created by the dump subcommand.
     """
     # FIXME: Really ought to support --include for auto-merging other patches.
     # Have it do the equivalent of build and then merge.
 
-    if args.map is None and args.rom is None:
-        raise ValueError("At least one of -r or -m must be provided.")
+    if args.map is None and args.source is None:
+        logging.error("At least one of -s or -m must be provided.")
+        sys.exit(1)
     if args.map is None:
         try:
-            args.map = detect(args.rom)
+            args.map = detect(args.source)
         except RomDetectionError as e:
             e.log()
             sys.exit(2)
@@ -136,8 +137,9 @@ def build(args):
     msg = "Loading mod dir %s using map %s."
     logging.info(msg, args.moddir, args.map)
     data = rmap.load(args.moddir)
-    patch = romlib.Patch(rmap.bytemap(data))
-    _filterpatch(patch, args.rom)
+    source = "save" if args.save else "rom"
+    patch = romlib.Patch(rmap.bytemap(data, source))
+    _filterpatch(patch, args.source)
     _writepatch(patch, args.out)
 
 
