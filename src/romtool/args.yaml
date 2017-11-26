@@ -14,6 +14,8 @@ dump:
     datafolder: Send output to this folder
   opts: !omap
     -m|--map: Specify ROM map instead of autodetecting
+    -p|--patch: Include ips patch data in dump
+    -s|--save: Include save file in dump
   flags: !omap
     -f|--force: Overwrite existing destination files
 

@@ -57,6 +57,7 @@ class Array(object):
         self.struct = struct if struct else primitive(spec)
         self.index = spec['index']
         self.priority = util.intify(spec['priority'], 0)
+        self.source = spec.get('source', 'rom')
         if not self.index:
             self.index = FixedIndex(**spec)
 

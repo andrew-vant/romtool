@@ -71,7 +71,7 @@ class RomMap(object):
         for adef in array.from_tsv(path, self.structures):
             self.arrays[adef.name] = adef
 
-    def read(self, rom):
+    def read(self, rom, save=None):
         """ Read all known data in a ROM.
 
         rom should be a file object opened in binary mode. The returned dataset
@@ -80,7 +80,15 @@ class RomMap(object):
         """
         data = {}
         for adef in self.arrays.values():
-            data[adef.name] = list(adef.read(rom, self._mkindex(adef, data)))
+            source = rom
+            if adef.source == "save":
+                if save is None:
+                    msg = "Skipping '%s', save file not available"
+                    logging.info(msg, adef.name)
+                    continue
+                else:
+                    source = save
+            data[adef.name] = list(adef.read(source, self._mkindex(adef, data)))
         return SimpleNamespace(**data)
 
     @staticmethod
@@ -106,7 +114,8 @@ class RomMap(object):
         output = {}
         # Group arrays by set.
         keyfunc = lambda a: a.set
-        arrays = sorted(self.arrays.values(), key=keyfunc)
+        arrays = (a for a in self.arrays.values() if a.name in data.__dict__)
+        arrays = sorted(arrays, key=keyfunc)
         for entity, arrays in itertools.groupby(arrays, keyfunc):
             arrays = list(arrays)
             msg = "Serializing entity set '%s' (%s)"

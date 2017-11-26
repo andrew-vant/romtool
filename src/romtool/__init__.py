@@ -84,9 +84,27 @@ def dump(args):
             sys.exit(2)
 
     rmap = romlib.RomMap(args.map)
-    logging.info("Opening ROM file: %s", args.rom)
-    with open(args.rom, "rb") as rom:
-        data = rmap.read(rom)
+    try:
+        logging.info("Opening ROM file: %s", args.rom)
+        rom = open(args.rom, "rb")
+        if args.save:
+            logging.info("Opening SAVE file: %s", args.save)
+            save = open(args.save, "rb")
+        else:
+            logging.debug("No save file specified, skipping")
+            save = None
+
+        if args.patch is not None:
+            raise NotImplementedError("Autopatched dumps not implemented")
+            # FIXME: Patch rom in-memory with an ips so you can dump a mod without
+            # applying it.
+
+        data = rmap.read(rom, save)
+    finally:
+        rom.close()
+        if save:
+            save.close()
+
     logging.info("Dumping ROM data to: %s", args.datafolder)
     output = rmap.dump(data)
     os.makedirs(args.datafolder, exist_ok=True)
