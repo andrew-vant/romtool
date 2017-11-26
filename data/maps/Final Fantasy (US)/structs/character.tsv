@@ -13,21 +13,23 @@ vit	Vitality	1	uint
 luck	Luck	1	uint					
 unk2	Unknown 2	3	uintbe		hex			
 wp1e	Wp1 Equipped	b1	uint					
-wp1	Weapon 1	b7	uint					
+wp1	Weapon 1	b7	uint	-1				"-1 to match up with weapon/armor indices; the data for these fields uses 0 for ""nothing"" and bumps the rest up"
 wp2e	Wp2 Equipped	b1	uint					
-wp2	Weapon 2	b7	uint					
+wp2	Weapon 2	b7	uint	-1				
 wp3e	Wp3 Equipped	b1	uint					
-wp3	Weapon 3	b7	uint					
+wp3	Weapon 3	b7	uint	-1				
 wp4e	Wp4 Equipped	b1	uint					
-wp4	Weapon 4	b7	uint					
+wp4	Weapon 4	b7	uint	-1				
 arm1e	Armor 1 Equipped	b1	uint					
-arm1	Armor 1	b7	uint					
+arm1	Armor 1	b7	uint	-1				
 arm2e	Armor 2 Equipped	b1	uint					
-arm2	Armor 2	b7	uint					
+arm2	Armor 2	b7	uint	-1				
 arm3e	Armor 3 Equipped	b1	uint					
-arm3	Armor 3	b7	uint					
+arm3	Armor 3	b7	uint	-1				
 arm4e	Armor 4 Equipped	b1	uint					
-arm4	Armor 4	b7	uint					
+arm4	Armor 4	b7	uint	-1				
 dmg	Damage	1	uint					
 hit	Hit %	1	uint					
-pad	Padding?	30	uintbe		hex			
+evade	Evade %	2	uintbe					Field width is questionable, all the others are 1 byte
+mdef	Magic Defense	2	uintbe					Field width is questionable, all the others are 1 byte
+pad	Padding?	26	uintbe		hex			
