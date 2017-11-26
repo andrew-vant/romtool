@@ -123,3 +123,26 @@ def mergedump(arraydata, use_labels=True, record_order=True):
         od = OrderedDict((key, merged.get(key, "")) for key in keys)
         od['_idx_'] = i
         yield od
+
+def from_tsv(path, structs):
+    with open(path) as f:
+        specs = list(util.OrderedDictReader(f, delimiter="\t"))
+
+    # The order in which arrays are processed matters. Indexes need to be
+    # loaded before the arrays that require them. Also, in the event that
+    # pointers in different arrays go to the same place and only one is
+    # later edited, the last one loaded wins. The 'priority' column lets
+    # the map-maker specify the winner of such conflicts by ensuring
+    # higher-priority arrays get processed last.
+
+    indexnames = set([spec['index'] for spec in specs if spec['index']])
+    sorter = lambda spec: spec['name'] not in indexnames
+    specs.sort(key=lambda spec: (spec['name'] not in indexnames,
+                                 util.intify(spec.get('priority', 0))))
+    arrays = []
+    for spec in specs:
+        logging.debug("Loading array: '%s'", spec['name'])
+        structure = structs.get(spec['type'], None)
+        arrays.append(Array(spec, structure))
+    sorter = lambda arr: (isinstance(arr.index, str), arr.priority)
+    return sorted(arrays, key=sorter)
