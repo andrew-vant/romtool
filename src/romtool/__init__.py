@@ -194,14 +194,8 @@ def apply(args):
     # copy it back to its original name, then patch it there.
     patch = romlib.Patch.load(args.patch)
     tgt = args.target
-    bak = args.target + ".bak"
-    if not args.nobackup:
-        logging.info("Backing up %s as %s", tgt, bak)
-        os.replace(tgt, bak)
-        shutil.copyfile(bak, tgt)
-    else:
-        logging.warning("Backup suppressed")
-
+    _backup(args.target, args.nobackup)
+    logging.info("Applying patch")
     with open(tgt, "r+b") as f:
         patch.apply(f)
 
@@ -301,9 +295,15 @@ def blocks(args):
         print(fmt.format(offset, byte, length, length))
 
 
-
-
-
+def _backup(filename, skip=False):
+    """ Make a backup, or warn if no backup."""
+    bak = filename + ".bak"
+    if not skip:
+        logging.info("Backing up %s as %s", filename, bak)
+        os.replace(filename, bak)
+        shutil.copyfile(bak, filename)
+    else:
+        logging.warning("Backup suppressed")
 
 
 def _filterpatch(patch, romfile):
