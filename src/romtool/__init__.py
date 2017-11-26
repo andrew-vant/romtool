@@ -34,7 +34,16 @@ except ImportError:
 
 class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
-    pass
+    def __init__(self, _hash=None, filename=None):
+        self.hash = _hash
+        self.filename = filename
+    def __str__(self):
+        return "ROM sha1 hash not in db: {}".format(self.hash)
+    def log(self):
+        logging.error("Couldn't autodetect ROM map for %s", self.filename)
+        logging.error("%s", self)
+        logging.error("The rom may be unsupported, or your copy may "
+                      "be modified")
 
 # FIXME: Add subcommand to list available maps on the default search paths.
 # Probably its output should advice the user that it's only what shipped with
@@ -59,9 +68,7 @@ def detect(romfile, maproot=None):
         try:
             line = next(line for line in hashdb if line.startswith(romhash))
         except StopIteration:
-            msg = "sha1 hash for {} not in hashdb.".format(romfile)
-            raise RomDetectionError(msg)
-
+            raise RomDetectionError(romhash, romfile)
         name = line.split(maxsplit=1)[1].strip()
         logging.info("ROM map found: %s", name)
         return os.path.join(maproot, name)
@@ -70,7 +77,12 @@ def detect(romfile, maproot=None):
 def dump(args):
     """ Dump all known data from a ROM."""
     if args.map is None:
-        args.map = detect(args.rom)
+        try:
+            args.map = detect(args.rom)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+
     rmap = romlib.RomMap(args.map)
     logging.info("Opening ROM file: %s", args.rom)
     with open(args.rom, "rb") as rom:
@@ -96,7 +108,12 @@ def build(args):
     if args.map is None and args.rom is None:
         raise ValueError("At least one of -r or -m must be provided.")
     if args.map is None:
-        args.map = detect(args.rom)
+        try:
+            args.map = detect(args.rom)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+
     rmap = romlib.RomMap(args.map)
     msg = "Loading mod dir %s using map %s."
     logging.info(msg, args.moddir, args.map)
