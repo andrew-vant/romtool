@@ -56,6 +56,15 @@ diff:
   opts:
     -o|--out: Patch file to write. Detects format by extension.
 
+apply:
+  spec:
+    description: Apply a patch.
+  args: !omap
+    patch: Patch file
+    target: Patch target
+  flags:
+    --nobackup: Don''t make a backup.
+
 charmap:
   spec:
     description: Generate a text character set

@@ -11,6 +11,7 @@ import sys
 import hashlib
 import logging
 import os
+import shutil
 import textwrap
 import itertools
 from pprint import pprint
@@ -184,6 +185,25 @@ def diff(args):
             patch = romlib.Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
 
+def apply(args):
+    """ Apply a patch to a file, such as a rom or a save.
+
+    By default this makes a backup of the existing file at filename.bak.
+    """
+    # Move the target to a backup name first to preserve its metadata, then
+    # copy it back to its original name, then patch it there.
+    patch = romlib.Patch.load(args.patch)
+    tgt = args.target
+    bak = args.target + ".bak"
+    if not args.nobackup:
+        logging.info("Backing up %s as %s", tgt, bak)
+        os.replace(tgt, bak)
+        shutil.copyfile(bak, tgt)
+    else:
+        logging.warning("Backup suppressed")
+
+    with open(tgt, "r+b") as f:
+        patch.apply(f)
 
 def charmap(args):
     # FIXME: Much of this should probably be moved into the text module or

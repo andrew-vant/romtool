@@ -243,6 +243,15 @@ class Patch(object):
         self.changes = {offset: value for offset, value in self.changes.items()
                         if value != getbyte(rom, offset)}
 
+    def apply(self, f):
+        """ Apply a patch to a file object.
+
+        The file should be opened with mode "r+b".
+        """
+        for offset, block in self._blockify(self.changes).items():
+            f.seek(offset)
+            f.write(block)
+
     def save(self, outfile, ptype=None):
         """ Save a patch to a file.
 
