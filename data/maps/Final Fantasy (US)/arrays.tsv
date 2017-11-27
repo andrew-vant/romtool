@@ -21,4 +21,4 @@ wp_price	Price	weapons	uintle	rom	0x37C48	40	2
 a_price	Price	armor	uintle	rom	0x37C98	40	2					
 m_price	Price	spells	uintle	rom	0x37D70	64	2					
 characters		characters	character	save	0x500	4	64					Character stats
-mp		characters	mp	save	0x720	4	64					Spell charges
+magic		characters	magic	save	0x700	4	64					Character spell data

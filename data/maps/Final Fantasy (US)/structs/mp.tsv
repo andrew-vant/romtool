@@ -1,3 +1,0 @@
-id	label	size	type	mod	display	order	info	comment
-mp	Spell Charges	8	array	uint:8				
-mmp	Max Spell Charges	8	array	uint:8				
