@@ -17,6 +17,7 @@ import itertools
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
+from importlib.machinery import SourceFileLoader
 
 import yaml
 
@@ -211,7 +212,7 @@ def sanitize(args):
     """
     if args.map is None:
         try:
-            args.map = detect(args.rom)
+            args.map = detect(args.target)
         except RomDetectionError as e:
             e.log()
             sys.exit(2)
@@ -225,7 +226,7 @@ def sanitize(args):
     try:
         path = args.map + "/hooks.py"
         logging.info("Loading map hooks from %s", path)
-        hooks = SourceFileLoader("hooks", path)
+        hooks = SourceFileLoader("hooks", path).load_module()
     except FileNotFoundError:
         logging.info("%s not present", path)
         logging.info("Nothing needs to be done")
@@ -236,6 +237,7 @@ def sanitize(args):
     if not args.type:
         args.type = "rom"
     funcname = "sanitize_" + args.type
+    logging.info("Looking for %s hook", funcname)
     try:
         sanitize = getattr(hooks, funcname)
     except AttributeError:
@@ -249,7 +251,7 @@ def sanitize(args):
 
     _backup(args.target, args.nobackup)
     with open(args.target, "r+b") as f:
-        logging.info("Sanitizing %s")
+        logging.info("Sanitizing '%s'", args.target)
         sanitize(f)
 
 
@@ -353,7 +355,7 @@ def _backup(filename, skip=False):
     """ Make a backup, or warn if no backup."""
     bak = filename + ".bak"
     if not skip:
-        logging.info("Backing up %s as %s", filename, bak)
+        logging.info("Backing up '%s' as '%s'", filename, bak)
         os.replace(filename, bak)
         shutil.copyfile(bak, filename)
     else:
