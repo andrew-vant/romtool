@@ -31,6 +31,10 @@ def sanitize_save(savefile):
     `savefile` should be open in r+b mode.
     """
 
+    # FIXME: Should sanitize character Damage to account for e.g. weapon
+    # changes, since it never gets recalculated in-game. But maybe that should
+    # be in linter
+
     savefile.seek(_save_data_offset)
     data = savefile.read(_save_data_length)
     oldsum = data[_save_checksum_offset]
