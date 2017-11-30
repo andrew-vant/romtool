@@ -1,13 +1,29 @@
 id	label	size	type	mod	display	order	info	comment
-id	ID	1	uint					
-hp	Base HP	1	uint					
-str	Base Str	1	uint					
-agi	Base Agi	1	uint					
-int	Base Int	1	uint					
-vit	Base Vit	1	uint					
-luck	Base Luck	1	uint					
-dmg	Base Dmg	1	uint					
-hit	Base Hit%	1	uint					
-evd	Base Evade%	1	uint					
-mdef	Base Mdef	1	uint					
-unk	Padding?	5	uintbe		hexify			
+cls	Class	1	uint					
+status	Debuffs	1	bin	lsb0				
+name	Name	5	str		names			
+exp	Exp	3	uintle					
+hp	HP	2	uintle					
+mhp	Max HP	2	uintle					
+unk1	Unknown 1	2	uintbe		hex	2		
+str	Strength	1	uint					
+agi	Agility	1	uint					
+int	Intelligence	1	uint					
+vit	Vitality	1	uint					
+luck	Luck	1	uint					
+unk2	Unknown 2	3	uintbe		hex	2		
+wp1	Weapon 1	1	equipment	-1				"-1 to match up with weapon/armor indices; the data for these fields uses 0 for ""nothing"" and bumps the rest up"
+wp2	Weapon 2	1	equipment	-1				
+wp3	Weapon 3	1	equipment	-1				
+wp4	Weapon 4	1	equipment	-1				
+arm1	Armor 1	1	equipment	-1				
+arm2	Armor 2	1	equipment	-1				
+arm3	Armor 3	1	equipment	-1				
+arm4	Armor 4	1	equipment	-1				
+dmg	Damage	1	uint					Note: If you equip/de-equip things, you'll have to update this too. The game is too dumb to recalculate it. Formula is weapon attack + str / 2, or lvl*2 for unarmed BB
+hit	Hit %	1	uint					
+unk3	Unknown 3	1	uint			2		Probably not part of evade, unless it's big endian, which nothing else is.
+evade	Evade %	1	uint					
+unk4	Unknown 4	1	uint			2		Probably not part of mdef, unless it's big endian, which nothing else is.
+mdef	Magic Defense	1	uint					
+pad	Padding?	26	uintbe		hex	1000		

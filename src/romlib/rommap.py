@@ -68,29 +68,10 @@ class RomMap(object):
         # Now load the array definitions
         path = root + "/arrays.tsv"
         logging.info("Loading array specs from %s", path)
-        with open(path) as f:
-            specs = list(util.OrderedDictReader(f, delimiter="\t"))
-        # The order in which arrays are processed matters. Indexes need to be
-        # loaded before the arrays that require them. Also, in the event that
-        # pointers in different arrays go to the same place and only one is
-        # later edited, the last one loaded wins. The 'priority' column lets
-        # the map-maker specify the winner of such conflicts by ensuring
-        # higher-priority arrays get processed last.
-
-        indexnames = set([spec['index'] for spec in specs if spec['index']])
-        sorter = lambda spec: spec['name'] not in indexnames
-        specs.sort(key=lambda spec: (spec['name'] not in indexnames,
-                                     util.intify(spec.get('priority', 0))))
-        arrays = []
-        for spec in specs:
-            logging.debug("Loading array: '%s'", spec['name'])
-            structure = self.structures.get(spec['type'], None)
-            arrays.append(array.Array(spec, structure))
-        sorter = lambda arr: (isinstance(arr.index, str), arr.priority)
-        for adef in sorted(arrays, key=sorter):
+        for adef in array.from_tsv(path, self.structures):
             self.arrays[adef.name] = adef
 
-    def read(self, rom):
+    def read(self, rom, save=None):
         """ Read all known data in a ROM.
 
         rom should be a file object opened in binary mode. The returned dataset
@@ -99,7 +80,15 @@ class RomMap(object):
         """
         data = {}
         for adef in self.arrays.values():
-            data[adef.name] = list(adef.read(rom, self._mkindex(adef, data)))
+            source = rom
+            if adef.source == "save":
+                if save is None:
+                    msg = "Skipping '%s', save file not available"
+                    logging.info(msg, adef.name)
+                    continue
+                else:
+                    source = save
+            data[adef.name] = list(adef.read(source, self._mkindex(adef, data)))
         return SimpleNamespace(**data)
 
     @staticmethod
@@ -125,7 +114,8 @@ class RomMap(object):
         output = {}
         # Group arrays by set.
         keyfunc = lambda a: a.set
-        arrays = sorted(self.arrays.values(), key=keyfunc)
+        arrays = (a for a in self.arrays.values() if a.name in data.__dict__)
+        arrays = sorted(arrays, key=keyfunc)
         for entity, arrays in itertools.groupby(arrays, keyfunc):
             arrays = list(arrays)
             msg = "Serializing entity set '%s' (%s)"
@@ -155,10 +145,12 @@ class RomMap(object):
         return data
 
 
-    def bytemap(self, data):
+    def bytemap(self, data, source="rom"):
         """ Get all possible changes from a data set."""
         bmap = util.CheckedDict()
         for name, adef in self.arrays.items():
+            if adef.source != source:
+                continue
             adata = getattr(data, name, None)
             if not adata:
                 msg = "Tried to patch data from '%s' but it isn't there"

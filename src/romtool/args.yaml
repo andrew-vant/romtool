@@ -14,6 +14,8 @@ dump:
     datafolder: Send output to this folder
   opts: !omap
     -m|--map: Specify ROM map instead of autodetecting
+    -p|--patch: Include ips patch data in dump
+    -s|--save: Include save file in dump
   flags: !omap
     -f|--force: Overwrite existing destination files
 
@@ -23,9 +25,11 @@ build:
   args: !omap
     moddir: Directory containing mod data.
   opts: !omap
-    -r|--rom: Filter against a ROM, removing no-op changes.
+    -s|--source: Filter patch against source file, removing no-ops
     -m|--map: Specify ROM map instead of autodetecting.
     -o|--out: Patch file to write. Detects format by extension.
+  flags: !omap
+    --save: Create save-file patch instead of ROM patch
 
 merge:
   spec:
@@ -51,6 +55,26 @@ diff:
     modified: Modified ROM
   opts:
     -o|--out: Patch file to write. Detects format by extension.
+
+apply:
+  spec:
+    description: Apply a patch.
+  args: !omap
+    patch: Patch file
+    target: Patch target
+  flags:
+    --nobackup: Don''t make a backup.
+
+sanitize:
+  spec:
+    description: Sanitize a ROM or save file with checksums etc
+  args: !omap
+    target: Target file
+  opts: !omap
+    -m|--map: Specify ROM map.
+    -t|--type: Specify rom/save file if extension doesn''t say.
+  flags:
+    --nobackup: Don''t make a backup.
 
 charmap:
   spec:

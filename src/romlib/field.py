@@ -135,6 +135,48 @@ class Number(Value):
     def string(self, s):
         self.value = int(s, 0)
 
+class Array(Value):
+    # Note, this is neither able nor intended to act as a "real" list, or any
+    # other kind of iterable. If you want that, take .value.
+
+    size = 8
+    mod = "uint:8" #type and bits of items
+    separator = " "
+
+    def __init__(self, *args, **kwargs):
+        tp, width = self.mod.split(":")
+        self.itemwidth = int(width)
+        self.itemtype = tp
+        assert self.size % self.itemwidth == 0
+        super().__init__(*args, **kwargs)
+
+    def __len__(self):
+        return self.size // self.itemwidth
+
+    @property
+    def value(self):
+        fmt = [self.mod] * len(self)
+        return self.data.unpack(fmt)
+
+    @value.setter
+    def value(self, value):
+        """ update the array with a list of stuff """
+        initializers = ["{}={}".format(self.mod, item)
+                        for item in value]
+        self.data = BitArray(",".join(initializers))
+
+    @property
+    def string(self):
+        return self.separator.join(str(i) for i in self.value)
+
+    @string.setter
+    def string(self, s):
+        initializers = ["{}={}".format(self.mod, item)
+                        for item in s.split(self.separator)]
+        if len(initializers) != len(self):
+            raise ValueError("Array length doesn't match.")
+        self.data = BitArray(",".join(initializers))
+
 
 class String(Value):
     display = "ascii"
@@ -299,6 +341,8 @@ def lookup(tp):
         return String
     elif "union" in tp:
         return Union
+    elif "array" in tp:
+        return Array
     else:
         return Value
 

@@ -11,11 +11,13 @@ import sys
 import hashlib
 import logging
 import os
+import shutil
 import textwrap
 import itertools
 from pprint import pprint
 from itertools import chain
 from collections import OrderedDict
+from importlib.machinery import SourceFileLoader
 
 import yaml
 
@@ -34,7 +36,17 @@ except ImportError:
 
 class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
-    pass
+    def __init__(self, _hash=None, filename=None):
+        self.hash = _hash
+        self.filename = filename
+    def __str__(self):
+        return "ROM sha1 hash not in db: {}".format(self.hash)
+    def log(self):
+        logging.error("Couldn't autodetect ROM map for %s", self.filename)
+        logging.error("%s", self)
+        logging.error("The rom may be unsupported, or your copy may "
+                      "be modified, or this may be a save file")
+        logging.error("You will probably have to explicitly supply --map")
 
 # FIXME: Add subcommand to list available maps on the default search paths.
 # Probably its output should advice the user that it's only what shipped with
@@ -59,9 +71,7 @@ def detect(romfile, maproot=None):
         try:
             line = next(line for line in hashdb if line.startswith(romhash))
         except StopIteration:
-            msg = "sha1 hash for {} not in hashdb.".format(romfile)
-            raise RomDetectionError(msg)
-
+            raise RomDetectionError(romhash, romfile)
         name = line.split(maxsplit=1)[1].strip()
         logging.info("ROM map found: %s", name)
         return os.path.join(maproot, name)
@@ -70,11 +80,34 @@ def detect(romfile, maproot=None):
 def dump(args):
     """ Dump all known data from a ROM."""
     if args.map is None:
-        args.map = detect(args.rom)
+        try:
+            args.map = detect(args.rom)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+
     rmap = romlib.RomMap(args.map)
-    logging.info("Opening ROM file: %s", args.rom)
-    with open(args.rom, "rb") as rom:
-        data = rmap.read(rom)
+    try:
+        logging.info("Opening ROM file: %s", args.rom)
+        rom = open(args.rom, "rb")
+        if args.save:
+            logging.info("Opening SAVE file: %s", args.save)
+            save = open(args.save, "rb")
+        else:
+            logging.debug("No save file specified, skipping")
+            save = None
+
+        if args.patch is not None:
+            raise NotImplementedError("Autopatched dumps not implemented")
+            # FIXME: Patch rom in-memory with an ips so you can dump a mod without
+            # applying it.
+
+        data = rmap.read(rom, save)
+    finally:
+        rom.close()
+        if save:
+            save.close()
+
     logging.info("Dumping ROM data to: %s", args.datafolder)
     output = rmap.dump(data)
     os.makedirs(args.datafolder, exist_ok=True)
@@ -86,23 +119,30 @@ def dump(args):
 
 
 def build(args):
-    """ Build a patch from a data set containing changes.
+    """ Build patches from a data set containing changes.
 
     Intended to be applied to a directory created by the dump subcommand.
     """
     # FIXME: Really ought to support --include for auto-merging other patches.
     # Have it do the equivalent of build and then merge.
 
-    if args.map is None and args.rom is None:
-        raise ValueError("At least one of -r or -m must be provided.")
+    if args.map is None and args.source is None:
+        logging.error("At least one of -s or -m must be provided.")
+        sys.exit(1)
     if args.map is None:
-        args.map = detect(args.rom)
+        try:
+            args.map = detect(args.source)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+
     rmap = romlib.RomMap(args.map)
     msg = "Loading mod dir %s using map %s."
     logging.info(msg, args.moddir, args.map)
     data = rmap.load(args.moddir)
-    patch = romlib.Patch(rmap.bytemap(data))
-    _filterpatch(patch, args.rom)
+    source = "save" if args.save else "rom"
+    patch = romlib.Patch(rmap.bytemap(data, source))
+    _filterpatch(patch, args.source)
     _writepatch(patch, args.out)
 
 
@@ -146,6 +186,73 @@ def diff(args):
         with open(args.modified, "rb") as changed:
             patch = romlib.Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
+
+def apply(args):
+    """ Apply a patch to a file, such as a rom or a save.
+
+    By default this makes a backup of the existing file at filename.bak.
+    """
+    # Move the target to a backup name first to preserve its metadata, then
+    # copy it back to its original name, then patch it there.
+    patch = romlib.Patch.load(args.patch)
+    tgt = args.target
+    _backup(args.target, args.nobackup)
+    logging.info("Applying patch")
+    with open(tgt, "r+b") as f:
+        patch.apply(f)
+    logging.warning("Patch applied. Note: You may want to run `romtool "
+                    "sanitize` next, especially if this is a save file.")
+
+
+def sanitize(args):
+    """ Sanitize a ROM or save file
+
+    This uses map-specific hooks to correct any checksum errors or similar
+    file-level issues in a rom or savegame.
+    """
+    if args.map is None:
+        try:
+            args.map = detect(args.target)
+        except RomDetectionError as e:
+            e.log()
+            sys.exit(2)
+    rmap = romlib.RomMap(args.map)
+
+    # Maps must supply sanitize_save and sanitize_rom hooks. If they're not
+    # found, assume nothing needs to be done. FIXME: separate sanatization into
+    # mandatory parts (e.g checksums) and linting (e.g. hp > max hp, oops).
+    # Call the latter lint_save, lint_rom, etc.
+
+    try:
+        path = args.map + "/hooks.py"
+        logging.info("Loading map hooks from %s", path)
+        hooks = SourceFileLoader("hooks", path).load_module()
+    except FileNotFoundError:
+        logging.info("%s not present", path)
+        logging.info("Nothing needs to be done")
+        sys.exit(0)
+    else:
+        logging.debug("Done loading hooks.")
+
+    if not args.type:
+        args.type = "rom"
+    funcname = "sanitize_" + args.type
+    logging.info("Looking for %s hook", funcname)
+    try:
+        sanitize = getattr(hooks, funcname)
+    except AttributeError:
+        logging.info("No hook for %s", funcname)
+        logging.info("Nothing needs to be done")
+        sys.exit(0)
+    else:
+        logging.debug("Found hook %s", funcname)
+
+    # Well that was ugly. Here's the actual work:
+
+    _backup(args.target, args.nobackup)
+    with open(args.target, "r+b") as f:
+        logging.info("Sanitizing '%s'", args.target)
+        sanitize(f)
 
 
 def charmap(args):
@@ -244,9 +351,15 @@ def blocks(args):
         print(fmt.format(offset, byte, length, length))
 
 
-
-
-
+def _backup(filename, skip=False):
+    """ Make a backup, or warn if no backup."""
+    bak = filename + ".bak"
+    if not skip:
+        logging.info("Backing up '%s' as '%s'", filename, bak)
+        os.replace(filename, bak)
+        shutil.copyfile(bak, filename)
+    else:
+        logging.warning("Backup suppressed")
 
 
 def _filterpatch(patch, romfile):
