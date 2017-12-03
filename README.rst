@@ -20,17 +20,28 @@ but the act of digging that structure out and putting it in a form
 someone can use is universal. Reading a string is not fundamentally
 different from one game to another, either.
 
-romlib is an attempt to collect game-independent functionality into an
-API and a very basic patch-making tool. The idea is to make simple hacks
-possible for non-programmers, and provide a useful set of primitives for
-more complex game-specific hacking tools.
+romlib (and its command line interface, romtool) is an attempt to collect
+game-independent functionality into an API and a very basic patch-making tool.
+The idea is to make simple hacks possible for non-programmers, and provide a
+useful set of primitives for more complex game-specific hacking tools.
 
-It *does* need to be told where to find the data it is going to extract
-or patch. For this it needs a "rom map", which at the moment is a set of
-.tsv files specifying the location and format of the data structures in
-the ROM. My hope is that maps for romlib can eventually serve as
-thorough, standardized documentation of how different games' internals
-are structured.
+Here are some things you can do with it that might be useful:
+
+- Inspect ROM data tables, e.g. monster stats, dialogue strings, or spell
+  lists.
+- Edit the same in a spreadsheet, then make a patch implementing the changes.
+- Version-control rom hacking projects. Romtool's dump format is TSV, and it
+  supports a textualized, commentable IPS-ish input format. Both are quite
+  friendly to version control tools.
+- Merge multiple existing patches together.
+- See what an existing patch actually changes.
+
+Romlib does need to be told where to find the data it is going to extract or
+patch. For this it needs a "rom map", which at the moment is a set of .tsv
+files specifying the location and format of the data structures in the ROM. My
+hope is that maps for romlib can eventually serve as thorough, standardized,
+machine-readable documentation of how different games' internals are
+structured.
 
 romlib and romtool are still very, very alpha. At the moment it mainly
 converts data tables from a rom into tsv files, which the user
@@ -46,11 +57,11 @@ to support. This isn't a complete list, just the things that come to
 mind as I am writing:
 
 -  ROM expansion
--  Header removal
+-  Header manipulation
 -  Empty-space search
 -  Game documentation generation
-   -  monster/item/equipment lists
-   -  information for romhackers
+   -  monster/item/equipment lists (for players)
+   -  data table specs (for romhackers)
 -  Alternate input and output formats
    -  More than just tsv for maps.
    -  More than just IPS for patches
@@ -58,7 +69,6 @@ mind as I am writing:
    -  working out text encodings
    -  locating strings
    -  locating data arrays
--  Physical patch application.
 
 Installation
 ------------
@@ -106,10 +116,10 @@ stats.
 
     romtool dump some_game.rom moddir
 
-Note that you do not need to specify which rom map to use; romtool will
-attempt to autodetect it. If autodetection fails, you can force it to use a
-map in a particular folder by appending ``-m <mapdir>``. If you are
-developing a map of your own you will almost certainly need to do this.
+Note that you do not usually need to specify which rom map to use; romtool
+will attempt to autodetect it. (for the time being, detection is based on the
+No-Intro rom sets) If autodetection fails, you can force romtool to use a map
+in a particular folder by appending ``-m <mapdir>`` to the command.
 
 After dumping is finished, make whatever changes you want to the files
 in ``moddir``. Any spreadsheet application should do the job; I use
@@ -185,15 +195,15 @@ probably Googled the answer before you got here anyway.
 
 1. Your patch may be named incorrectly. It should usually have the same filename
    as the ROM, but with a .ips extension.
-2. Your emulator may not support implicit patching. Either physically
-   apply the patch (romtool will support this eventually, but KEEP A
-   CLEAN COPY), or use an emulator that does support it. Here is a list
-   of emulators known to support implicit patching:
+2. Your emulator may not support implicit patching. Either physically apply
+   the patch with :code:`romtool apply`, or use an emulator that does support it.
+   Here is a list of emulators known to support implicit patching:
 
    -  ZSNES
    -  snes9x
    -  FCEUX (name as romname.nes.ips instead of romname.ips)
-   -  Add more here....
+
+   -  FIXME: Add more here....
 
 **Q. My patch changes produce garbage.**
 
