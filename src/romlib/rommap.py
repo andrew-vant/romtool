@@ -135,7 +135,7 @@ class RomMap(object):
             try:
                 contents = util.readtsv(filename)
             except FileNotFoundError:
-                logger.warning("%s missing, skipping", filename)
+                logging.warning("%s missing, skipping", filename)
                 continue
             arrays = (a for a in self.arrays.values() if a.set == entity)
             for adef in arrays:
