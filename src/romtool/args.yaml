@@ -1,6 +1,8 @@
 global:
   spec:
     description: Tool for examining and modifying ROMs
+  opts: !omap
+    -c|--conf: Specify project config file
   flags: !omap
     -v|--verbose: Verbose output
     --debug: Print debug information
@@ -11,7 +13,7 @@ dump:
     description: Dump all known data to tsv files.
   args: !omap
     rom: ROM file to dump from
-    datafolder: Send output to this folder
+    moddir: Send output to this folder
   opts: !omap
     -m|--map: Specify ROM map instead of autodetecting
     -p|--patch: Include ips patch data in dump
@@ -25,7 +27,7 @@ build:
   args: !omap
     moddir: Directory containing mod data.
   opts: !omap
-    -s|--source: Filter patch against source file, removing no-ops
+    -r|--rom: Filter patch against original rom, removing no-ops
     -m|--map: Specify ROM map instead of autodetecting.
     -o|--out: Patch file to write. Detects format by extension.
   flags: !omap

@@ -108,11 +108,11 @@ def dump(args):
         if save:
             save.close()
 
-    logging.info("Dumping ROM data to: %s", args.datafolder)
+    logging.info("Dumping ROM data to: %s", args.moddir)
     output = rmap.dump(data)
-    os.makedirs(args.datafolder, exist_ok=True)
+    os.makedirs(args.moddir, exist_ok=True)
     for entity, dicts in output.items():
-        filename = "{}/{}.tsv".format(args.datafolder, entity)
+        filename = "{}/{}.tsv".format(args.moddir, entity)
         logging.info("Writing output file: %s", filename)
         romlib.util.writetsv(filename, dicts, args.force)
     logging.info("Dump finished")
@@ -126,12 +126,12 @@ def build(args):
     # FIXME: Really ought to support --include for auto-merging other patches.
     # Have it do the equivalent of build and then merge.
 
-    if args.map is None and args.source is None:
+    if args.map is None and args.rom is None:
         logging.error("At least one of -s or -m must be provided.")
         sys.exit(1)
     if args.map is None:
         try:
-            args.map = detect(args.source)
+            args.map = detect(args.rom)
         except RomDetectionError as e:
             e.log()
             sys.exit(2)
@@ -142,7 +142,7 @@ def build(args):
     data = rmap.load(args.moddir)
     source = "save" if args.save else "rom"
     patch = romlib.Patch(rmap.bytemap(data, source))
-    _filterpatch(patch, args.source)
+    _filterpatch(patch, args.rom)
     _writepatch(patch, args.out)
 
 
@@ -422,53 +422,89 @@ def main():
     # source. :-(
 
     _add_yaml_omap()
+    logging.basicConfig()  # Do this here so it doesn't happen implicitly later
 
     with open(_get_path("args.yaml")) as argfile:
-        argdetails = yaml.load(argfile)
+        argspecs = yaml.load(argfile, Loader=yaml.SafeLoader)
 
-    def argument_setup(parser, details):
-        """ Add arguments to a parser.
+    def argument_setup(parser, spec):
+        """ Create a parser from an args.yaml spec
 
         This is split out to make it easy to add the global argument set to
         each subparser.
         """
         # FIXME: Should this be done with parent?
-        for name, desc in details.get("args", {}).items():
+        for name, desc in spec.get("args", {}).items():
             names = name.split("|")
-            parser.add_argument(*names, help=desc)
-        for name, desc in details.get("args+", {}).items():
+            parser.add_argument(*names, nargs="?", help=desc)
+        for name, desc in spec.get("args+", {}).items():
             names = name.split("|")
             parser.add_argument(*names, nargs="+", help=desc)
-        for name, desc in details.get("opts", {}).items():
+        for name, desc in spec.get("opts", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc)
-        for name, desc in details.get("ropts", {}).items():
+        for name, desc in spec.get("ropts", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc, action="append")
-        for name, desc in details.get("flags", {}).items():
+        for name, desc in spec.get("flags", {}).items():
             names = name.split("|")
             parser.add_argument(*names, help=desc, action="store_true")
 
-    topdetails = argdetails.pop("global")
-    topparser = argparse.ArgumentParser(**topdetails.get('spec', {}))
+    # Set up the toplevel parser. This takes some magic. The conf file arg must
+    # be parsed before any others, and --help must be suppressed until after
+    # said processing. The simplest way I could find to do that is to create a
+    # "dummy" parser.
+    #
+    # For some reason, checking for -v here breaks concatenated short args,
+    # e.g.  -vf doesn't work. I think I can't mix concatenated args across
+    # multiple parsings, which means I can't support verbose here, only debug
+    # (which has no short form)
+
+    bootstrapper = argparse.ArgumentParser(add_help=False)
+    bootstrapper.add_argument("-c", "--conf")
+    bootstrapper.add_argument("--debug", action="store_true")
+    args, remainingargs = bootstrapper.parse_known_args()
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    globalargs = argspecs.pop("global")
+    topparser = argparse.ArgumentParser(**globalargs.get('spec', {}))
+    argument_setup(topparser, globalargs)
+
+    # Process the conf file if there is one; any options given in it become
+    # defaults, but can still be overridden on the rest of the command line.
+    defaults = {}
+    if args.conf:
+        logging.debug("Loading conf file '%s'", args.conf)
+        try:
+            with open(args.conf) as conffile:
+                defaults.update(yaml.load(conffile, Loader=yaml.SafeLoader))
+        except FileNotFoundError as e:
+            logging.error("Failed to load conf file. " + str(e))
+            exit(2)
+        logging.debug("Loaded args:")
+        for arg, default in defaults.items():
+            logging.debug("%s: %s", arg, default)
+    topparser.set_defaults(**defaults)
+
+    # Create the subparsers
     subparsers = topparser.add_subparsers(title="commands")
-    argument_setup(topparser, topdetails)
-    for command, details in sorted(argdetails.items()):
+    for command, argspec in sorted(argspecs.items()):
         subparser = subparsers.add_parser(command,
                                           conflict_handler='resolve',
-                                          **details.get("spec", {}))
-        subparser.set_defaults(func=globals()[command])
-        argument_setup(subparser, details)
-        argument_setup(subparser, topdetails)
+                                          **argspec.get("spec", {}))
+        argument_setup(subparser, argspec)
+        argument_setup(subparser, globalargs)
+        subparser.set_defaults(func=globals()[command], **defaults)
 
-    # Parse whatever came in.
-    args = topparser.parse_args()
+    # Parse remaining arguments and add the results to the args namespace.
+    args = topparser.parse_args(args=remainingargs, namespace=args)
 
-    # Set up logging.
+    # Set up logging
     if args.verbose:
-        logging.basicConfig(level=logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     # If no subcommand supplied, print help.
     if not hasattr(args, 'func'):
