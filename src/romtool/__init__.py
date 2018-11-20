@@ -114,7 +114,16 @@ def dump(args):
     for entity, dicts in output.items():
         filename = "{}/{}.tsv".format(args.moddir, entity)
         logging.info("Writing output file: %s", filename)
-        romlib.util.writetsv(filename, dicts, args.force)
+        try:
+            romlib.util.writetsv(filename, dicts, args.force)
+        except FileExistsError as err:
+            logging.error(err)
+            dest = os.path.abspath(args.moddir)
+            logging.error("Aborting, dump would overwrite files in " + dest)
+            advice = "(you can use --force if you really mean it)"
+            logging.error(advice)
+            sys.exit(2)
+
     logging.info("Dump finished")
 
 
