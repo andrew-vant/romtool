@@ -1,0 +1,10 @@
+id	label	size	type	mod	display	order	info	comment
+rpow	Rushing Power	b4	uint					
+rspd	Running Speed	b4	uint					
+mspd	Max Speed	b4	uint					
+hit	Hitting Power	b4	uint					
+face	Face	1	uint					
+pspd	Pass Speed	b4	uint					
+pctl	Pass Control	b4	uint					
+pacc	Pass Accuracy	b4	uint					
+apb	Avoid Pass Block	b4	uint					

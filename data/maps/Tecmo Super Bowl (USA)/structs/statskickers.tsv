@@ -1,0 +1,7 @@
+id	label	size	type	mod	display	order	info	comment
+rpow	Rushing Power	b4	uint					
+rspd	Running Speed	b4	uint					
+mspd	Max Speed	b4	uint					
+hit	Hitting Power	b4	uint					
+kick	Kicking Ability	b4	uint					
+akb	Avoid Kick Block	b4	uint					
