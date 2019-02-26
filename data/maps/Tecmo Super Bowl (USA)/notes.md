@@ -2,6 +2,13 @@
 
 https://tecmobowl.org/forums/topic/9725-tsb-hacks-documentation-directory-updated-081716/
 
+# Figuring out which roster players have which stat sets
+
+Looks like this might be derivable from the "formation" data. One
+of the editors has a formationtorosterpositionsmapper that gets
+checked when figuring out which player has which position, which in
+turn defines the attribute set to use.
+
 # Source diving
 
 gmtsb (general manger tecmo super bowl?) -- look in source in the "Core"
@@ -52,6 +59,53 @@ A000-BFFF: Specific defensive commands for players
 27506: Play Graphics pointers
 
 Reference: https://tecmobowl.org/forums/topic/53101-tsb-rom-hex-location-index/
+
+```
+# See gmtsb/src/org/twofoos/gmtsb/file/tsbfile.java and
+# supplementednesfile.java. These seem like the most useful files
+# for finding offsets and data formats.
+
+HEADER_LENGTH                                16;
+TEAM_POINTERS_LOCATION                       (HEADER_LENGTH);
+FIRST_TEAM_PLAYER_POINTER_LOCATION           (56               +  HEADER_LENGTH);
+FIRST_PLAYER_NAME_LOCATION                   (1738             +  HEADER_LENGTH);
+PLAYER_ATTRIBUTES_LOCATION                   (0x3000           +  HEADER_LENGTH);
+FORMATION_POSITION_SECTIONS_LOCATION         (0x0021fe0);
+FORMATION_POSITION_LABELS_LOCATION           (0x0031e80);
+PLAY_NAMES_FORMATIONS_AND_POINTERS_LOCATION  (0x001d410);
+DEFENSE_REACTIONS_LOCATION                   (0x001dc10);
+PLAY_GRAPHICS_LOCATION                       (0x0027546);
+PLAY_BALLCARRIERS_LOCATION                   (0x0027506);
+PLAYBOOKS_LOCATION                           (0x001d310);
+FIRST_TEAM_NAME_POINTER_LOCATION             (0x001fc10);
+FIRST_TEAM_NAME_LOCATION                     (0x001fd00);
+SPRITE_COLORS_LOCATION                       (0x2c2e4);
+CUTSCENE_COLORS_LOCATION                     (0x342d8);
+PLAYER_DATA_COLORS_LOCATION                  (0x31140);
+RETURNERS_LOCATION_1                         (0x00239d3);
+RETURNERS_LOCATION_2                         (0x00328d3);
+PRO_BOWL_PLAYERS_LOCATION                    (0x0032853);
+SIMULATION_CODE_LOCATION                     (0x0018163);
+RUN_PASS_RATIO_LOCATION                      (0x0027526);
+
+public final int MAX_TOTAL_NAMES_LENGTH = PLAYER_ATTRIBUTES_LOCATION.subtract(FIRST_PLAYER_NAME_LOCATION);
+
+public static final int TEAM_SIMULATION_CODE_SIZE_BYTES = 48;
+public static final int TEAM_SIMULATION_CODE_SIZE_NYBBLES = TEAM_SIMULATION_CODE_SIZE_BYTES * 2;
+public static final int TOTAL_SIMULATION_CODE_SIZE_NYBBLES = TEAM_SIMULATION_CODE_SIZE_NYBBLES * League.NES_TEAMS_COUNT;
+
+// http://www.knobbe.org/phpBB2/viewtopic.php?t=1820
+public final TsbLocation FORMATION_POSITION_SECTIONS_CODE_LOCATION	(0x0021642);
+public final TsbLocation FORMATION_POSITION_LABELS_CODE_LOCATION	(0x0030ff8);
+
+public final int[] FORMATION_POSITION_SECTIONS_CODE_PATCH =
+    new int[] { 0x8a, 0xa6, 0x6e, 0xbc, 0xd0, 0x9f, 0xaa, 0x4c, 0x50, 0x96,
+        0xf0, 0x12, 0xc9, 0x11 };
+public final int[] FORMATION_POSITION_LABELS_CODE_PATCH =
+    new int[] { 0x8a, 0xa6, 0x6e, 0xbc, 0x70, 0x9e, 0xaa, 0xc0, 0x01, 0xf0,
+        0x11, 0xc0, 0x02, 0xf0, 0x13, 0x4c, 0xfe, 0x8f, 0xc9, 0x11, 0xf0,
+        0x0c, 0xbd, 0x39 };
+```
 
 
 ## Something to consider later...
