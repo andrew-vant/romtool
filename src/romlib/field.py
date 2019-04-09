@@ -13,22 +13,28 @@ from . import util
 
 class Field(abc.ABCMeta):
     def __new__(cls, name, bases, dct):
-        # If a base class defines a propertymethod shadowing part of the field
-        # definition, the propertymethod takes priority and the value in the
-        # definition is prepended with an underscore (so the propmethod has
-        # access to it in a standard place). Right now this is only useful for
-        # unions, which need methods for the type and mod fields (because
-        # they're not fixed)
+        # If a field base class defines a propertymethod shadowing part
+        # of the field's tsv definition, the propertymethod takes
+        # priority and the value in the definition is prepended with an
+        # underscore (so the propmethod has access to it in a standard
+        # place).  Right now this is only useful for unions, which need
+        # methods for the type and mod fields (because they're not
+        # fixed)
         for base in bases:
-            for k in dct.keys():
-                if isinstance(dct[k], property):
-                    # We *do* want to be able to override property methods
-                    # with *other propertymethods* in explicitly derived
-                    # classes...just not raw strings.
-                    continue
-                elif isinstance(getattr(base, k, None), property):
-                    # This blackholes primitives for use by propertymethods
-                    dct["_"+k] = dct.pop(k)
+            # We *do* want to be able to override property methods with *other
+            # propertymethods* in explicitly derived classes...just not raw
+            # strings. So skip anything that's already of property type.
+            shadows = [attr for attr, value in dct.items()
+                       # Not overridden by class being constructed....
+                       if not isinstance(value, property)
+                       # But *is* overridden in the base class.
+                       and isinstance(getattr(base, attr, None), property)]
+
+            # So e.g. if a union base class defines .type(), move any .type
+            # primitive in the tsv to ._type (where it can be retrieved if
+            # needed)
+            for attr in shadows:
+                dct['_'+attr] = dct.pop(attr)
 
         return super().__new__(cls, name, bases, dct)
 
