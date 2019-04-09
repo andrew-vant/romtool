@@ -1,9 +1,9 @@
 global:
   spec:
     description: Tool for examining and modifying ROMs
-  opts: !omap
+  opts:
     -c|--conf: Specify project config file
-  flags: !omap
+  flags:
     -v|--verbose: Verbose output
     --debug: Print debug information
     --pdb: Start interactive debugger on crash
@@ -11,48 +11,48 @@ global:
 dump:
   spec:
     description: Dump all known data to tsv files.
-  args: !omap
+  args:
     rom: ROM file to dump from
     moddir: Send output to this folder
-  opts: !omap
+  opts:
     -m|--map: Specify ROM map instead of autodetecting
     -p|--patch: Include ips patch data in dump
     -s|--save: Include save file in dump
-  flags: !omap
+  flags:
     -f|--force: Overwrite existing destination files
 
 build:
   spec:
     description: Construct patch from modified files.
-  args: !omap
+  args:
     moddir: Directory containing mod data.
-  opts: !omap
+  opts:
     -r|--rom: Filter patch against original rom, removing no-ops
     -m|--map: Specify ROM map instead of autodetecting.
     -o|--out: Patch file to write. Detects format by extension.
-  flags: !omap
+  flags:
     --save: Create save-file patch instead of ROM patch
 
 merge:
   spec:
     description: Merge multiple patches together.
-  args+: !omap
+  args+:
     patches: List of patches to merge.
-  opts: !omap
+  opts:
     -r|--rom: Filter against a ROM, removing no-op changes.
     -o|--out: Patch file to write. Detects format by extension.
 
 convert:
   spec:
     description: Convert a patch from one format to another
-  args: !omap
+  args:
     infile: File to convert
     outfile: File to create
 
 diff:
   spec:
     description: Diff two files and generate a patch between the two
-  args: !omap
+  args:
     original: Original ROM
     modified: Modified ROM
   opts:
@@ -61,7 +61,7 @@ diff:
 apply:
   spec:
     description: Apply a patch.
-  args: !omap
+  args:
     patch: Patch file
     target: Patch target
   flags:
@@ -70,9 +70,9 @@ apply:
 sanitize:
   spec:
     description: Sanitize a ROM or save file with checksums etc
-  args: !omap
+  args:
     target: Target file
-  opts: !omap
+  opts:
     -m|--map: Specify ROM map.
     -t|--type: Specify rom/save file if extension doesn''t say.
   flags:
@@ -81,14 +81,14 @@ sanitize:
 charmap:
   spec:
     description: Generate a text character set
-  args: !omap
+  args:
     rom: ROM file
     strings: Known strings
 
 blocks:
   spec:
     description: Search for blocks of unused space
-  args: !omap
+  args:
     rom: ROM file
   opts:
     -b|--byte: Search for blocks of a specific byte

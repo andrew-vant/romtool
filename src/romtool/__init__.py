@@ -16,7 +16,6 @@ import textwrap
 import itertools
 from pprint import pprint
 from itertools import chain
-from collections import OrderedDict
 from importlib.machinery import SourceFileLoader
 
 import yaml
@@ -394,19 +393,6 @@ def _writepatch(patch, outfile):
     logging.info("There were %s changes.", len(patch.changes))
 
 
-def _add_yaml_omap():
-    """ Register the omap type with libyaml.
-
-    I'm not actually sure this is necessary anymore. Pretty sure the
-    list-of-pairs construction returns tuples that I can use to initialize an
-    odict.
-    """
-    def omap_constructor(loader, node):
-        """ libyaml constructor for ordered dictionaries."""
-        return OrderedDict(loader.construct_pairs(node))
-    yaml.add_constructor("!omap", omap_constructor)
-
-
 def _get_path(subfile=None):
     """ Get the full path to the containing directory of this file.
 
@@ -430,7 +416,6 @@ def main():
     # FIXME: After some thought, probably better to use one big string in the
     # source. :-(
 
-    _add_yaml_omap()
     logging.basicConfig()  # Do this here so it doesn't happen implicitly later
 
     with open(_get_path("args.yaml")) as argfile:
