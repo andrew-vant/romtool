@@ -10,6 +10,29 @@ from romtool import commands
 from romtool import util
 from romtool.util import pkgfile
 
+def parser_setup(parser, spec):
+    """ Create parser arguments from an args.yaml spec
+
+    This is split out to make it easy to add the global argument set to
+    each subparser.
+    """
+
+    argtypes = yaml.safe_load("""
+    args:
+      nargs: '?'
+    args+:
+      nargs: '+'
+    opts: {}
+    ropts:
+      action: append
+    flags:
+      action: store_true
+    """)
+
+    for argtype, metaargs in argtypes.items():
+        for name, desc in spec.get(argtype, {}).items():
+            names = name.split("|")
+            parser.add_argument(*names, **metaargs, help=desc)
 
 def main():
     """ Entry point for romtool."""
@@ -24,29 +47,6 @@ def main():
 
     with open(pkgfile("args.yaml")) as argfile:
         argspecs = yaml.load(argfile, Loader=yaml.SafeLoader)
-
-    def argument_setup(parser, spec):
-        """ Create a parser from an args.yaml spec
-
-        This is split out to make it easy to add the global argument set to
-        each subparser.
-        """
-        # FIXME: Should this be done with parent?
-        for name, desc in spec.get("args", {}).items():
-            names = name.split("|")
-            parser.add_argument(*names, nargs="?", help=desc)
-        for name, desc in spec.get("args+", {}).items():
-            names = name.split("|")
-            parser.add_argument(*names, nargs="+", help=desc)
-        for name, desc in spec.get("opts", {}).items():
-            names = name.split("|")
-            parser.add_argument(*names, help=desc)
-        for name, desc in spec.get("ropts", {}).items():
-            names = name.split("|")
-            parser.add_argument(*names, help=desc, action="append")
-        for name, desc in spec.get("flags", {}).items():
-            names = name.split("|")
-            parser.add_argument(*names, help=desc, action="store_true")
 
     # Set up the toplevel parser. This takes some magic. The conf file arg must
     # be parsed before any others, and --help must be suppressed until after
@@ -67,7 +67,7 @@ def main():
 
     globalargs = argspecs.pop("global")
     topparser = argparse.ArgumentParser(**globalargs.get('spec', {}))
-    argument_setup(topparser, globalargs)
+    parser_setup(topparser, globalargs)
 
     # Process the conf file if there is one; any options given in it become
     # defaults, but can still be overridden on the rest of the command line.
@@ -91,8 +91,8 @@ def main():
         subparser = subparsers.add_parser(command,
                                           conflict_handler='resolve',
                                           **argspec.get("spec", {}))
-        argument_setup(subparser, argspec)
-        argument_setup(subparser, globalargs)
+        parser_setup(subparser, argspec)
+        parser_setup(subparser, globalargs)
         subparser.set_defaults(func=getattr(commands, command), **defaults)
 
     # Parse remaining arguments and add the results to the args namespace.
