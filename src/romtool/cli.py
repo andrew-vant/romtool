@@ -15,6 +15,38 @@ def parser_setup(parser, spec):
 
     This is split out to make it easy to add the global argument set to
     each subparser.
+
+    FIXME: that is what `parents` is for. Also, this setup only "works" by
+    making all arguments optional, which loses the default argparse error
+    checking. Better solution: parse twice, once with everything set to
+    optional (to get -v, --debug, and especially --conf), then load the conf
+    file, then re-parse with the conf file contents populating defaults.
+
+    This might actually be a good feature to submit upstream. a conffile_arg
+    option to argumentparser (and a conffile_callback that is expected to read
+    the file and pass back a defaults dict -- perhaps defaulting to "assume
+    configparser format)
+
+    A similar use_envvars option might be nice too.
+
+    Project: arg library that implements /etc /home envvar cli-conffile
+    cli-args cascading of options. Interface similar to argparse, maybe just
+    passes arguments to argparse and/or inherits argumentparser directly. User
+    provides option spec as dict, along with a mapping of file types to loader
+    functions.
+
+    What about subcommands? Should the option spec be a nested dict, one for
+    each subcommand, or should the ui be one call/construction per subcommand?
+    (probably one call per subcommand -- avoids complexity)
+
+    Read confs from json or configparser by default; read yaml if available
+    (and suggest it if it's not with loglevel:error).
+
+    Should spec format match the argparse interface? That would make
+    implementation easier, at the cost of duplication (same arg specced
+    multiple times in different commands...but wait, yaml has anchors!)
+
+    How to map envvars to options? (PROG_[OPTION], probably)
     """
 
     argtypes = yaml.safe_load("""
@@ -61,7 +93,7 @@ def main():
     # Do this here so it doesn't happen implicitly later
     # FIXME: replace with dictConfig. Set root in dictconfig, log
     # individual files with module name as logger name.
-    logging.basicConfig()  
+    logging.basicConfig()
 
     with open(pkgfile("args.yaml")) as argfile:
         argspecs = yaml.load(argfile, Loader=yaml.SafeLoader)
