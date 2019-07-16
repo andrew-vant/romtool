@@ -117,50 +117,50 @@ blocks:
 # args with the conf file options as defaults. The only thing that needs
 # customizing is "which argument to use as the config file arg"
 
-input:
-  rom:
-    # type defaults to str. `file` gets magic handling to build an
-    # argparse.filetype. Everything else gets looked up somehow, in
-    # locals() maybe?
-    type: file:rb
-    help: ROM file
-    alias: r
-  patch:
-    type: file:rb
-    help: include ips patch data in dump
-  target:
-    type: file
-    typearg: wb
-  patches:
-    type: files:rb
-    list: True
-  verbose:
-    type: bool
-    default: True
-    alias: v
-
-base:
-  # most things get splatted into the toplevel parser arguments
-  description: tool for examining and modifying roms
-  args:
-    # These args are applied to all commands
-    - verbose
-    - conf
-    - debug
-    - pdb
-
-# alt: schema: ?
-commands:
-  dump:
-    # As above, most things get splatted, except "args"
-    # Feels like args is a wart, is there some way to simplify this
-    # further? Maybe break into a "parsers" tree and a "args" tree? No,
-    # not worth it.
-    description: dump all data from a rom file
-    required:
-      - rom
-      - moddir
-    optional:
-      - map
-      - patch
-      - save
+# input:
+#   rom:
+#     # type defaults to str. `file` gets magic handling to build an
+#     # argparse.filetype. Everything else gets looked up somehow, in
+#     # locals() maybe?
+#     type: file:rb
+#     help: ROM file
+#     alias: r
+#   patch:
+#     type: file:rb
+#     help: include ips patch data in dump
+#   target:
+#     type: file
+#     typearg: wb
+#   patches:
+#     type: files:rb
+#     list: True
+#   verbose:
+#     type: bool
+#     default: True
+#     alias: v
+# 
+# base:
+#   # most things get splatted into the toplevel parser arguments
+#   description: tool for examining and modifying roms
+#   args:
+#     # These args are applied to all commands
+#     - verbose
+#     - conf
+#     - debug
+#     - pdb
+# 
+# # alt: schema: ?
+# commands:
+#   dump:
+#     # As above, most things get splatted, except "args"
+#     # Feels like args is a wart, is there some way to simplify this
+#     # further? Maybe break into a "parsers" tree and a "args" tree? No,
+#     # not worth it.
+#     description: dump all data from a rom file
+#     required:
+#       - rom
+#       - moddir
+#     optional:
+#       - map
+#       - patch
+#       - save
