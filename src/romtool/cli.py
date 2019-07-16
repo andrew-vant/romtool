@@ -10,7 +10,9 @@ import romtool.commands
 from romtool import util
 from romtool.util import pkgfile
 
-def parser_setup(parser, spec):
+log = logging.getLogger(__name__)
+
+def parser_setup(parser, spec, defaults):
     """ Create parser arguments from an args.yaml spec
 
     This is split out to make it easy to add the global argument set to
@@ -50,8 +52,7 @@ def parser_setup(parser, spec):
     """
 
     argtypes = yaml.safe_load("""
-    args:
-      nargs: '?'
+    args: {}
     args+:
       nargs: '+'
     opts: {}
@@ -64,21 +65,44 @@ def parser_setup(parser, spec):
     for argtype, metaargs in argtypes.items():
         for name, desc in spec.get(argtype, {}).items():
             names = name.split("|")
-            parser.add_argument(*names, **metaargs, help=desc)
+            conf_key = names[-1].lstrip("-")  # Turn `--argname` into `argname`
+            default = defaults.get(conf_key, None)
+            if argtype == "args" and default is not None:
+                # Prevent complaints about missing positional args if a
+                # default was provided
+                metaargs['nargs'] = '?'
+            parser.add_argument(*names, **metaargs, default=default, help=desc)
 
-def load_conf_file(filename):
-    """ Load a project conf file """
-    options = {}
-    try:
-        with open(args.conf) as conffile:
-            options.update(yaml.load(conffile, Loader=yaml.SafeLoader))
-    except FileNotFoundError as e:
-        logging.error("Failed to load conf file. " + str(e))
-        exit(2)
-    logging.debug("Loaded args:")
-    for arg, default in defaults.items():
-        logging.debug("%s: %s", arg, default)
-    return options
+def conf_load(argv=None):
+    """ Get the --conf argument and do the needful with it
+    
+    This copies argv before parsing, so it doesn't actually consume
+    args. It returns the dict from the --conf file, or an empty dict if
+    none was provided.
+    """
+    if argv is None:
+        argv = sys.argv
+    argv = argv.copy()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--conf")
+    filename = parser.parse_known_args(argv)[0].conf
+    if not filename:
+        return {}
+    else:
+        with open(filename) as f:
+            return util.loadyaml(f)
+
+def debug_input(conffile_dict, args_object):
+    """ Print the effective arguments and their sources """
+    fmt = "%s:\t%s\t(%s)"
+    for k, v in vars(args_object).items():
+        if v is None:
+            source = "default"
+        elif v == conffile_dict.get(k, None):
+            source = "conf"
+        else:
+            source = "args"
+        log.debug(fmt, k, v, source)
 
 
 def main():
@@ -98,19 +122,22 @@ def main():
     with open(pkgfile("args.yaml")) as argfile:
         argspecs = yaml.load(argfile, Loader=yaml.SafeLoader)
 
+    # Get arguments from conf file, if provided. This has to be done
+    # before the parsers get built because the stuff in a conf file
+    # affects how they need to *be* built. This is aggravating as hell.
+    defaults = conf_load()
+
     # Set up CLI parser
-    # FIXME: function this out more. Or make a custom argumentparser
-    # class?
     globalargs = argspecs.pop("global")
     topparser = argparse.ArgumentParser(**globalargs.get('spec', {}))
-    parser_setup(topparser, globalargs)
+    parser_setup(topparser, globalargs, defaults)
 
     subparsers = topparser.add_subparsers(title="commands")
     for cmd, argspec in sorted(argspecs.items()):
         sp = subparsers.add_parser(cmd, conflict_handler='resolve',
                                    **argspec.get("spec", {}))
-        parser_setup(sp, argspec)
-        parser_setup(sp, globalargs)
+        parser_setup(sp, argspec, defaults)
+        parser_setup(sp, globalargs, defaults)
         sp.set_defaults(func=getattr(romtool.commands, cmd))
 
     # Parse arguments
