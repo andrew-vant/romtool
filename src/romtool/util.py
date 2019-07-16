@@ -1,6 +1,11 @@
 from os.path import realpath, dirname
 from os.path import join as pathjoin
 
+import yaml
+import logging
+
+logger = logging.getLogger(__name__)
+
 def whereami(path):
     """ Get the full path to the containing directory of a file.
 
@@ -11,3 +16,13 @@ def whereami(path):
 
 def pkgfile(filename):
     return pathjoin(whereami(__file__), filename)
+
+def loadyaml(data):
+    # Just so I don't have to remember the extra argument everywhere.
+    # Should take anything yaml.load will take.
+    return yaml.load(string, Loader=yaml.SafeLoader)
+
+def debug_structure(data, loglevel=logging.DEBUG):
+    """ yamlize a data structure and log it as debug """
+    for line in yaml.dump(data).splitlines():
+        logger.log(loglevel, line)
