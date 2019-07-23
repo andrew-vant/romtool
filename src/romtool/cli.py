@@ -84,11 +84,18 @@ def conf_load(argv):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--conf")
     filename = parser.parse_known_args(argv)[0].conf
+
+    # If conf wasn't provided, return an empty dict
     if not filename:
         return {}
-    else:
-        with open(filename) as f:
-            return util.loadyaml(f)
+
+    with open(filename) as f:
+        options = util.loadyaml(f)
+    # Command line opts get tilde expansion automatically. If we want
+    # it, we have to do it ourselves.
+    options = {k: os.path.expanduser(v) for k, v in options.items()}
+    return options
+
 
 def debug_input(conffile_dict, args_object):
     """ Print the effective arguments and their sources """
