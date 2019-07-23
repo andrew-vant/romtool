@@ -166,6 +166,9 @@ def main(argv=None):
     # the trace and also break into the debugger.
     try:
         args.func(args)
+    except FileNotFoundError as e:
+        logging.critical(str(e))
+        sys.exit(2)
     except Exception as e:
         # logging.critical("Unhandled exception: '{}'".format(str(e)))
         logging.exception(e)
