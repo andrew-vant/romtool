@@ -90,7 +90,7 @@ def dump(args):
             logging.debug("No save file specified, skipping")
             save = None
 
-        if args.patch is not None:
+        if args.include is not None:
             raise NotImplementedError("Autopatched dumps not implemented")
             # FIXME: Patch rom in-memory with an ips so you can dump a mod without
             # applying it.
@@ -145,7 +145,7 @@ def build(args):
     source = "save" if args.save else "rom"
     patch = romlib.Patch(rmap.bytemap(data, source))
     _filterpatch(patch, args.rom)
-    _writepatch(patch, args.out)
+    _writepatch(patch, args.patch)
 
 
 def merge(args):

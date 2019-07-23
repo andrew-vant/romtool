@@ -16,7 +16,7 @@ dump:
     moddir: Send output to this folder
   opts:
     -m|--map: Specify ROM map instead of autodetecting
-    -p|--patch: Include ips patch data in dump
+    -i|--include: Include ips patch data in dump
     -s|--save: Include save file in dump
   flags:
     -f|--force: Overwrite existing destination files
@@ -29,7 +29,7 @@ build:
   opts:
     -r|--rom: Filter patch against original rom, removing no-ops
     -m|--map: Specify ROM map instead of autodetecting.
-    -o|--out: Patch file to write. Detects format by extension.
+    -p|--patch: Patch file to write. Detects format by extension.
   flags:
     --save: Create save-file patch instead of ROM patch
 
