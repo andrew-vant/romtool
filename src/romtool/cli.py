@@ -156,6 +156,12 @@ def main(argv=None):
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    # Debug args/conf file data
+    logging.debug("Options loaded from conf, if any:")
+    util.debug_structure(defaults)
+    logging.debug("Final input args:")
+    util.debug_structure(vars(args))
+
     # If no subcommand supplied, print help.
     if not hasattr(args, 'func'):
         topparser.print_help()
