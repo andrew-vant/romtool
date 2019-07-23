@@ -73,15 +73,13 @@ def parser_setup(parser, spec, defaults):
                 metaargs['nargs'] = '?'
             parser.add_argument(*names, **metaargs, default=default, help=desc)
 
-def conf_load(argv=None):
+def conf_load(argv):
     """ Get the --conf argument and do the needful with it
     
     This copies argv before parsing, so it doesn't actually consume
     args. It returns the dict from the --conf file, or an empty dict if
     none was provided.
     """
-    if argv is None:
-        argv = sys.argv
     argv = argv.copy()
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--conf")
@@ -105,8 +103,10 @@ def debug_input(conffile_dict, args_object):
         log.debug(fmt, k, v, source)
 
 
-def main():
+def main(argv=None):
     """ Entry point for romtool."""
+    if argv is None:
+        argv = sys.argv[1:]
 
     # It's irritating to keep all the help information as string literals in
     # the source, so argument details are loaded from a yaml file that's
@@ -125,7 +125,7 @@ def main():
     # Get arguments from conf file, if provided. This has to be done
     # before the parsers get built because the stuff in a conf file
     # affects how they need to *be* built. This is aggravating as hell.
-    defaults = conf_load()
+    defaults = conf_load(argv)
 
     # Set up CLI parser
     globalargs = argspecs.pop("global")
@@ -141,7 +141,7 @@ def main():
         sp.set_defaults(func=getattr(romtool.commands, cmd))
 
     # Parse arguments
-    args = topparser.parse_args()
+    args = topparser.parse_args(argv)
 
     # Set up logging
     if args.verbose:
