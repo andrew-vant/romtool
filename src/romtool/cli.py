@@ -156,17 +156,6 @@ def main(argv=None):
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Read and apply project conf if supplied.
-    if args.conf:
-        logging.info("Loading conf file '%s'", args.conf)
-        conf = load_conf_file(args.conf)
-        for k, v in conf.items():
-            # This is supposed to fill in arguments from the conf file
-            # iff they were not given on the cli.
-            argdict = args.__dict__
-            if k in argdict and argdict[k] is None:
-                argdict[k] = v
-
     # If no subcommand supplied, print help.
     if not hasattr(args, 'func'):
         topparser.print_help()

@@ -20,7 +20,7 @@ def pkgfile(filename):
 def loadyaml(data):
     # Just so I don't have to remember the extra argument everywhere.
     # Should take anything yaml.load will take.
-    return yaml.load(string, Loader=yaml.SafeLoader)
+    return yaml.load(data, Loader=yaml.SafeLoader)
 
 def debug_structure(data, loglevel=logging.DEBUG):
     """ yamlize a data structure and log it as debug """
