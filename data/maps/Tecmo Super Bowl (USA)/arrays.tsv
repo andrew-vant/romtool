@@ -1,4 +1,4 @@
 name	label	set	type	source	offset	length	stride	mod	index	priority	display	comment
-roster_ptrs	Roster Pointer	teams	uintle	rom	0x10	28	2	-0x8000			pointer	Pointers to team rosters
-jersey_ptrs	Jersey Pointer	players	uintle	rom	0x48	840	2	-0x8000			pointer	Pointers to player jerseys (number and name?) FIXME: check this.
-tname_ptrs	Name Pointer	teams	uintle	rom	0x21fe0	28	2	-0x8000			pointer	Pointers to team names
+roster_ptrs	Roster Pointer	teams	uintle	rom	0x10	28	2	-0x7FF0			pointer	Pointers to team rosters
+jersey_ptrs	Jersey Pointer	players	uintle	rom	0x48	840	2	-0x7FF0			pointer	Pointers to player jerseys (number and name?) FIXME: check this.
+tname_ptrs	Name Pointer	teams	uintle	rom	0x1fc10	28	2	0x14010			pointer	Pointers to team names
