@@ -38,5 +38,5 @@ setup(name="romlib",
       keywords="rom roms snes",
       url="https://github.com/andrew-vant/romlib",
       test_suite="tests",
-      entry_points={"console_scripts": ["romtool = romtool:main"]},
+      entry_points={"console_scripts": ["romtool = romtool.cli:main"]},
       )

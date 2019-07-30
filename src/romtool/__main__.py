@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from romtool import main
+from romtool.cli import main
 
 if __name__ == "__main__":
     main()

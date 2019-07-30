@@ -10,4 +10,4 @@ dist/$(wheel) :
 	python setup.py bdist_wheel
 
 clean :
-	-rm -rf build dist venv *.egg-info
+	-rm -rf build dist venv *.egg-info .tox
