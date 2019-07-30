@@ -79,27 +79,26 @@ def dump(args):
             e.log()
             sys.exit(2)
 
+    if args.include is not None:
+        raise NotImplementedError("Autopatched dumps not implemented")
+        # FIXME: Patch rom in-memory with an ips so you can dump a mod without
+        # applying it.
+
     rmap = romlib.RomMap(args.map)
-    try:
-        logging.info("Opening ROM file: %s", args.rom)
-        rom = open(args.rom, "rb")
+
+    # This gets awkward since we want to open ROM always but open SAVE
+    # only sometimes. I suspect this means the design needs some work.
+    # Can't they be loaded separately? (maybe not, saves may have
+    # pointers to stuff in the rom that need dereferencing?)
+    logging.info("Opening ROM file: %s", args.rom)
+    with open(args.rom, "rb") as rom:
         if args.save:
             logging.info("Opening SAVE file: %s", args.save)
-            save = open(args.save, "rb")
+            with open(args.save, "rb") as save:
+                data = rmap.read(rom, save)
         else:
             logging.debug("No save file specified, skipping")
-            save = None
-
-        if args.include is not None:
-            raise NotImplementedError("Autopatched dumps not implemented")
-            # FIXME: Patch rom in-memory with an ips so you can dump a mod without
-            # applying it.
-
-        data = rmap.read(rom, save)
-    finally:
-        rom.close()
-        if save:
-            save.close()
+            data = rmap.read(rom, None)
 
     logging.info("Dumping ROM data to: %s", args.moddir)
     output = rmap.dump(data)
