@@ -5,6 +5,8 @@ import contextlib
 import logging
 import os
 from collections import OrderedDict
+from os.path import dirname, realpath
+from os.path import join as pathjoin
 
 from bitstring import ConstBitStream
 
@@ -284,6 +286,10 @@ def get_subfiles(root, folder, extension):
     except FileNotFoundError:
         # FIXME: Subfolder missing. Log warning here?
         return []
+
+def get_builtin_path(path):
+    here = pathjoin(dirname(realpath(__file__)))
+    return pathjoin(here, path)
 
 def int_format_str(displaymode, bitsize):
     hexfmt = "0x{{:0{}X}}"
