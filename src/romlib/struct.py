@@ -195,7 +195,7 @@ class Structure(object, metaclass=MetaStruct):
 
     def _init_from_file(self, f):
         bs = bitstring.ConstBitStream(f)
-        self._init_from_bs(bs)
+        self._init_from_bitstring(bs)
 
     def _init_from_bitstring(self, bs):
         self.read_base(bs)
