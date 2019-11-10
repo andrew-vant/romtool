@@ -19,3 +19,4 @@ weapon_ptr	Weapon Pointer	weapons	uintle	0x5066	51	3	-0xC00000			pointer	Weapon 
 armor_ptr	Armor Pointer	armor	uintle	0x50FF	105	3	-0xC00000			pointer	Armor index
 mon_ptr	Monster Pointer	monsters	uintle	0x53FF	260	3	-0xC00000			pointer	Monster index
 spell_ptr	Spell Pointer	spells	uintle	0x523A	64	3	-0xC00000			pointer	Spell index. This appears to be much longer (150+?) but the corresponding spell routine array isn't. I'm not sure the extra entries do anything useful.
+script_ptr	Script Pointer	scripts	uintle	0x2146B	128	3	-0xC00000			pointer	Length is an educated guess.
