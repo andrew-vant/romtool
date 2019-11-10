@@ -6,6 +6,7 @@ import os
 import shutil
 import textwrap
 import itertools
+import csv
 from pprint import pprint
 from itertools import chain
 from importlib.machinery import SourceFileLoader
@@ -350,6 +351,32 @@ def blocks(args):
     for length, offset, byte in blocks[0:args.num]:
         fmt = "{:06X}\t0x{:02X}\t{}\t{:X}"
         print(fmt.format(offset, byte, length, length))
+
+def meta(args):
+    """ Print rom metadata, e.g. console and header info"""
+
+    writer = None
+    for filename in args.rom:
+        logging.info("Inspecting ROM: %s", filename)
+        with open(filename, 'rb') as romfile:
+            try:
+                rom = romlib.rom.Rom.make(romfile)
+            except romlib.rom.RomFormatError as e:
+                logging.error("Error inspecting %s: %s", filename, str(e))
+                continue
+        header_data = {"File": filename}
+        header_data.update(rom.header.dump())
+        columns = ['File'] + romlib.struct.output_fields(rom.header)
+        if not writer:
+            writer = csv.DictWriter(sys.stdout, columns, delimiter="\t")
+            writer.writeheader()
+        writer.writerow(header_data)
+
+
+def identify(args):
+    for filename in args.rom:
+        with open(filename, 'rb') as romfile:
+            print(romlib.rom.identify(romfile) + "\t" + filename)
 
 
 def _backup(filename, skip=False):

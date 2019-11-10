@@ -11,6 +11,8 @@ from os.path import join as pathjoin
 from bitstring import ConstBitStream
 
 
+libroot = dirname(realpath(__file__))
+
 class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
 
@@ -287,9 +289,22 @@ def get_subfiles(root, folder, extension):
         # FIXME: Subfolder missing. Log warning here?
         return []
 
-def get_builtin_path(path):
-    here = pathjoin(dirname(realpath(__file__)))
-    return pathjoin(here, path)
+def libpath(path):
+    return pathjoin(libroot, path)
+
+def libwalk(path):
+    for dirname, dirs, files in os.walk(libpath(path)):
+        for filename in (dirs + files):
+            yield pathjoin(dirname, filename)
+
+def load_builtins(path, extension, loader):
+    path = libpath(path)
+    builtins = {}
+    for filename in os.listdir(path):
+        base, ext = os.path.splitext(filename)
+        if ext == extension:
+            builtins[base] = loader(pathjoin(path, filename))
+    return builtins
 
 def int_format_str(displaymode, bitsize):
     hexfmt = "0x{{:0{}X}}"
@@ -316,3 +331,11 @@ def writetsv(path, data, force=False, headers=None):
 def readtsv(path):
     with open(path, newline='') as f:
         return list(csv.DictReader(f, delimiter="\t"))
+
+def filesize(f):
+    """ Get the size of a file """
+    pos = f.tell()
+    f.seek(0, 2)
+    size = f.tell()
+    f.seek(pos)
+    return size

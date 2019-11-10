@@ -1,4 +1,4 @@
-from . import patch, field, struct, util, text
+from . import patch, field, struct, util, text, rom
 from .rommap import RomMap
 from .struct import Structure
 from .patch import Patch

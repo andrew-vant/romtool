@@ -1,0 +1,17 @@
+id	label	size	type	display	order	mod	info	comment
+ident	Identifier	4	str					
+sz_prg	PRG Size (*16kb)	1	uint					in 16kb units
+sz_chr	CHR Size (*8kb)	1	uint					in 8kb units
+mapper_low	Mapper (Low Nyb)	b4	uint					Low nybble of mapper number
+fourscreen	Four Screen Mode	b1	uint					
+trainer	Trainer Before PRG	b1	uint					
+storage	Has persistent storage	b1	uint					
+mirroring	Mirroring	b1	uint					0 horizontal, 1 vertical
+mapper_high	Mapper (High Nyb)	b4	uint					High nybble of mapper number
+version	Header Format Version	b2	uint					
+console	Console Type	b2	uint					0 NES/NFC, 1 Playchoice 10, 2 VS System
+sz_prg_ram	PRG Ram Size	1	uint					
+reserved	Reserved	b7	bin					
+tv	TV System	b1	uint					0: NTSC; 1: PAL
+ext	Extension	1	uintbe	hex				Used by extensions
+padding	Padding	5	uintbe	hex				

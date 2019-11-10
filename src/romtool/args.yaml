@@ -95,7 +95,17 @@ blocks:
     -m|--min: Minimum block size to bother with
     -n|--num: Print only the N largest blocks   # Because windows has no head.
 
+meta:
+  spec:
+    description: Print rom metadata, e.g. console and header info.
+  args+:
+    rom: ROM file(s)
 
+identify:
+  spec:
+    description: Identify rom types
+  args+:
+    rom: ROM file(s)
 
 # an alternate approach: specify arguments and commands separately. Why
 # not nest args in commands? Because we want command args that are "the
