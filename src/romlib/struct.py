@@ -473,7 +473,7 @@ def load(path):
     name = path.stem
     logging.debug("Loading '%s' definition from %s", name, path)
     with path.open() as f:
-        specs = list(csv.DictReader(f, delimiter="\t"))
+        specs = list(csv.DictReader(f, dialect='romtool'))
     base = define_struct(name, specs)
     modpath = path.parent.joinpath(name + '.py')
     logging.debug("Looking for make_struct hook in %s", modpath)

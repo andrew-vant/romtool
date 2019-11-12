@@ -13,6 +13,18 @@ from bitstring import ConstBitStream
 
 libroot = dirname(realpath(__file__))
 
+# romtool's expected format is tab-separated values, no quoting, no
+# escaping (i.e. tab literals aren't allowed)
+
+csv.register_dialect(
+        'romtool',
+        delimiter='\t',
+        lineterminator=os.linesep,
+        quoting=csv.QUOTE_NONE,
+        strict=True,
+        )
+
+
 class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
 
@@ -323,14 +335,14 @@ def writetsv(path, data, force=False, headers=None):
         # FIXME: Wonder if I can auto-generate per-struct dialects that do the
         # right thing with validate() on loading, so we find out about size or
         # type mismatches right away.
-        writer = csv.DictWriter(f, headers, delimiter="\t")
+        writer = csv.DictWriter(f, headers, dialect='romtool')
         writer.writeheader()
         for item in data:
             writer.writerow(item)
 
 def readtsv(path):
     with open(path, newline='') as f:
-        return list(csv.DictReader(f, delimiter="\t"))
+        return list(csv.DictReader(f, dialect='romtool'))
 
 def filesize(f):
     """ Get the size of a file """

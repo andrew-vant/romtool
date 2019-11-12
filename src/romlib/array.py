@@ -127,7 +127,7 @@ def mergedump(arraydata, use_labels=True, record_order=True):
 
 def from_tsv(path, structs):
     with open(path) as f:
-        specs = list(util.OrderedDictReader(f, delimiter="\t"))
+        specs = list(util.OrderedDictReader(f, dialect='romtool'))
 
     # The order in which arrays are processed matters. Indexes need to be
     # loaded before the arrays that require them. Also, in the event that

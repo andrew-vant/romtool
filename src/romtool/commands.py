@@ -368,7 +368,7 @@ def meta(args):
         header_data.update(rom.header.dump())
         columns = ['File'] + romlib.struct.output_fields(rom.header)
         if not writer:
-            writer = csv.DictWriter(sys.stdout, columns, delimiter="\t")
+            writer = csv.DictWriter(sys.stdout, columns, dialect='romtool')
             writer.writeheader()
         writer.writerow(header_data)
 
