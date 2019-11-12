@@ -63,3 +63,11 @@ target/
 
 # NFS lockfiles?
 .nfs*
+
+# SCM version file
+
+version.py
+
+# SCM eggs?
+
+.eggs

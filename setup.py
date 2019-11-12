@@ -14,6 +14,12 @@ def read(relative_path):
 dependencies = ["bitstring>=3.1.3",
                 "patricia-trie>=10",
                 "pyyaml>=3.10"]
+
+scm_version_options = {
+        'write_to': 'src/romtool/version.py',
+        'fallback_version': 'UNKNOWN',
+        }
+
 classifiers = ["Development Status :: 3 - Alpha",
                "Intended Audience :: Developers",
                "Natural Language :: English",
@@ -21,13 +27,13 @@ classifiers = ["Development Status :: 3 - Alpha",
                "Programming Language :: Python :: 3",
                "Topic :: Software Development :: Libraries :: Python Modules"]
 
-setup(name="romlib",
-      version="0.1.0a2",
+setup(name="romtool",
       packages=find_packages("src") + ['romtool.maps'],
-      package_dir={'': "src",
-                   'romtool.maps': 'data/maps'},  # Ugh.
+      package_dir={'': "src"},
       include_package_data=True,
       install_requires=dependencies,
+      setup_requires=['setuptools-scm>=3.3.0'],
+      use_scm_version=scm_version_options,
       tests_require=['tox'],
       author="Andrew Vant",
       author_email="ajvant@gmail.com",

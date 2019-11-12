@@ -5,6 +5,7 @@ global:
     -c|--conf: Specify project config file
   flags:
     -v|--verbose: Verbose output
+    -V|--version: Print version and exit
     --debug: Print debug information
     --pdb: Start interactive debugger on crash
 

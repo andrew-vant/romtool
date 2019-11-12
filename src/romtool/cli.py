@@ -9,6 +9,7 @@ import yaml
 import romtool.commands
 from romtool import util
 from romtool.util import pkgfile
+from romtool.version import version
 
 log = logging.getLogger(__name__)
 
@@ -149,6 +150,10 @@ def main(argv=None):
 
     # Parse arguments
     args = topparser.parse_args(argv)
+    if args.version:
+        print(version)
+        sys.exit(0)
+
 
     # Set up logging
     if args.verbose:
