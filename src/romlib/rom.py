@@ -53,8 +53,8 @@ class Rom:
     def __init__(self, romfile, rommap=None):
         self.validate(romfile)
         self.map = rommap
-        self.orig = ConstBitStream(romfile)
-        self.data = BitStream(self.orig)
+        self.file = ConstBitStream(romfile)
+        self.data = BitStream(self.file)
 
     @classmethod
     def make(cls, romfile):
@@ -76,9 +76,9 @@ class INESRom(Rom):
 
     def __init__(self, romfile, rommap=None):
         super().__init__(romfile, rommap)
-        bs_head = self.orig[:16*8]
+        bs_head = self.file[:16*8]
         self.header = headers[self.romtype](bs_head)
-        self.data = self.orig[16*8:]
+        self.data = self.file[16*8:]
 
     @classmethod
     def validate(cls, romfile):
@@ -100,7 +100,7 @@ class SNESRom(Rom):
         super().__init__(romfile, rommap)
         self.smc = self._load_smc(romfile)
         self.header = self._load_header(romfile)
-        self.data = BitStream(self.orig[len(self.smc*8):])
+        self.data = BitStream(self.file[len(self.smc*8):])
 
     @classmethod
     def validate(cls, romfile):
@@ -113,10 +113,13 @@ class SNESRom(Rom):
     def _load_smc(cls, romfile):
         sz_file = util.filesize(romfile)
         sz_smc = sz_file % 1024
-        if sz_smc not in [0, cls.sz_smc]:
+        if sz_smc == 0:
+            return None
+        elif sz_smc == cls.sz_smc:
+            romfile.seek(0)
+            return romfile.read(sz_smc)
+        else:
             raise HeaderError("Bad rom file size or corrupt SMC header")
-        romfile.seek(0)
-        return romfile.read(sz_smc)
 
     @classmethod
     def checksum(cls, romdata):
@@ -161,7 +164,49 @@ class SNESRom(Rom):
 
         return True
 
+
 def identify(romfile):
     # Requires reading the whole rom to determine its type. There must be a
     # better way to do this.
     return Rom.make(romfile).romtype
+
+
+class Type(type):
+    def __init__(cls, name, bases, dct):
+        super().__init__(name, bases, dct)
+        # Self.fields will get set by super().__init__
+        if not hasattr(cls, "fields"):
+            raise ValueError("Fields class variable is required.")
+        for fid in cls.fields:
+            if fid in dir(cls):
+                msg = "field id {}:{} shadows a built-in attribute"
+                raise ValueError(msg, name, fid)
+
+
+class RomStruct(metaclass=Type):
+    fields = {}
+    def __init__(self, stream, offset):
+        self.stream = stream
+        self.offset = offset
+
+    def __getattr__(self, key):
+        return self[key]
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __getitem__(self, key):
+        field = self.fields[key]
+        stream.seek(self.offset + field.offset)
+        return stream.read(field.bs_spec)
+
+    def __setitem__(self, key, value):
+        field = self.fields[key]
+        stream.seek(self.offset + field.offset)
+        stream.write("{}={}".format(field.bs_spec, value)
+
+    @classmethod
+    def define(cls, name, field_specs):
+        bases = (cls,)
+        clsdct = {field['id']: field for field in field_specs}
+        return type(name, bases, clsdict)
