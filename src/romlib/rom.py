@@ -49,6 +49,19 @@ class HeaderError(RomFormatError):
     pass
 
 
+class RomStruct(object):
+    def __init__(stream, parent, offset):
+        self.stream = stream
+
+    def __getitem__(self, key):
+        offset = parent.offset
+        offset += self.offset
+        offset += 
+
+    def __setitem__(self, key, value):
+        pass
+
+
 class Rom:
     def __init__(self, romfile, rommap=None):
         self.validate(romfile)

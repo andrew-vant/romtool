@@ -279,12 +279,12 @@ def divup(a, b):  # pylint: disable=invalid-name
     return (a + (-a % b)) // b
 
 
-def intify(x, default=0):  # pylint: disable=invalid-name
+def intify(x, default):  # pylint: disable=invalid-name
     """ A forgiving int() cast; returns default if typecast fails."""
     try:
         return int(x, 0)
     except (ValueError, TypeError):
-        return default
+        return x if default is None else default
 
 
 def get_subfiles(root, folder, extension):
