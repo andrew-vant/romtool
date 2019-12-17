@@ -1,5 +1,7 @@
 import logging
 
+from abc import ABCMeta
+
 
 log = logging.getLogger(__name__)
 registry = {}
@@ -10,9 +12,6 @@ def register(name, cls):
         raise ValueError("Duplicate custom type: " + name)
     registry[name] = cls
 
-
-class RomObject(metaclass=RomObjectType):
-    pass
 
 class OffsetSpec(object):
     """ Specification of an offset
@@ -56,64 +55,165 @@ class OffsetSpec(object):
         return offset
 
 
-class PrimitiveType():
-    def __init__(cls, name, bases, dct):
-        # empty strings get stripped out; the parent RomObject class
-        # provides defaults.
-        dct = {k: v for k, v in dct.items() if v}
-        cls.sz_bits = util.tobits(dct['size'], None)
+class SizeSpec:
+    """ Specification of a size
+    
+    This is more complicated than it seems because the size may be
+    specified in bits or bytes, and may be defined by a property of the
+    parent structure.
 
-        # Uncast string values get cast
+    The spec is: UNIT:COUNT. Bytes are the default unit.
+
+    bits:3     : three bits
+    bits:name  : size defined by named sibling field.
+    bytes:1    : one bytes
+    1          : also one byte
+    """
+
+    _unit_scale = {'bits': 1,
+                   'bytes': 8,
+                   'kb': 8*1024}
+
+    def __init__(self, spec):
+
+        unit, sep, sz_raw = reversed(spec.partition(":"))
+        if not unit:
+            unit = 'bits'
+        if unit not in self._unit_scale:
+            raise ValueError("Invalid size spec: " + spec)
+
+        self.unit = unit
+        self.scale = self._unit_scale[unit]
+
+        try:
+            self.count = int(sz_raw, 0)
+            self.sibling = None
+        except (ValueError, TypeError):
+            self.count = None
+            self.sibling = sz_raw
+        assert self.count or self.sibling
+
+    @property
+    def bits(self, parent):
+        if self.sibling:
+            count = self.parent[sibling]
+        else:
+            count = self.count
+        return count * self.scale
+
+    @property
+    def bytes(self):
+        bits = self.bits
+        if bits % 8:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return bits // 8
+
+
+class PrimitiveType(ABCMeta):
+    def __init__(cls, name, bases, dct):
+        # empty strings get stripped out; the parent class provides defaults
+        dct = {k: v for k, v in dct.items() if v}
+
+        # uncast string values get cast
         unstring = {
-                'size': lambda s: util.tobits(s, 0),
-                'order': lambda s: util.intify(s),
-                'mod': lambda s: util.intify(s, s)
+                'offset': OffsetSpec(s),
+                'size':   SizeSpec(s),
+                'mod':    lambda s: util.intify(s, s),
+                'order':  lambda s: int(s, 0),
                 }
 
         for key, func in unstring.items():
             if key in dct and isinstance(dct[key], str):
                 dct[key] = func(dct[key])
 
-        # Note bitstring format string for this type.
-        dct['rfmt'] = '{}:{}'.format(dct['type'], dct['size'])
-        dct['wfmt'] = dct['rfmt'] + '={}'
-
         super().__init__(name, bases, dct)
 
 
 class Primitive(metaclass=PrimitiveType):
-    # Mandatory fields included here for documentation
-    _offset = None
-    size = None
+    # Type variables set to None here for documentation purposes
+    fid = None
+    desc = None
+    size = SizeSpec('bytes:1')
+    offset = None
     mod = None
+    order = 0
 
-    def __init__(self, parent, offset, fmt):
+    def __init__(self, parent):
         self.parent = parent
         self.stream = parent.stream
 
     def __str__(self):
         return str(self.read())
 
-    @property
-    def offset(self):
-        return self._offset.resolve(self.parent)
-
-    @property
-    def sz_bits(self):
-
-
     def read(self):
-        self.stream.pos = self.offset
-        return self.stream.read(self.fmt)
+        self.stream.pos = self.offset_rom
+        bsfmt = '{}:{}'.format(self.type, self.sz_bits)
+        return self.stream.read(bsfmt)
 
     def write(self, value):
-        self.stream.pos = self.offset
-        self.stream.overwrite(self.wfmt.format(value))
+        self.stream.pos = self.offset_rom
+        bsfmt = '{}:{}={}'.format(self.type, self.sz_bits, value)
+        self.stream.overwrite(bsfmt)
+
+    @property
+    def offset(self):
+        return type(self).offset.resolve(self)
 
     @classmethod
     def define(cls, name, spec):
         """ Do I really need this? """
         return type(name, (cls,), spec)
+
+
+class UInt(Primitive):
+    tid = 'uint'
+
+
+class Pointer(UInt):
+    tid = 'ptr'
+
+    def __str__(self):
+        fmtstr = '0x{{:0{}X}}'.format(self.sz_bytes)
+        return fmtstr.format(self.read())
+
+
+class Bitfield(Primitive):
+    _modfunc = {'msb0': lambda bs: bs,
+                'lsb0': lambda bs: util.lbin_reverse(bs)}
+    tid = 'bin'
+    mod = 'msb0'
+    modfunc = _modfunc[mod]
+
+    def __str__(self):
+        return util.displaybits(bits, self.display)
+
+    def read(self):
+        bs = super().read()
+        return self.modfunc(bs)
+
+    def write(self, bs):
+        bs = self.modfunc(bs)
+        super().write(bs)
+
+
+class String(Primitive):
+    tid = 'str'
+    display = 'ascii'
+    size = SizeSpec('bytes:1024')
+    _last_read_size = None
+
+    def read(self):
+        self.stream.pos = self.offset.resolve(self.parent)
+        bs = self.stream.read(self.size.bytes)
+        return codecs.decode(bs, self.display)
+
+    def write(self, s):
+        self.stream.pos = self.offset.resolve(self.parent)
+        self.stream.overwrite(codecs.encode(s, self.display))
+
+
+
 
 
 class StructType(type):
