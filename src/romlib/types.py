@@ -30,99 +30,100 @@ class OffsetSpec(object):
 
     "rel" is the default, but can be given if desired.
     """
+
     def __init__(self, spec):
         self.spec = spec
-        offset, sep, origin = reversed(spec.partition(":"))
+        offset_raw, sep, origin_raw = reversed(spec.partition(":"))
 
         if origin == 'rel' or not origin:
-            self.relative = False
+            origin = None
         elif origin == 'abs':
-            self.relative = True
+            origin = origin_raw
         else:
             raise ValueError("Invalid offset spec: " + spec)
 
         try:
-            self.offset = int(offset, 0)
-            self.sibling = None
+            offset = int(offset_raw, 0)
+            sibling = None
         except (ValueError, TypeError):
-            self.offset = None
-            self.sibling = offset
+            offset = None
+            sibling = offset_raw
 
-    def resolve(self, parent=None):
-        offset = self.offset if not self.sibling else parent[self.sibling]
-        if self.relative:
-            offset += parent.offset
-        return offset
+        self.offset = offset
+        self.origin = origin
+        self.sibling = sibling
+
+    def resolve(self, struct):
+        if self.origin is not None:
+            origin = self.origin
+        else:
+            origin = struct.offset
+
+        if self.offset is not None:
+            offset = self.offset
+        else:
+            offset = struct[self.sibling]
+
+        return origin + offset
 
 
-class SizeSpec:
-    """ Specification of a size
-    
-    This is more complicated than it seems because the size may be
-    specified in bits or bytes, and may be defined by a property of the
+
+class SizeSpec(object):
+    """ Size of a field or structure
+
+    Size specs are UNIT:COUNT. Unit can be bits or bytes, defaulting to
+    bits. Count can be a fixed number or the name of a field in the
     parent structure.
-
-    The spec is: UNIT:COUNT. Bytes are the default unit.
-
-    bits:3     : three bits
-    bits:name  : size defined by named sibling field.
-    bytes:1    : one bytes
-    1          : also one byte
     """
 
     _unit_scale = {'bits': 1,
                    'bytes': 8,
                    'kb': 8*1024}
 
-    def __init__(self, spec):
+    def __init__(self, specstr):
+        sz_raw, sep, unit = reversed(self.specstr)
 
-        unit, sep, sz_raw = reversed(spec.partition(":"))
         if not unit:
             unit = 'bits'
         if unit not in self._unit_scale:
             raise ValueError("Invalid size spec: " + spec)
 
-        self.unit = unit
-        self.scale = self._unit_scale[unit]
-
         try:
-            self.count = int(sz_raw, 0)
-            self.sibling = None
+            count = int(sz_raw, 0)
+            sibling = None
         except (ValueError, TypeError):
-            self.count = None
-            self.sibling = sz_raw
-        assert self.count or self.sibling
+            count = None
+            sibling = sz_raw
 
-    @property
-    def bits(self, parent):
-        if self.sibling:
-            count = self.parent[sibling]
+        self.scale = self._unit_scale[unit]
+        self.count = count
+        self.sibling = sibling
+
+    def resolve(self, struct):
+        if self.sibling is None:
+            return self.count * self.scale
         else:
-            count = self.count
-        return count * self.scale
-
-    @property
-    def bytes(self):
-        bits = self.bits
-        if bits % 8:
-            raise ValueError("Not an even number of bytes")
-        else:
-            return bits // 8
+            return struct[self.sibling] * self.scale
 
 
-class PrimitiveType(ABCMeta):
+
+class StructField(ABCMeta):
     def __init__(cls, name, bases, dct):
         # empty strings get stripped out; the parent class provides defaults
         dct = {k: v for k, v in dct.items() if v}
 
-        # uncast string values get cast
+        # string values (e.g. as read from tsv) get made into objects as
+        # necessary
         unstring = {
+                'fid': s,
+                'type': s,
+                'desc': s,
+                'display': s,
                 'offset': OffsetSpec(s),
                 'size':   SizeSpec(s),
                 'mod':    lambda s: util.intify(s, s),
-                'order':  lambda s: int(s, 0),
+                'order':  lambda s: util.intify(s, 0),
                 }
-
         for key, func in unstring.items():
             if key in dct and isinstance(dct[key], str):
                 dct[key] = func(dct[key])
@@ -130,24 +131,38 @@ class PrimitiveType(ABCMeta):
         super().__init__(name, bases, dct)
 
 
-class Primitive(metaclass=PrimitiveType):
-    # Type variables set to None here for documentation purposes
-    fid = None
-    desc = None
-    size = SizeSpec('bytes:1')
-    offset = None
-    mod = None
-    order = 0
+class InstanceField(metaclass=StructField):
 
-    def __init__(self, parent):
+    tid = None
+
+    def __init__(self, parent)
         self.parent = parent
         self.stream = parent.stream
 
     def __str__(self):
         return str(self.read())
 
+    @property
+    def sz_bits(self):
+        """ Get the field's size in bits."""
+
+        return type(self).size.resolve(self.parent)
+
+    @property
+    def sz_bytes(self):
+        if self.sz_bits % 8 != 0:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return sz_bits // 8
+
+    @property
+    def offset(self):
+        """ Get the field's absolute offset within the rom stream """
+
+        return type(self).offset.resolve(self.parent)
+
     def read(self):
-        self.stream.pos = self.offset_rom
+        self.stream.pos = self.offset
         bsfmt = '{}:{}'.format(self.type, self.sz_bits)
         return self.stream.read(bsfmt)
 
@@ -156,21 +171,13 @@ class Primitive(metaclass=PrimitiveType):
         bsfmt = '{}:{}={}'.format(self.type, self.sz_bits, value)
         self.stream.overwrite(bsfmt)
 
-    @property
-    def offset(self):
-        return type(self).offset.resolve(self)
-
     @classmethod
     def define(cls, name, spec):
         """ Do I really need this? """
         return type(name, (cls,), spec)
 
 
-class UInt(Primitive):
-    tid = 'uint'
-
-
-class Pointer(UInt):
+class Pointer(InstanceField):
     tid = 'ptr'
 
     def __str__(self):
@@ -178,7 +185,7 @@ class Pointer(UInt):
         return fmtstr.format(self.read())
 
 
-class Bitfield(Primitive):
+class Bitfield(InstanceField):
     _modfunc = {'msb0': lambda bs: bs,
                 'lsb0': lambda bs: util.lbin_reverse(bs)}
     tid = 'bin'
@@ -197,10 +204,9 @@ class Bitfield(Primitive):
         super().write(bs)
 
 
-class String(Primitive):
+class String(InstanceField):
     tid = 'str'
     display = 'ascii'
-    size = SizeSpec('bytes:1024')
     _last_read_size = None
 
     def read(self):
@@ -211,9 +217,6 @@ class String(Primitive):
     def write(self, s):
         self.stream.pos = self.offset.resolve(self.parent)
         self.stream.overwrite(codecs.encode(s, self.display))
-
-
-
 
 
 class StructType(type):
