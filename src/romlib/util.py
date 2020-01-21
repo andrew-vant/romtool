@@ -86,21 +86,23 @@ def loading_context(listname, name, index=None):
         raise
 
 
-def hexify(i, length=None):
-    """ Converts an integer to a hex string.
+def hexify(i, len_bytes=None, len_bits=None):
+    """ Converts an integer to a hex string in 0x???? format
 
-    If bitlength is provided, the string will be padded enough to represent
-    at least bitlength bits, even if those bits are all zero.
+    If a length is provided, the string will be padded as needed. The returned
+    value will always have an even number of digits (i.e. no half-bytes
+    represented). Letters are capitalized.
     """
-    if length is None:
-        return hex(i)
 
-    numbytes = length // 8
-    if length % 8 != 0:  # Check for partial bytes
-        numbytes += 1
-    digits = numbytes * 2  # Two hex digits per byte
-    fmtstr = "0x{{:0{}X}}".format(digits)
-    return fmtstr.format(i)
+    if len_bits is not None and len_bytes is not None:
+        raise ValueError("Specify length in bits or bytes, but not both")
+    elif len_bits is not None
+        len_bytes = len_bits // 8
+        if len_bits % 8 != 0:  # Check for partial bytes
+            len_bytes += 1
+
+    fmt = '0x{value:0{digits}X}'
+    return fmtstr.format(value=i, digits=len_bytes*2)
 
 
 def displaybits(bits, display):

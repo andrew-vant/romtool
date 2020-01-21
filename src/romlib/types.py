@@ -45,16 +45,16 @@ class OffsetSpec(object):
         self.origin = origin
         self.sibling = sibling
 
-    def resolve(self, struct):
+    def __get__(self, instance, owner=None):
         if self.origin is not None:
             origin = self.origin
         else:
-            origin = struct.offset
+            origin = instance.parent.offset
 
         if self.offset is not None:
             offset = self.offset
         else:
-            offset = struct[self.sibling]
+            offset = instance.parent[self.sibling]
 
         return origin + offset
 
@@ -90,106 +90,111 @@ class SizeSpec(object):
         self.count = count
         self.sibling = sibling
 
-    def resolve(self, struct):
+    def __get__(self, instance, owner=None):
+        """ Get the size of the object, in bits. """
+
         if self.sibling is None:
             return self.count * self.scale
         else:
-            return struct[self.sibling] * self.scale
+            return instance.parent[self.sibling] * self.scale
 
 
-class StructField:
-    def __init__(self, fid, _type, offset_spec, size_spec,
-                 display=None, mod=None, order=None, comment=""):
-        self.fid = fid
-        self.type = _type
-        self.offset = offset_spec
-        self.size = size_spec
-        self.display = display
-        self.mod = mod
-        self.order = order
-        self.comment = comment
+class FieldType(abc.ABCMeta):
+    registry = {}
 
-    @classmethod
-    def from_stringdict(cls, dct):
+    def __new__(cls, name, bases, dct):
+        unstring = {
+                'offset': OffsetSpec,
+                'size': SizeSpec,
+                'mod': lambda m: util.intify(m, m),
+                'order': lambda o: int(o) if o else 0,
+                }
 
-        # A few extra conversions need to be done.
-        dct['_type'] = dct.pop('type')
-        dct['offset_spec'] = OffsetSpec(dct.pop('offset'))
-        dct['size_spec'] = SizeSpec(dct.pop('size'))
-        dct['mod'] = util.intify(dct.get('mod', None), dct['mod'])
-        dct['order'] = int(dct['order']) if 'order' in dct else None
+        for key, func in unstring.items():
+            if key in dct and isinstance(key, str):
+                dct[key] = func(dct[key])
 
-        # Strip any unused fields before passing on, so defaults can be
-        # applied.
-        dct = {k: v for k, v in dct.items() if v}
+        return super().__new__(cls, name, bases, dct)
 
-        return cls(**dct)
 
-    def _offset(self, instance):
-        """ Get the field's absolute offset within the parent stream."""
+class Field(metaclass=FieldType):
+    tid = abc.abstractproperty()
 
-        return self.offset.resolve(instance)
+    fid = abc.abstractproperty()
+    type = abc.abstractproperty()
+    offset = abc.abstractproperty()
+    size = 8  # bits
+    display = None
+    mod = None
+    order = 0
+    comment = None
 
-    def _sz_bits(self, instance):
-        """ Get the field's size in bits."""
-
-        return self.size.resolve(instance)
-
-    def _sz_bytes(self, instance):
-        """ Get the field's size in bytes, if possible."""
-
-        if self.sz_bits % 8 != 0:
-            raise ValueError("Not an even number of bytes")
-        else:
-            return sz_bits // 8
-
-    def read(self, instance, owner=None):
-        stream = instance.stream
-        bits = self._sz_bits(instance)
-        offset = self._offset(instance)
-        bsfmt = '{tp}:{bits}'
-
-        stream.pos = offset
-        return stream.read(bsfmt.format(self.type, bits))
-
-    def write(self, instance, value):
-        stream = instance.stream
-        bits = self._sz_bits(instance)
-        offset = self._offset(instance)
-        bsfmt = '{tp}:{bits}={val}'
-
-        stream.pos = self._offset(instance)
-        stream.overwrite(bsfmt.format(self.type, bits, value))
+    def __init__(self, parent):
+        self.parent = parent
 
     def __str__(self):
-        # FIXME: Okay, not sure how to do this right if I take the
-        # descriptor approach. Blah. Might have to abandon it.
-        pass
+        return str(self.read())
 
-    def __get__(self, instance, owner=None):
-        return self.read(instance, owner)
+    @property
+    def sz_bits(self):
+        """ Get the field's size in bits."""
 
-    def __set__(self, instance, value):
-        return self.write(instance, value)
+        return self.size
+
+    @property
+    def sz_bytes(self):
+        """ Get the field's size in bytes, if possible."""
+
+        bits = self.sz_bits
+        if bits % 8 != 0:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return bits // 8
+
+    def read(self):
+        stream = parent.stream
+        bits = self.sz_bits
+        offset = self.offset
+
+        bsfmt = '{tp}:{sz}'.format(tp=self.type, sz=bits)
+        stream.pos = offset
+        return stream.read(bsfmt)
+
+    def write(self, value):
+        stream = parent.stream
+        bits = self.sz_bits
+        offset = self.offset
+
+        bsfmt = '{tp}:{sz}={val}'.format(tp=self.type, sz=bits, val=value)
+        stream.pos = offset
+        stream.overwrite(bsfmt)
 
 
-class Pointer(StructField):
+class UInt(Field):
+    tid = 'uint'
+    type = 'uint'
+
+
+class PointerField(UInt):
     tid = 'ptr'
 
     def __str__(self):
-        fmtstr = '0x{{:0{}X}}'.format(self.sz_bytes)
-        return fmtstr.format(self.read())
+        return util.hexify(self.read(), self.sz_bytes)
 
 
-class Bitfield(InstanceField):
-    _modfunc = {'msb0': lambda bs: bs,
-                'lsb0': lambda bs: util.lbin_reverse(bs)}
+class BitfieldField(Field):
     tid = 'bin'
     mod = 'msb0'
-    modfunc = _modfunc[mod]
+    _modfunc = {'msb0': lambda bs: bs,
+                'lsb0': lambda bs: util.lbin_reverse(bs)}
 
     def __str__(self):
         return util.displaybits(bits, self.display)
+
+    @property
+    def modfunc(self):
+        # Should really be a classproperty
+        return self._modfunc[self.mod]
 
     def read(self):
         bs = super().read()
@@ -200,18 +205,17 @@ class Bitfield(InstanceField):
         super().write(bs)
 
 
-class String(InstanceField):
+class String(Field):
     tid = 'str'
     display = 'ascii'
-    _last_read_size = None
 
     def read(self):
-        self.stream.pos = self.offset.resolve(self.parent)
+        self.stream.pos = self.offset
         bs = self.stream.read(self.size.bytes)
         return codecs.decode(bs, self.display)
 
     def write(self, s):
-        self.stream.pos = self.offset.resolve(self.parent)
+        self.stream.pos = self.offset
         self.stream.overwrite(codecs.encode(s, self.display))
 
 
