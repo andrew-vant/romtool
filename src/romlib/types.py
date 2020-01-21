@@ -4,14 +4,6 @@ from abc import ABCMeta
 
 
 log = logging.getLogger(__name__)
-registry = {}
-
-
-def register(name, cls):
-    if name in registry:
-        raise ValueError("Duplicate custom type: " + name)
-    registry[name] = cls
-
 
 class OffsetSpec(object):
     """ Specification of an offset
@@ -67,7 +59,6 @@ class OffsetSpec(object):
         return origin + offset
 
 
-
 class SizeSpec(object):
     """ Size of a field or structure
 
@@ -106,78 +97,83 @@ class SizeSpec(object):
             return struct[self.sibling] * self.scale
 
 
+class StructField:
+    def __init__(self, fid, _type, offset_spec, size_spec,
+                 display=None, mod=None, order=None, comment=""):
+        self.fid = fid
+        self.type = _type
+        self.offset = offset_spec
+        self.size = size_spec
+        self.display = display
+        self.mod = mod
+        self.order = order
+        self.comment = comment
 
-class StructField(ABCMeta):
-    def __init__(cls, name, bases, dct):
-        # empty strings get stripped out; the parent class provides defaults
+    @classmethod
+    def from_stringdict(cls, dct):
+
+        # A few extra conversions need to be done.
+        dct['_type'] = dct.pop('type')
+        dct['offset_spec'] = OffsetSpec(dct.pop('offset'))
+        dct['size_spec'] = SizeSpec(dct.pop('size'))
+        dct['mod'] = util.intify(dct.get('mod', None), dct['mod'])
+        dct['order'] = int(dct['order']) if 'order' in dct else None
+
+        # Strip any unused fields before passing on, so defaults can be
+        # applied.
         dct = {k: v for k, v in dct.items() if v}
 
-        # string values (e.g. as read from tsv) get made into objects as
-        # necessary
-        unstring = {
-                'fid': s,
-                'type': s,
-                'desc': s,
-                'display': s,
-                'offset': OffsetSpec(s),
-                'size':   SizeSpec(s),
-                'mod':    lambda s: util.intify(s, s),
-                'order':  lambda s: util.intify(s, 0),
-                }
-        for key, func in unstring.items():
-            if key in dct and isinstance(dct[key], str):
-                dct[key] = func(dct[key])
+        return cls(**dct)
 
-        super().__init__(name, bases, dct)
+    def _offset(self, instance):
+        """ Get the field's absolute offset within the parent stream."""
 
+        return self.offset.resolve(instance)
 
-class InstanceField(metaclass=StructField):
-
-    tid = None
-
-    def __init__(self, parent)
-        self.parent = parent
-        self.stream = parent.stream
-
-    def __str__(self):
-        return str(self.read())
-
-    @property
-    def sz_bits(self):
+    def _sz_bits(self, instance):
         """ Get the field's size in bits."""
 
-        return type(self).size.resolve(self.parent)
+        return self.size.resolve(instance)
 
-    @property
-    def sz_bytes(self):
+    def _sz_bytes(self, instance):
+        """ Get the field's size in bytes, if possible."""
+
         if self.sz_bits % 8 != 0:
             raise ValueError("Not an even number of bytes")
         else:
             return sz_bits // 8
 
-    @property
-    def offset(self):
-        """ Get the field's absolute offset within the rom stream """
+    def read(self, instance, owner=None):
+        stream = instance.stream
+        bits = self._sz_bits(instance)
+        offset = self._offset(instance)
+        bsfmt = '{tp}:{bits}'
 
-        return type(self).offset.resolve(self.parent)
+        stream.pos = offset
+        return stream.read(bsfmt.format(self.type, bits))
 
-    def read(self):
-        self.stream.pos = self.offset
-        bsfmt = '{}:{}'.format(self.type, self.sz_bits)
-        return self.stream.read(bsfmt)
+    def write(self, instance, value):
+        stream = instance.stream
+        bits = self._sz_bits(instance)
+        offset = self._offset(instance)
+        bsfmt = '{tp}:{bits}={val}'
 
-    def write(self, value):
-        self.stream.pos = self.offset_rom
-        bsfmt = '{}:{}={}'.format(self.type, self.sz_bits, value)
-        self.stream.overwrite(bsfmt)
+        stream.pos = self._offset(instance)
+        stream.overwrite(bsfmt.format(self.type, bits, value))
 
-    @classmethod
-    def define(cls, name, spec):
-        """ Do I really need this? """
-        return type(name, (cls,), spec)
+    def __str__(self):
+        # FIXME: Okay, not sure how to do this right if I take the
+        # descriptor approach. Blah. Might have to abandon it.
+        pass
+
+    def __get__(self, instance, owner=None):
+        return self.read(instance, owner)
+
+    def __set__(self, instance, value):
+        return self.write(instance, value)
 
 
-class Pointer(InstanceField):
+class Pointer(StructField):
     tid = 'ptr'
 
     def __str__(self):
@@ -284,6 +280,11 @@ class Structure(metaclass=StructType):
 
     def __setitem__(self, key, value):
         self.fields[key].write(value)
+
+    @classmethod
+    def __init_subclass__(cls):
+        # register the subclass somehow? Or at least log it.
+        return super().__init_subclass(cls)
 
     @classmethod
     def define(cls, name, field_specs):
