@@ -172,8 +172,6 @@ class Field(metaclass=FieldType):
 
 class UInt(Field):
     tid = 'uint'
-    type = 'uint'
-
 
 class PointerField(UInt):
     tid = 'ptr'
@@ -219,71 +217,63 @@ class String(Field):
         self.stream.overwrite(codecs.encode(s, self.display))
 
 
-class StructType(type):
-    def __init__(cls, name, bases, dct, fieldspecs):
-        fields = []
-        by_id = {}
-        by_label = {}
+class StructType(abc.ABCMeta):
+    registry = {}
 
-        for spec in fieldspecs:
-            # Get the relevant field attributes
-            fid = spec['id']
-            fname = name + "." + fid
-            flabel = spec.get('label', fid)
-            fbase = registry.get(spec['type'], Primitive)
+    def __new__(cls, name, bases, dct):
 
-            # Sanity checks
-            if fid in by_id:
-                msg = "duplicate field id: {}.{}"
-                raise ValueError(msg, name, fid)
-            if flabel in by_label:
-                msg = "duplicate field label: {}[{}]"
-                raise ValueError(msg, name, flabel)
-            if fid in dir(cls):
+        # check for field name collisions
+        fnames = []
+        for field in dct['fields']:
+            fnames.append(field.fid)
+            fnames.append(field.label)
+        counter = collections.Counter(fnames)
+        for fname, count in counter.items():
+            if count > 1:
+                msg = "duplicated field id or label: {}.{}"
+                raise ValueError(msg.format(name, fname))
+
+        # check for name shadowing
+        for field in dct['fields']:
+            if field.fid in dir(cls):
                 msg = "field id {}.{} shadows a built-in attribute"
-                raise ValueError(msg, name, fid)
+                raise ValueError(msg.format(name, fid))
 
-            # Create field type
-            ftype = type(fid, (fbase, ), spec)
-            fields.append(ftype)
-            by_id[fid] = ftype
-            by_label[flabel] = ftype
-
-        dct.update({'fields': fields,
-                    'fld_by_id': by_id,
-                    'fld_by_label': by_label})
-
-        super().__init__(name, bases, dct)
-        register(cls)
+        cls.registry[name] = super().__new__(cls, name, bases, dct)
+        return structcls
 
 
 class Structure(metaclass=StructType):
+    fields = []
+
     def __init__(self, stream, offset):
         # FIXME: Check behavior vs get/setattr
         self.stream = stream
         self.offset = offset
-        self.fields = {fld.id: fld(
+        self.data = {}
+        for field in self.fields:
+            datafield = field(self)
+            # We want to be able to look up data by either id or label
+            self.data[datafield.fid] = datafield
+            self.data[datafield.label] = datafield
 
     def __str__(self):
-        return yaml.dump(self.fields)
-
-    def _fld_offset(self, field):
-        return self.offset + self.fields[field].offset
+        return yaml.dump(
+                fld.fid: data[fld.fid].read()
+                for fld in self.fields
+                )
 
     def __getattr__(self, key):
-        fld = self.fields[key]
-        self.stream.pos = self.offset + fld.offset
-        return self.stream.read("{}:{}".format(fld.type, fld.size))
+        return self.data[key].read()
 
     def __setattr__(self, key, value):
-        pass
+        self.data[key].write(value)
 
     def __getitem__(self, key):
-        # Get the offset of the item within the stream; read it.
-
+        return getattr(self, key)
 
     def __setitem__(self, key, value):
-        self.fields[key].write(value)
+        self.data[key].write(value)
 
     @classmethod
     def __init_subclass__(cls):
@@ -293,5 +283,6 @@ class Structure(metaclass=StructType):
     @classmethod
     def define(cls, name, field_specs):
         bases = (cls,)
-        clsdct = {field['id']: field for field in field_specs}
+        fields = [FieldType(spec) for spec in field_specs]
+        clsdct = {'fields': fields}
         return type(name, bases, clsdict)
