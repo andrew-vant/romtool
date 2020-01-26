@@ -99,7 +99,7 @@ class SizeSpec(object):
             return instance.parent[self.sibling] * self.scale
 
 
-class FieldType(abc.ABCMeta):
+class StructTypeField(abc.ABCMeta):
     def __new__(cls, name, bases, dct):
         unstring = {
                 'offset': OffsetSpec,
@@ -114,7 +114,8 @@ class FieldType(abc.ABCMeta):
 
         return super().__new__(cls, name, bases, dct)
 
-class Field(metaclass=FieldType):
+
+class StructInstanceField(metaclass=StructTypeField):
     registry = {}
 
     fid = abc.abstractproperty()
@@ -132,37 +133,6 @@ class Field(metaclass=FieldType):
     def __str__(self):
         return str(self.read())
 
-    @property
-    def sz_bits(self):
-        """ Get the field's size in bits."""
-
-        return self.size
-
-    @property
-    def sz_bytes(self):
-        """ Get the field's size in bytes, if possible."""
-
-        bits = self.sz_bits
-        if bits % 8 != 0:
-            raise ValueError("Not an even number of bytes")
-        else:
-            return bits // 8
-
-    @abstractmethod
-    def read(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def write(self, value):
-        raise NotImplementedError
-
-    def __init_subclass__(cls, registry_key=None, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if registry_key:
-            cls.registry[registry_key] = cls
-
-
-class UInt(Field, "uint"):
     def read(self):
         stream = parent.stream
         bits = self.sz_bits
@@ -181,45 +151,70 @@ class UInt(Field, "uint"):
         stream.pos = offset
         stream.overwrite(bsfmt)
 
+    @property
+    def stream(self):
+        return self.parent.stream
+
+    @property
+    def sz_bits(self):
+        """ Get the field's size in bits."""
+
+        return self.size
+
+    @property
+    def sz_bytes(self):
+        """ Get the field's size in bytes, if possible."""
+
+        bits = self.sz_bits
+        if bits % 8 != 0:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return bits // 8
+
+    def __init_subclass__(cls, regkey=None, **kwargs):
+        super().__init_subclass__(kwargs)
+        if regkey:
+            cls.registry[regkey] = cls
+
+
+class UInt(StructTypeField, "uint"):
+    def __str__(self):
+        val = self.read()
+        if self.display == 'hex':
+            return util.hexify(val, self.sz_bytes)
+        else:
+            return str(val)
+
 
 class Pointer(UInt, "ptr"):
     def __str__(self):
         return util.hexify(self.read(), self.sz_bytes)
 
 
-class Bitfield(Field, "bin"):
-    mod = 'msb0'
-    _modfunc = {'msb0': lambda bs: bs,
-                'lsb0': lambda bs: util.lbin_reverse(bs)}
-
-    def __str__(self):
-        return util.displaybits(bits, self.display)
-
-    @property
-    def modfunc(self):
-        # Should really be a classproperty
-        return self._modfunc[self.mod]
-
-    def read(self):
-        bs = super().read()
-        return self.modfunc(bs)
-
-    def write(self, bs):
-        bs = self.modfunc(bs)
-        super().write(bs)
-
-
-class String(Field, "str"):
-    display = 'ascii'
-
+class String(StructInstanceField, "str"):
     def read(self):
         self.stream.pos = self.offset
-        bs = self.stream.read(self.size.bytes)
-        return codecs.decode(bs, self.display)
+        bs = self.stream.read(self.sz_bytes)
+        return codecs.decode(bs, self.display or 'ascii')
 
     def write(self, s):
         self.stream.pos = self.offset
-        self.stream.overwrite(codecs.encode(s, self.display))
+        self.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
+
+
+class Bitfield(StructInstanceField, "bin"):
+    def __str__(self):
+        return util.displaybits(self.read(), self.display)
+
+    def read(self):
+        self.stream.pos = self.offset
+        bs = self.stream.read(self.sz_bits)
+        if self.mod == 'lsb0':
+            bs = util.lbin_reverse(bs)
+
+    def write(self, bs):
+        self.stream.pos = self.offset
+        self.stream.overwrite(bs)
 
 
 class StructType(type):
