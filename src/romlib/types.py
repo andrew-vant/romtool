@@ -100,8 +100,6 @@ class SizeSpec(object):
 
 
 class FieldType(abc.ABCMeta):
-    registry = {}
-
     def __new__(cls, name, bases, dct):
         unstring = {
                 'offset': OffsetSpec,
@@ -116,9 +114,8 @@ class FieldType(abc.ABCMeta):
 
         return super().__new__(cls, name, bases, dct)
 
-
 class Field(metaclass=FieldType):
-    tid = abc.abstractproperty()
+    registry = {}
 
     fid = abc.abstractproperty()
     type = abc.abstractproperty()
@@ -151,6 +148,21 @@ class Field(metaclass=FieldType):
         else:
             return bits // 8
 
+    @abstractmethod
+    def read(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def write(self, value):
+        raise NotImplementedError
+
+    def __init_subclass__(cls, registry_key=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if registry_key:
+            cls.registry[registry_key] = cls
+
+
+class UInt(Field, "uint"):
     def read(self):
         stream = parent.stream
         bits = self.sz_bits
@@ -170,18 +182,12 @@ class Field(metaclass=FieldType):
         stream.overwrite(bsfmt)
 
 
-class UInt(Field):
-    tid = 'uint'
-
-class PointerField(UInt):
-    tid = 'ptr'
-
+class Pointer(UInt, "ptr"):
     def __str__(self):
         return util.hexify(self.read(), self.sz_bytes)
 
 
-class BitfieldField(Field):
-    tid = 'bin'
+class Bitfield(Field, "bin"):
     mod = 'msb0'
     _modfunc = {'msb0': lambda bs: bs,
                 'lsb0': lambda bs: util.lbin_reverse(bs)}
@@ -203,8 +209,7 @@ class BitfieldField(Field):
         super().write(bs)
 
 
-class String(Field):
-    tid = 'str'
+class String(Field, "str"):
     display = 'ascii'
 
     def read(self):
@@ -217,72 +222,104 @@ class String(Field):
         self.stream.overwrite(codecs.encode(s, self.display))
 
 
-class StructType(abc.ABCMeta):
+class StructType(type):
     registry = {}
 
-    def __new__(cls, name, bases, dct):
+    def __init_subclass__(cls, fields=None, **kwargs):
+        super().__init_subclass__(**kwargs)
 
-        # check for field name collisions
-        fnames = []
-        for field in dct['fields']:
-            fnames.append(field.fid)
-            fnames.append(field.label)
-        counter = collections.Counter(fnames)
-        for fname, count in counter.items():
-            if count > 1:
-                msg = "duplicated field id or label: {}.{}"
-                raise ValueError(msg.format(name, fname))
+        # Create field containers for the subclass
+        cls._fields = []
+        cls._field_dict = {}
+        cls._fields_by_id = {}
+        cls._fields_by_label = {}
 
+        # FIXME: somewhere around here we need to autopopulate field offsets
+        for field in cls._coerce_fields(fields):
+            cls._add_field(field)
+
+        cls._register()
+
+    def _coerce_fields(cls, fields):
+        # Convert types if necessary
+        for field in fields:
+            if isinstance(f, FieldType):
+                yield f
+            else:
+                yield FieldType(f)
+
+    def _check_field_conflicts(cls, field):
         # check for name shadowing
-        for field in dct['fields']:
-            if field.fid in dir(cls):
-                msg = "field id {}.{} shadows a built-in attribute"
-                raise ValueError(msg.format(name, fid))
+        if field.fid in dir(cls):
+            msg = "field id {}.{} shadows a built-in attribute"
+            raise ValueError(msg.format(name, fid))
 
-        cls.registry[name] = super().__new__(cls, name, bases, dct)
-        return structcls
+        # check for field name conflicts
+        for name in field.fid, field.label:
+            if name in cls._field_dict:
+                msg = "duplicated field id or label: {}.{}"
+                raise ValueError(msg.format(cls.__name__, name))
+
+    def _add_field(cls, field):
+        cls._check_field_conflicts(field)
+        cls._fields.append(field)
+        cls._field_dict[field.fid] = field
+        cls._field_dict[field.label] = field
+        cls._fields_by_id[field.fid] = field
+        cls._fields_by_label[field.label] = field
+
+    def _register(cls):
+        if cls.__name__ in cls.registry:
+            msg = "duplicate definition of '{}'"
+            raise ValueError(msg.format(name))
+        cls.registry[cls.__name__] = cls
+
+    def __getitem__(cls, key):
+        return self._field_dict[key]
+
+    @property
+    def fields(cls):
+        return cls._fields
 
 
-class Structure(metaclass=StructType):
-    fields = []
-
+class StructInstance(abc.Mapping, metaclass=StructType):
     def __init__(self, stream, offset):
         # FIXME: Check behavior vs get/setattr
         self.stream = stream
         self.offset = offset
         self.data = {}
         for field in self.fields:
-            datafield = field(self)
+            fieldinstance = field(self)
             # We want to be able to look up data by either id or label
-            self.data[datafield.fid] = datafield
-            self.data[datafield.label] = datafield
+            self.data[datafield.fid] = fieldinstance
+            self.data[datafield.label] = fieldinstance
+
+    @property
+    def fields(self):
+        return type(self).fields
+
+    def dump(self, use_labels=True):
+        return {field.label if use_labels else field.fid: self[field.fid]
+                for field in self.fields}
 
     def __str__(self):
-        return yaml.dump(
-                fld.fid: data[fld.fid].read()
-                for fld in self.fields
-                )
+        return yaml.dump(self.items())
 
     def __getattr__(self, key):
-        return self.data[key].read()
+        return self[key]
 
     def __setattr__(self, key, value):
-        self.data[key].write(value)
+        self[key] = value
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        return self.data[key].read()
 
     def __setitem__(self, key, value):
         self.data[key].write(value)
 
-    @classmethod
-    def __init_subclass__(cls):
-        # register the subclass somehow? Or at least log it.
-        return super().__init_subclass(cls)
+    def __iter__(self):
+        for field in self.fields:
+            yield field.fid
 
-    @classmethod
-    def define(cls, name, field_specs):
-        bases = (cls,)
-        fields = [FieldType(spec) for spec in field_specs]
-        clsdct = {'fields': fields}
-        return type(name, bases, clsdict)
+    def __len__(self):
+        return len(self.fields)
