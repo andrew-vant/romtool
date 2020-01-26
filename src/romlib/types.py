@@ -1,6 +1,6 @@
 import logging
 
-from abc import ABCMeta
+import abc
 
 
 log = logging.getLogger(__name__)
@@ -99,24 +99,8 @@ class SizeSpec(object):
             return instance.parent[self.sibling] * self.scale
 
 
-class StructTypeField(abc.ABCMeta):
-    def __new__(cls, name, bases, dct):
-        unstring = {
-                'offset': OffsetSpec,
-                'size': SizeSpec,
-                'mod': lambda m: util.intify(m, m),
-                'order': lambda o: int(o) if o else 0,
-                }
-
-        for key, func in unstring.items():
-            if key in dct and isinstance(key, str):
-                dct[key] = func(dct[key])
-
-        return super().__new__(cls, name, bases, dct)
-
-
-class StructInstanceField(metaclass=StructTypeField):
-    registry = {}
+class Field:
+    primitives = {}
 
     fid = abc.abstractproperty()
     type = abc.abstractproperty()
@@ -126,6 +110,36 @@ class StructInstanceField(metaclass=StructTypeField):
     mod = None
     order = 0
     comment = None
+
+    @classmethod
+    def __init_subclass__(cls, register=None, **kwargs):
+        if register in cls.primitives:
+            raise ValueError(f"primitive registered twice: {register}")
+        elif register:
+            cls.primitives[register] = cls
+
+    @classmethod
+    def define(cls, parent_name, spec):
+        """ define a new field type from a stringdict """
+
+        # Figure out the appropriate class name
+        name = parent_name + '.' + spec['fid']
+
+        # Get the base class from the registry
+        base_key = spec['type']
+        if base_key not in cls.base_registry:
+            raise ValueError(f"{name}: unknown field type '{base_key}'")
+        else:
+            base = cls.base_registry[base_key]
+
+        # convert attributes if needed
+        funcs = {'offset': OffsetSpec,
+                 'size': SizeSpec,
+                 'order': int}
+        spec = util.unstring(spec, funcs, True)
+
+        # Make and return
+        return type(name, (base,), spec)
 
     def __init__(self, parent):
         self.parent = parent
@@ -171,13 +185,10 @@ class StructInstanceField(metaclass=StructTypeField):
         else:
             return bits // 8
 
-    def __init_subclass__(cls, regkey=None, **kwargs):
-        super().__init_subclass__(kwargs)
-        if regkey:
-            cls.registry[regkey] = cls
 
+class UInt(Field, register="uint"):
+    mod = 0
 
-class UInt(StructTypeField, "uint"):
     def __str__(self):
         val = self.read()
         if self.display == 'hex':
@@ -185,13 +196,18 @@ class UInt(StructTypeField, "uint"):
         else:
             return str(val)
 
+    @classmethod
+    def define(cls, parent_name, spec):
+        spec = util.unstring(spec, {'mod': int}, True)
+        return super().define(parent_name, spec)
 
-class Pointer(UInt, "ptr"):
+
+class Pointer(Field, register="ptr"):
     def __str__(self):
         return util.hexify(self.read(), self.sz_bytes)
 
 
-class String(StructInstanceField, "str"):
+class String(Field, register="str"):
     def read(self):
         self.stream.pos = self.offset
         bs = self.stream.read(self.sz_bytes)
@@ -202,7 +218,9 @@ class String(StructInstanceField, "str"):
         self.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
 
 
-class Bitfield(StructInstanceField, "bin"):
+class Bitfield(Field, register="bin"):
+    mod = 'msb0'
+
     def __str__(self):
         return util.displaybits(self.read(), self.display)
 
@@ -217,85 +235,66 @@ class Bitfield(StructInstanceField, "bin"):
         self.stream.overwrite(bs)
 
 
-class StructType(type):
+class Structure:
     registry = {}
 
-    def __init_subclass__(cls, fields=None, **kwargs):
-        super().__init_subclass__(**kwargs)
+    # fields should be a list of Field subclasses. They will be used to
+    # instantiate instance data when Structure itself is instantiated.
+    fields = []
 
-        # Create field containers for the subclass
-        cls._fields = []
-        cls._field_dict = {}
-        cls._fields_by_id = {}
-        cls._fields_by_label = {}
-
-        # FIXME: somewhere around here we need to autopopulate field offsets
-        for field in cls._coerce_fields(fields):
-            cls._add_field(field)
-
-        cls._register()
-
-    def _coerce_fields(cls, fields):
-        # Convert types if necessary
-        for field in fields:
-            if isinstance(f, FieldType):
-                yield f
-            else:
-                yield FieldType(f)
-
-    def _check_field_conflicts(cls, field):
-        # check for name shadowing
-        if field.fid in dir(cls):
-            msg = "field id {}.{} shadows a built-in attribute"
-            raise ValueError(msg.format(name, fid))
-
-        # check for field name conflicts
-        for name in field.fid, field.label:
-            if name in cls._field_dict:
-                msg = "duplicated field id or label: {}.{}"
-                raise ValueError(msg.format(cls.__name__, name))
-
-    def _add_field(cls, field):
-        cls._check_field_conflicts(field)
-        cls._fields.append(field)
-        cls._field_dict[field.fid] = field
-        cls._field_dict[field.label] = field
-        cls._fields_by_id[field.fid] = field
-        cls._fields_by_label[field.label] = field
-
-    def _register(cls):
-        if cls.__name__ in cls.registry:
-            msg = "duplicate definition of '{}'"
-            raise ValueError(msg.format(name))
-        cls.registry[cls.__name__] = cls
-
-    def __getitem__(cls, key):
-        return self._field_dict[key]
-
-    @property
-    def fields(cls):
-        return cls._fields
-
-
-class StructInstance(abc.Mapping, metaclass=StructType):
     def __init__(self, stream, offset):
         # FIXME: Check behavior vs get/setattr
         self.stream = stream
         self.offset = offset
         self.data = {}
-        for field in self.fields:
-            fieldinstance = field(self)
+        for fieldcls in self.fields:
+            field = fieldcls(self)
             # We want to be able to look up data by either id or label
             self.data[datafield.fid] = fieldinstance
             self.data[datafield.label] = fieldinstance
 
-    @property
-    def fields(self):
-        return type(self).fields
+    def __init_subclass__(cls, **kwargs):
+        # Sanity check fields
+        for field in cls.fields:
+            if field.fid in dir(cls):
+                msg = "field id {field.__name__} shadows a built-in attribute"
+                raise ValueError(msg)
+
+        names = [f.fid for f in cls.fields] + [f.label for f in cls.fields]
+        for name, count in Counter(names).items():
+            if count > 1:
+                msg = "duplicated field id or label: '{cls.__name__}.{name}'"
+                raise ValueError(msg)
+
+        # Create field lookup tables
+        cls.fields.by_id = {f.fid: f for f in cls.fields}
+        cls.fields.by_label = {f.label: f for f in cls.fields}
+        cls.fields.by_any = {**_fields_by_id, **fields_by_label}
+
+        # Register the structure type
+        if cls.__name__ in cls.registry:
+            raise ValueError(f"duplicate definition of '{cls.__name__}'")
+        cls.registry[name] = cls
+
+    @classmethod
+    def define(cls, name, field_dicts):
+        """ Define a type of structure from a list of stringdicts
+
+        The newly-defined type will be registered and also returned.
+        """
+
+        fields = [Field.define(name, dct)
+                  for dct in field_dicts]
+        struct_subclass = type(name, (cls,), {'fields': fields})
+        cls.registry[name] = struct_subclass
+        return subclass
 
     def dump(self, use_labels=True):
-        return {field.label if use_labels else field.fid: self[field.fid]
-                for field in self.fields}
+        out = {}
+        for field in self.fields:
+            key = field.label if use_labels else field.fid
+            out[key] = self[key]
+        return out
 
     def __str__(self):
         return yaml.dump(self.items())
