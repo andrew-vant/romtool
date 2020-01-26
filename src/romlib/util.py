@@ -96,7 +96,7 @@ def hexify(i, len_bytes=None, len_bits=None):
 
     if len_bits is not None and len_bytes is not None:
         raise ValueError("Specify length in bits or bytes, but not both")
-    elif len_bits is not None
+    elif len_bits is not None:
         len_bytes = len_bits // 8
         if len_bits % 8 != 0:  # Check for partial bytes
             len_bytes += 1
@@ -353,3 +353,14 @@ def filesize(f):
     size = f.tell()
     f.seek(pos)
     return size
+
+def unstring(stringdict, funcmap, remove_blank=False):
+    out = {}
+    for k, v in stringdict.items():
+        if remove_blank and v == '':
+            continue
+        elif isinstance(v, str):
+            out[k] = funcmap[k](v)
+        else:
+            out[k] = v
+    return out
