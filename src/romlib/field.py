@@ -361,7 +361,7 @@ def fixspec(spec):
     # FIXME: Move this into MetaField.__new__?
     unstring = {
             'size': lambda s: util.tobits(s, 0),
-            'order': lambda s: util.intify(s),
+            'order': lambda s: util.intify(s, 0),
             'mod': lambda s: util.intify(s, s)
             }
 
