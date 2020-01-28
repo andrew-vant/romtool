@@ -357,7 +357,9 @@ def filesize(f):
 def unstring(stringdict, funcmap, remove_blank=False):
     out = {}
     for k, v in stringdict.items():
-        if remove_blank and v == '':
+        if k not in funcmap:
+            continue
+        elif remove_blank and v == '':
             continue
         elif isinstance(v, str):
             out[k] = funcmap[k](v)

@@ -1,6 +1,8 @@
 import logging
-
 import abc
+from collections import Counter
+
+from romlib import util
 
 
 log = logging.getLogger(__name__)
@@ -25,13 +27,14 @@ class OffsetSpec(object):
 
     def __init__(self, spec):
         self.spec = spec
-        offset_raw, sep, origin_raw = reversed(spec.partition(":"))
 
-        if origin == 'rel' or not origin:
-            origin = None
-        elif origin == 'abs':
-            origin = origin_raw
+        if ':' in spec:
+            origin, sep, offset_raw = spec.partition(":")
         else:
+            origin = 'rel'
+            offset_raw = spec
+
+        if origin not in ('rel', 'abs'):
             raise ValueError("Invalid offset spec: " + spec)
 
         try:
@@ -46,10 +49,7 @@ class OffsetSpec(object):
         self.sibling = sibling
 
     def __get__(self, instance, owner=None):
-        if self.origin is not None:
-            origin = self.origin
-        else:
-            origin = instance.parent.offset
+        origin = {'abs': 0, 'rel': instance.parent.offset}[self.origin]
 
         if self.offset is not None:
             offset = self.offset
@@ -103,6 +103,7 @@ class Field:
     primitives = {}
 
     fid = abc.abstractproperty()
+    label = abc.abstractproperty()
     type = abc.abstractproperty()
     offset = abc.abstractproperty()
     size = 8  # bits
@@ -127,10 +128,10 @@ class Field:
 
         # Get the base class from the registry
         base_key = spec['type']
-        if base_key not in cls.base_registry:
+        if base_key not in cls.primitives:
             raise ValueError(f"{name}: unknown field type '{base_key}'")
         else:
-            base = cls.base_registry[base_key]
+            base = cls.primitives[base_key]
 
         # convert attributes if needed
         funcs = {'offset': OffsetSpec,
@@ -266,11 +267,6 @@ class Structure:
                 msg = "duplicated field id or label: '{cls.__name__}.{name}'"
                 raise ValueError(msg)
 
-        # Create field lookup tables
-        cls.fields.by_id = {f.fid: f for f in cls.fields}
-        cls.fields.by_label = {f.label: f for f in cls.fields}
-        cls.fields.by_any = {**_fields_by_id, **fields_by_label}
-
         # Register the structure type
         if cls.__name__ in cls.registry:
             raise ValueError(f"duplicate definition of '{cls.__name__}'")
@@ -287,7 +283,7 @@ class Structure:
                   for dct in field_dicts]
         struct_subclass = type(name, (cls,), {'fields': fields})
         cls.registry[name] = struct_subclass
-        return subclass
+        return struct_subclass
 
     def dump(self, use_labels=True):
         out = {}
