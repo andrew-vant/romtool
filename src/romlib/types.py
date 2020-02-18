@@ -270,16 +270,16 @@ class Structure:
                 raise ValueError(msg)
 
         # Register the structure type
-        if cls.__name__ in cls.registry:
-            raise ValueError(f"duplicate definition of '{cls.__name__}'")
         cls.registry[name] = cls
 
     @classmethod
-    def define(cls, name, field_dicts):
+    def define(cls, name, field_dicts, force=False):
         """ Define a type of structure from a list of stringdicts
 
         The newly-defined type will be registered and also returned.
         """
+        if name in cls.registry and not force:
+            raise ValueError(f"duplicate definition of '{name}'")
 
         fields = [Field.define(name, dct)
                   for dct in field_dicts]
