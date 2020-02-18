@@ -149,7 +149,7 @@ class Field:
         return str(self.read())
 
     def read(self):
-        stream = parent.stream
+        stream = self.parent.stream
         bits = self.sz_bits
         offset = self.offset
 
@@ -158,7 +158,7 @@ class Field:
         return stream.read(bsfmt)
 
     def write(self, value):
-        stream = parent.stream
+        stream = self.parent.stream
         bits = self.sz_bits
         offset = self.offset
 
@@ -245,14 +245,16 @@ class Structure:
 
     def __init__(self, stream, offset):
         # FIXME: Check behavior vs get/setattr
-        self.stream = stream
-        self.offset = offset
-        self.data = {}
+        super().__setattr__('stream', stream)
+        super().__setattr__('offset', offset)
+        super().__setattr__('data', dict())
         for fieldcls in self.fields:
+            print(fieldcls)
             field = fieldcls(self)
+            print(field)
             # We want to be able to look up data by either id or label
-            self.data[datafield.fid] = fieldinstance
-            self.data[datafield.label] = fieldinstance
+            self.data[field.fid] = field
+            self.data[field.label] = field
 
     def __init_subclass__(cls, **kwargs):
         # Sanity check fields

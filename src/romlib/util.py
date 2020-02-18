@@ -358,11 +358,12 @@ def unstring(stringdict, funcmap, remove_blank=False):
     out = {}
     for k, v in stringdict.items():
         if k not in funcmap:
-            continue
+            out[k] = v
         elif remove_blank and v == '':
             continue
         elif isinstance(v, str):
             out[k] = funcmap[k](v)
         else:
             out[k] = v
+    assert len(out) == len(stringdict) or remove_blank
     return out
