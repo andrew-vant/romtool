@@ -2,6 +2,8 @@ import logging
 import abc
 from collections import Counter
 
+import bitstring
+
 from romlib import util
 
 
@@ -98,142 +100,163 @@ class SizeSpec(object):
         else:
             return instance.parent[self.sibling] * self.scale
 
+class Offset:
+    def __init__(self, relative, offset=None, sibling=None):
+        self.relative = relative
+        self.offset = offset
+        self.sibling = sibling
+
+    def resolve(self, obj):
+        origin = obj.offset if self.relative else 0
+        offset = obj[sibling] if self.sibling else self.scalar
+        return origin + offset
+
+    @classmethod
+    def from_spec(cls, spec):
+        origin, sep, offset_raw = reversed(spec.partition(':'))
+
+        relative = {'abs': False, 'rel': True}[origin]
+        try:
+            offset = int(offset_raw, 0)
+            sibling = None
+        except (ValueError, TypeError):
+            offset_raw = None
+            sibling = sz_raw
+        return cls(relative, offset, sibling)
+
 
 class Field:
-    primitives = {}
+    registry = {}
 
-    fid = abc.abstractproperty()
-    label = abc.abstractproperty()
-    type = abc.abstractproperty()
-    offset = abc.abstractproperty()
-    size = 8  # bits
-    display = None
-    mod = None
-    order = 0
-    comment = None
+    def __init__(self, _type='uint', offset='0', size=1, mod=None):
+        self.offset = Offset.from_spec(offset)
+        self.size = SizeSpec(size)
+        self.type = _type
+        self.mod = mod
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            # We might actually want to do this sometimes, e.g. to print
+            # information about a field at the type level
+            return self
+        self._position(obj)
+        value = obj.stream.read(f'{self.type}:{self.size}')
+        return value
+
+    def __set__(self, obj, value):
+        self._position(obj)
+        obj.stream.overwrite(f'{self.type}:{self.size}={value}')
+
+    def _position(self, obj):
+        """ Position parent object's stream for read/write """
+        obj.stream.pos = obj.offset + self.offset.resolve(obj)
+
+    def __init_subclass__(cls, **kwargs):
+        cls.registry[kwargs['register']] = cls
 
     @classmethod
-    def __init_subclass__(cls, register=None, **kwargs):
-        if register in cls.primitives:
-            raise ValueError(f"primitive registered twice: {register}")
-        elif register:
-            cls.primitives[register] = cls
+    def define(cls, dct):
+        return cls.registry[dct['type']](**dct)
 
-    @classmethod
-    def define(cls, parent_name, spec):
-        """ define a new field type from a stringdict """
 
-        # Figure out the appropriate class name
-        name = parent_name + '.' + spec['fid']
-
-        # Get the base class from the registry
-        base_key = spec['type']
-        if base_key not in cls.primitives:
-            raise ValueError(f"{name}: unknown field type '{base_key}'")
-        else:
-            base = cls.primitives[base_key]
-
-        # convert attributes if needed
-        funcs = {'offset': OffsetSpec,
-                 'size': SizeSpec,
-                 'order': int}
-        spec = util.unstring(spec, funcs, True)
-
-        # Make and return
-        return type(name, (base,), spec)
-
-    def __init__(self, parent):
-        self.parent = parent
+class HexInt(int):
+    """ An integer that stringifies as hex """
+    def __new__(cls, value, sz_bits=None):
+        i = super().__new__(cls, value)
+        i.sz_bits = sz_bits
 
     def __str__(self):
-        return str(self.read())
-
-    def read(self):
-        stream = self.parent.stream
-        bits = self.sz_bits
-        offset = self.offset
-
-        bsfmt = '{tp}:{sz}'.format(tp=self.type, sz=bits)
-        stream.pos = offset
-        return stream.read(bsfmt)
-
-    def write(self, value):
-        stream = self.parent.stream
-        bits = self.sz_bits
-        offset = self.offset
-
-        bsfmt = '{tp}:{sz}={val}'.format(tp=self.type, sz=bits, val=value)
-        stream.pos = offset
-        stream.overwrite(bsfmt)
-
-    @property
-    def stream(self):
-        return self.parent.stream
-
-    @property
-    def sz_bits(self):
-        """ Get the field's size in bits."""
-
-        return self.size
-
-    @property
-    def sz_bytes(self):
-        """ Get the field's size in bytes, if possible."""
-
-        bits = self.sz_bits
-        if bits % 8 != 0:
-            raise ValueError("Not an even number of bytes")
-        else:
-            return bits // 8
+        return util.hexify(self, len_bits=self.sz_bits)
 
 
-class UInt(Field, register="uint"):
-    mod = 0
+class UIntField(Field, register='uint'):
+    def __init__(self, *args, mod=0, **kwargs):
+        kwargs['mod'] = util.intify(mod, 0)
+        super().__init__(self, *args, **kwargs)
 
-    def __str__(self):
-        val = self.read()
+    def __get__(self, obj, owner=None):
+        value = super().__get__(self, obj, owner) + self.mod
         if self.display == 'hex':
-            return util.hexify(val, self.sz_bytes)
-        else:
-            return str(val)
+            value = HexInt(value)
+        return value
 
-    @classmethod
-    def define(cls, parent_name, spec):
-        spec = util.unstring(spec, {'mod': int}, True)
-        return super().define(parent_name, spec)
+    def __set__(self, obj, value):
+        value -= self.mod
+        super().__set__(self, obj, value)
 
 
-class Pointer(Field, register="ptr"):
+class PointerField(UIntField, register='ptr'):
+    def __get__(self, obj, owner=None):
+        value = super().__get__(self, obj, owner)
+        return HexInt(value, self.size)
+
+
+class StringField(Field, register='str'):
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            return self
+        self._position(obj)
+        bs = obj.stream.read(self.sz_bits)
+        return codecs.decode(bs.bytes, self.display or 'ascii')
+
+    def __set__(self, obj, value):
+        self._position(obj)
+        obj.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
+
+
+class PrettyBits(bitstring.Bits):
+    def __new__(cls, display, *args, **kwargs):
+        bs = super().__new__(cls, *args, **kwargs)
+        bs.display = display
+
     def __str__(self):
-        return util.hexify(self.read(), self.sz_bytes)
+        return util.displaybits(self, self.display)
 
 
-class String(Field, register="str"):
-    def read(self):
-        self.stream.pos = self.offset
-        bs = self.stream.read(self.sz_bytes)
-        return codecs.decode(bs, self.display or 'ascii')
-
-    def write(self, s):
-        self.stream.pos = self.offset
-        self.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
-
-
-class Bitfield(Field, register="bin"):
+class BinField(Field, register='bin'):
     mod = 'msb0'
 
-    def __str__(self):
-        return util.displaybits(self.read(), self.display)
-
-    def read(self):
-        self.stream.pos = self.offset
-        bs = self.stream.read(self.sz_bits)
+    def __get__(self, obj, owner=None):
+        bs = super().__get__(self, obj, owner)
         if self.mod == 'lsb0':
             bs = util.lbin_reverse(bs)
+        return PrettyBits(self.display, bs)
 
-    def write(self, bs):
-        self.stream.pos = self.offset
-        self.stream.overwrite(bs)
+
+class Structure:
+    registry = {}
+    labels = {}
+
+    def __getitem__(self, key):
+        return getattr(self, self.lookup[key])
+
+    def __setitem__(self, key, value):
+        setattr(self, self.lookup[key], value)
+
+    def define(cls, name, field_dicts, force=False):
+        """ Define a type of structure from a list of stringdicts
+
+        The newly-defined type will be registered and also returned.
+        """
+        if name in cls.registry and not force:
+            raise ValueError(f"duplicate definition of '{name}'")
+
+        fields = {'labels': {}}
+        labels = fields['labels']
+        for dct in field_dicts:
+            f = SimpleNamespace(**dct)  # For dot lookups
+            for ident in f.id, f.label:
+                if hasattr(cls, ident):
+                    msg = f"field id or label '{name}.{ident}' shadows a built-in attribute"
+                    raise ValueError(msg)
+                if ident in fields or ident in labels:
+                    msg =  "duplicated field id or label: '{name}.{ident}'"
+                    raise ValueError(msg)
+            fields[f.id] = (Field(f.type, f.offset, f.size, f.mod))
+            labels[f.label] = f.fid
+        struct_subclass = type(name, (cls,), fields)
+        cls.registry[name] = struct_subclass
+        return struct_subclass
 
 
 class Structure:
@@ -270,7 +293,7 @@ class Structure:
                 raise ValueError(msg)
 
         # Register the structure type
-        cls.registry[name] = cls
+        cls.registry[cls.__name__] = cls
 
     @classmethod
     def define(cls, name, field_dicts, force=False):
@@ -281,9 +304,9 @@ class Structure:
         if name in cls.registry and not force:
             raise ValueError(f"duplicate definition of '{name}'")
 
-        fields = [Field.define(name, dct)
-                  for dct in field_dicts]
-        struct_subclass = type(name, (cls,), {'fields': fields})
+        subclass = type(name, (cls,), {})
+        for dct in field_dicts:
+            setattr(subclass, dct['fid'], Field.define(dct))
         cls.registry[name] = struct_subclass
         return struct_subclass
 
