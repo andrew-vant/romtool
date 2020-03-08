@@ -159,16 +159,6 @@ class Field:
         return cls.registry[dct['type']](**dct)
 
 
-class HexInt(int):
-    """ An integer that stringifies as hex """
-    def __new__(cls, value, sz_bits=None):
-        i = super().__new__(cls, value)
-        i.sz_bits = sz_bits
-
-    def __str__(self):
-        return util.hexify(self, len_bits=self.sz_bits)
-
-
 class UIntField(Field, register='uint'):
     def __init__(self, *args, mod=0, **kwargs):
         kwargs['mod'] = util.intify(mod, 0)
@@ -185,12 +175,6 @@ class UIntField(Field, register='uint'):
         super().__set__(self, obj, value)
 
 
-class PointerField(UIntField, register='ptr'):
-    def __get__(self, obj, owner=None):
-        value = super().__get__(self, obj, owner)
-        return HexInt(value, self.size)
-
-
 class StringField(Field, register='str'):
     def __get__(self, obj, owner=None):
         if obj is None:
@@ -204,13 +188,6 @@ class StringField(Field, register='str'):
         obj.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
 
 
-class PrettyBits(bitstring.Bits):
-    def __new__(cls, display, *args, **kwargs):
-        bs = super().__new__(cls, *args, **kwargs)
-        bs.display = display
-
-    def __str__(self):
-        return util.displaybits(self, self.display)
 
 
 class BinField(Field, register='bin'):

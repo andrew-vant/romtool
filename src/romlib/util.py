@@ -367,3 +367,9 @@ def unstring(stringdict, funcmap, remove_blank=False):
             out[k] = v
     assert len(out) == len(stringdict) or remove_blank
     return out
+
+def bracket(s, index):
+    start = s[:index]
+    char = '[{}]'.format(s[index])
+    end = s[index+1:]
+    return start + char + end
