@@ -3,6 +3,13 @@ import unittest
 from romlib.types import Structure, Field
 from bitstring import BitStream
 
+class TestField(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    # Rough plan: mock the passed-in object to provide results for stream.read,
+    # etc.
+
 
 class TestStructure(unittest.TestCase):
     def setUp(self):

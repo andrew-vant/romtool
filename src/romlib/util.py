@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from os.path import dirname, realpath
 from os.path import join as pathjoin
+from math import ceil
 
 from bitstring import ConstBitStream
 
@@ -94,15 +95,22 @@ def hexify(i, len_bytes=None, len_bits=None):
     represented). Letters are capitalized.
     """
 
-    if len_bits is not None and len_bytes is not None:
+    if len_bits and len_bytes:
         raise ValueError("Specify length in bits or bytes, but not both")
-    elif len_bits is not None:
-        len_bytes = len_bits // 8
-        if len_bits % 8 != 0:  # Check for partial bytes
-            len_bytes += 1
+    elif not len_bits and not len_bytes:
+        len_bits = i.bit_length()
+    elif len_bytes:
+        len_bits = len_bytes * 8
 
-    fmt = '0x{value:0{digits}X}'
-    return fmtstr.format(value=i, digits=len_bytes*2)
+
+    prefix = '-' if i < 0 else ''
+    i = abs(i)
+    if len_bytes:
+        len_bits = len_bytes * 8
+    bits = len_bits or len_bytes * 8 or i.bit_length()
+
+    digits = ceil(len_bits / 8) * 2
+    return f'{prefix}0x{i:0{digits}X}'
 
 
 def displaybits(bits, display):

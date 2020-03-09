@@ -9,170 +9,132 @@ from romlib import util
 
 log = logging.getLogger(__name__)
 
-class OffsetSpec(object):
-    """ Specification of an offset
-
-    This is more complicated than it seems because we want offsets to be
-    able to be relative (to the parent) or absolute (in the rom). We
-    also want them to be definable as a fixed number (in either case) or
-    by reference to another property of the parent structure.
-
-    The spec is: RELATIVE_TO:OFFSET_FROM_RELATIVE_POINT.
-
-    abs:0x4000        : absolute offset 0x4000
-    abs:name          : absolute offset defined by named sibling field
-    rel:33            : byte 33 within parent structure
-    rel:sib           : offset within parent defined by other parent field
-
-    "rel" is the default, but can be given if desired.
-    """
-
-    def __init__(self, spec):
-        self.spec = spec
-
-        if ':' in spec:
-            origin, sep, offset_raw = spec.partition(":")
-        else:
-            origin = 'rel'
-            offset_raw = spec
-
-        if origin not in ('rel', 'abs'):
-            raise ValueError("Invalid offset spec: " + spec)
-
-        try:
-            offset = int(offset_raw, 0)
-            sibling = None
-        except (ValueError, TypeError):
-            offset = None
-            sibling = offset_raw
-
-        self.offset = offset
-        self.origin = origin
-        self.sibling = sibling
-
-    def __get__(self, instance, owner=None):
-        origin = {'abs': 0, 'rel': instance.parent.offset}[self.origin]
-
-        if self.offset is not None:
-            offset = self.offset
-        else:
-            offset = instance.parent[self.sibling]
-
-        return origin + offset
-
-
-class SizeSpec(object):
-    """ Size of a field or structure
-
-    Size specs are UNIT:COUNT. Unit can be bits or bytes, defaulting to
-    bits. Count can be a fixed number or the name of a field in the
-    parent structure.
-    """
+class Size(object):
+    """ Size of a field or structure """
 
     _unit_scale = {'bits': 1,
                    'bytes': 8,
                    'kb': 8*1024}
 
-    def __init__(self, specstr):
-        sz_raw, sep, unit = reversed(self.specstr)
+    def __init__(self, scale=8, count=1, sibling=None):
+        self.count = count
+        self.scale = scale
+        self.sibling = sibling
 
+    def resolve(self, instance):
+        """ Get the size of the object, in bits. """
+
+        if self.sibling is None:
+            size = self.count * self.scale
+        else:
+            size = instance.parent[self.sibling] * self.scale
+        assert isinstance(size, int)
+        return size
+
+    @classmethod
+    def from_spec(cls, spec):
+        """ Create a size from a string spec
+
+        Size specs are UNIT:COUNT. Unit can be bits or bytes, defaulting to
+        bits. Count can be a fixed number or the name of a field in the
+        parent structure.
+        """
+        sz_raw, sep, unit = reversed(specstr.partition(':'))
         if not unit:
             unit = 'bits'
-        if unit not in self._unit_scale:
-            raise ValueError("Invalid size spec: " + spec)
 
         try:
+            scale = self._unit_scale[unit]
             count = int(sz_raw, 0)
             sibling = None
         except (ValueError, TypeError):
             count = None
             sibling = sz_raw
+        except KeyError:
+            raise ValueError("Invalid size spec: " + spec)
 
-        self.scale = self._unit_scale[unit]
-        self.count = count
-        self.sibling = sibling
-
-    def __get__(self, instance, owner=None):
-        """ Get the size of the object, in bits. """
-
-        if self.sibling is None:
-            return self.count * self.scale
-        else:
-            return instance.parent[self.sibling] * self.scale
+        return cls(scale, count, sibling)
 
 class Offset:
-    def __init__(self, relative, offset=None, sibling=None):
-        self.relative = relative
-        self.offset = offset
+    _unit_scale = {'bits': 1,
+                   'bytes': 8}
+    _relativity = {'rom': False,
+                   'parent': True}
+
+    """ Offset of a field or structure """
+    def __init__(self, origin='parent', scale=8, count=1, sibling=None):
+        self.origin = origin
+        self.scale = scale
+        self.count = count
         self.sibling = sibling
+        self.relative = _relativity[origin]
 
     def resolve(self, obj):
-        origin = obj.offset if self.relative else 0
-        offset = obj[sibling] if self.sibling else self.scalar
+        start = obj.offset if self.relative else 0
+        offset = obj[sibling] if self.sibling else self.count
         return origin + offset
 
     @classmethod
     def from_spec(cls, spec):
-        origin, sep, offset_raw = reversed(spec.partition(':'))
+        """ Create an offset from a string spec
 
-        relative = {'abs': False, 'rel': True}[origin]
+        The string spec format is origin:unit:count. Origin and unit are
+        optional. Origin can be 'rom' or 'parent', defaulting to parent. Unit
+        can be 'bits' or 'bytes, defaulting to bytes. 'count' can be a fixed
+        number or the name of a field in the parent structure.
+        """
+        parts = spec.split(":")
+        ct_raw = parts.pop()
         try:
-            offset = int(offset_raw, 0)
+            count = int(ct_raw, 0)
             sibling = None
         except (ValueError, TypeError):
-            offset_raw = None
-            sibling = sz_raw
-        return cls(relative, offset, sibling)
+            count = None
+            sibling = ct_raw
+
+        origin = 'parent'
+        scale = 8
+        for part in parts:
+            if part in _unit_scale:
+                scale = _unit_scale[part]
+            elif part in _relativity:
+                origin = part
+            else:
+                raise ValueError("Invalid offset spec: " + spec)
+        return cls(origin, scale, count, sibling)
 
 
 class Field:
-    registry = {}
+    def __init__(self, _type, offset, size, mod=None, display=None):
+        if not isinstance(offset, Offset):
+            offset = Offset.from_spec(offset)
+        if not isinstance(size, Size):
+            size = Size.from_spec(size)
 
-    def __init__(self, _type='uint', offset='0', size=1, mod=None):
-        self.offset = Offset.from_spec(offset)
-        self.size = SizeSpec(size)
-        self.type = _type
-        self.mod = mod
+        self.offset = offset
+        self.size = size
+        self.bstype = _type if 'int' in _type else 'bin'
+        self.type = primitives.get(_type)
+        self.mod = util.intify(mod) if 'int' in _type else mod
 
     def __get__(self, obj, owner=None):
         if obj is None:
             # We might actually want to do this sometimes, e.g. to print
             # information about a field at the type level
             return self
-        self._position(obj)
-        value = obj.stream.read(f'{self.type}:{self.size}')
+        stream = obj.stream
+        stream.pos = self.offset.resolve(obj)
+        value = stream.read(f'{self.bstype}:{self.size}')
+        value = self.type(value, self.size, self.display)
+        value = value.mod(self.mod)
         return value
 
     def __set__(self, obj, value):
-        self._position(obj)
-        obj.stream.overwrite(f'{self.type}:{self.size}={value}')
-
-    def _position(self, obj):
-        """ Position parent object's stream for read/write """
-        obj.stream.pos = obj.offset + self.offset.resolve(obj)
-
-    def __init_subclass__(cls, **kwargs):
-        cls.registry[kwargs['register']] = cls
-
-    @classmethod
-    def define(cls, dct):
-        return cls.registry[dct['type']](**dct)
-
-
-class UIntField(Field, register='uint'):
-    def __init__(self, *args, mod=0, **kwargs):
-        kwargs['mod'] = util.intify(mod, 0)
-        super().__init__(self, *args, **kwargs)
-
-    def __get__(self, obj, owner=None):
-        value = super().__get__(self, obj, owner) + self.mod
-        if self.display == 'hex':
-            value = HexInt(value)
-        return value
-
-    def __set__(self, obj, value):
-        value -= self.mod
-        super().__set__(self, obj, value)
+        stream = self._position(obj)
+        stream.pos = self.offset.resolve(obj)
+        value = self.type(value, self.size, self.display)
+        value = value.unmod(self.mod)
+        stream.overwrite(f'{self.bstype}:{self.size}={value}')
 
 
 class StringField(Field, register='str'):
@@ -186,18 +148,6 @@ class StringField(Field, register='str'):
     def __set__(self, obj, value):
         self._position(obj)
         obj.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
-
-
-
-
-class BinField(Field, register='bin'):
-    mod = 'msb0'
-
-    def __get__(self, obj, owner=None):
-        bs = super().__get__(self, obj, owner)
-        if self.mod == 'lsb0':
-            bs = util.lbin_reverse(bs)
-        return PrettyBits(self.display, bs)
 
 
 class Structure:

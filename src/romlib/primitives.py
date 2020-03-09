@@ -5,6 +5,7 @@ These all inherit builtin types; the difference is mainly in stringification.
 
 import logging
 from math import ceil, log
+from abc import ABCMeta
 
 import bitstring
 
@@ -13,20 +14,21 @@ from . import util
 log = logging.getLogger(__name__)
 
 
-class UInt(int):
-    def __new__(cls, value, sz_bits=None, display=None, *args, **kwargs):
-        i = super().__new__(cls, value, *args, **kwargs)
+class Int(int):
+    def __new__(cls, value, sz_bits=None, display=None):
+        if isinstance(value, int):
+            i = super().__new__(cls, value)
+        else:
+            i = super().__new__(cls, value, 0)
+
+        i.display = display
         if sz_bits is None:
             sz_bits = max(i.bit_length(), 1)
-
-        # sanity checks
-        if i < 0:
-            raise ValueError("uints must be >= 0")
-        if i.bit_length() > sz_bits or sz_bits <= 0:
-            raise ValueError(f"{value} can't fit in {sz_bits} bits")
-
+        if sz_bits == 0:
+            raise ValueError("Can't have a zero-bit integer")
+        if sz_bits < i.bit_length():
+            raise ValueError(f"{i} won't fit in {sz_bits} bits")
         i.sz_bits = sz_bits
-        i.display = display
         return i
 
     @property
@@ -34,7 +36,8 @@ class UInt(int):
         """ Print self as a hex representation of bytes """
         # two digits per byte; bytes are bits/8 rounding up.
         digits = ceil(self.sz_bits / 8) * 2
-        return f'0x{self:0{digits}X}'
+        sign = '-' if self < 0 else ''
+        return f'{sign}0x{abs(self):0{digits}X}'
 
     def __str__(self):
         if self.display:
@@ -43,30 +46,52 @@ class UInt(int):
             return super().__str__()
 
 
-class Bin(bitstring.Bits):
-    enc_prefix = 'fmt:'
+class Bin(bitstring.BitArray):
+    # Not sure if this should really subclass bitstring or wrap it or something
+    codecs = {}
 
-    def __new__(cls, auto=None, codec=None, *args, enc=None, **kwargs):
-        """ Adds a fmt: prefix to the bitstring auto initializer """
-        if isinstance(auto, str) and auto.startswith(cls.enc_prefix):
-            enc = auto[len(cls.enc_prefix):]
-            auto = None
-        if enc:
-            auto = codec.decode(enc)
-        return super().__new__(cls, auto, *args, **kwargs)
+    def __new__(cls, auto=None, sz_bits=None, display=None, **kwargs):
+        codec = BinCodec.get(display) if display else None
+        if isinstance(auto, str) and codec:
+            auto = codec.decode(auto)
+        bs = super().__new__(cls, auto, **kwargs)
+        bs.codec = codec
+        return bs
 
-    def __init__(self, auto=None, codec=None, *args, **kwargs):
-        # For some reason we can't do this in __new__, probably because the
-        # superclass is immutable.
-        self.codec = codec
+    def mod(self, mod_s):
+        if mod_s == 'lsb0':
+            return type(self)(util.lbin_reverse(self))
+        else:
+            return self
+
+    def unmod(self, mod_s):
+        return self.mod(mod_s)
 
     def __str__(self):
         if self.codec is None:
-            return super().__str__()
-        return self.codec.encode(self)
+            return '0b' + self.bin
+        else:
+            return self.codec.encode(self)
+
+
+def String(str):
+    def __new__(cls, obj, sz_bits, display='utf-8')
+        return super().__new__(obj, encoding)
+
+
+
+
 
 class BinCodec:
-    """ encoding/decode strings and bools based on a format str """
+    """ encode/decode strings and bools based on a format str """
+    registry = {}
+
+    @classmethod
+    def get(cls, keystr):
+        if keystr not in cls.registry:
+            cls.registry[keystr] = cls(keystr)
+        return cls.registry[keystr]
+
     class InputLengthError(ValueError):
         def __init__(self, keystr, _input):
             assert len(keystr) != len(_input)
@@ -112,3 +137,14 @@ class BinCodec:
 
         return [dmap[char] for dmap, char
                 in zip(self.decoding_map, text)]
+
+def get(type_string):
+    """ Get the right class for a given type string """
+    if "int" in type_string:
+        return Int
+    elif "str" in type_string:
+        return String
+    elif "bin" in type_string:
+        return Bin
+    else:
+        raise ValueError("Invalid type string")

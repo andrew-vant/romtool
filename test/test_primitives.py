@@ -2,31 +2,39 @@ import unittest
 
 import bitstring
 
-from romlib.primitives import UInt, BinCodec, Bin
+from romlib.primitives import Int, BinCodec, Bin
 
 
-class TestUInt(unittest.TestCase):
+class TestInt(unittest.TestCase):
     def test_uint_creation(self):
-        uint = UInt(0)
-        uint = UInt(1)
-        uint = UInt(5)
-        uint = UInt(200000)
-        self.assertIsInstance(uint, UInt)
+        uint = Int(0)
+        uint = Int(1)
+        uint = Int(5)
+        uint = Int(200000)
+        self.assertIsInstance(uint, Int)
         self.assertIsInstance(uint, int)
 
     def test_uint_comparison(self):
-        i = UInt(5)
+        i = Int(5)
         self.assertGreater(i, 4)
         self.assertEqual(i, 5)
         self.assertLess(i, 6)
 
     def test_uint_nonhex_str(self):
-        i = UInt(5)
+        i = Int(5)
         self.assertEqual(str(i), str(5))
 
     def test_uint_hex_str(self):
-        i = UInt(5, display='hex')
-        self.assertEqual(str(i), '0x05')
+        results = {
+                0:  '0x00',
+                5:  '0x05',
+                -5: '-0x05',
+                0x130:  '0x0130',
+                -0x130: '-0x0130',
+               }
+
+        for i, s in results.items():
+            self.assertEqual(str(Int(i, display='hex')), s)
 
     def test_uint_size_check(self):
         checks = [(0, 0, False),
@@ -41,14 +49,14 @@ class TestUInt(unittest.TestCase):
 
         for value, bits, valid in checks:
             if not valid:
-                msg = f"UInt({value}, {bits}) succeeded, but shouldn't have"
+                msg = f"Int({value}, {bits}) succeeded, but shouldn't have"
                 with self.assertRaises(ValueError, msg=msg):
-                    UInt(value, bits)
+                    Int(value, bits)
             else:
                 try:
-                    UInt(value, bits)
+                    Int(value, bits)
                 except ValueError as ex:
-                    msg = f'UInt({value}, {bits}) raised ValueError unexpectedly'
+                    msg = f'Int({value}, {bits}) raised ValueError unexpectedly'
                     self.fail(msg)
 
 
@@ -56,6 +64,12 @@ class TestBinCodec(unittest.TestCase):
     def test_bincodec_creation(self):
         codec = BinCodec("abcdefg")
         self.assertIsInstance(codec, BinCodec)
+
+    def test_bincodec_registry(self):
+        c1 = BinCodec.get("abcdefg")
+        c2 = BinCodec.get("abcdefg")
+        self.assertIsInstance(c1, BinCodec)
+        self.assertIs(c1, c2)
 
     def test_bincodec_invalid_keystr(self):
         self.assertRaises(ValueError, BinCodec, '!')
@@ -92,10 +106,10 @@ class TestBin(unittest.TestCase):
         self.assertIsInstance(bits, Bin)
         self.assertIsInstance(bits, bitstring.Bits)
 
-    def test_bin_from_fstr(self):
+    def test_bin_from_str(self):
         text = 'AbCd'
         bools = [True, False, True, False]
-        bits = Bin('fmt:' + text, self.codec)
+        bits = Bin(text, len(text), 'abcd')
         self.assertEqual(bits, bools)
 
     def test_bin_from_bs_init(self):
