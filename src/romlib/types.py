@@ -4,7 +4,7 @@ from collections import Counter
 
 import bitstring
 
-from romlib import util
+from . import util, primitives
 
 
 log = logging.getLogger(__name__)
@@ -17,6 +17,8 @@ class Size(object):
                    'kb': 8*1024}
 
     def __init__(self, scale=8, count=1, sibling=None):
+        if count is None and not sibling:
+            raise ValueError("No specified count or sibling")
         self.count = count
         self.scale = scale
         self.sibling = sibling
@@ -39,19 +41,20 @@ class Size(object):
         bits. Count can be a fixed number or the name of a field in the
         parent structure.
         """
-        sz_raw, sep, unit = reversed(specstr.partition(':'))
-        if not unit:
-            unit = 'bits'
+        if ':' in spec:
+            unit, sep, sz_raw = spec.partition(":")
+        else:
+            unit, sep, sz_raw = 'bits', '', spec
 
         try:
-            scale = self._unit_scale[unit]
+            scale = cls._unit_scale[unit]
             count = int(sz_raw, 0)
             sibling = None
         except (ValueError, TypeError):
             count = None
             sibling = sz_raw
-        except KeyError:
-            raise ValueError("Invalid size spec: " + spec)
+        except KeyError as err:
+            raise ValueError(f"Invalid size spec: {spec}")
 
         return cls(scale, count, sibling)
 
@@ -67,7 +70,7 @@ class Offset:
         self.scale = scale
         self.count = count
         self.sibling = sibling
-        self.relative = _relativity[origin]
+        self.relative = self._relativity[origin]
 
     def resolve(self, obj):
         start = obj.offset if self.relative else 0
@@ -105,17 +108,19 @@ class Offset:
 
 
 class Field:
-    def __init__(self, _type, offset, size, mod=None, display=None):
-        if not isinstance(offset, Offset):
+    def __init__(self, _type, offset, size, mod=None, display=None,
+            **kwargs):
+        if isinstance(offset, str):
             offset = Offset.from_spec(offset)
-        if not isinstance(size, Size):
+        if isinstance(size, str):
             size = Size.from_spec(size)
 
         self.offset = offset
         self.size = size
+        self.type = _type
         self.bstype = _type if 'int' in _type else 'bin'
-        self.type = primitives.get(_type)
-        self.mod = util.intify(mod) if 'int' in _type else mod
+        self.factory = primitives.get(_type)
+        self.mod = util.intify(mod, None) if 'int' in _type else mod
 
     def __get__(self, obj, owner=None):
         if obj is None:
@@ -125,7 +130,7 @@ class Field:
         stream = obj.stream
         stream.pos = self.offset.resolve(obj)
         value = stream.read(f'{self.bstype}:{self.size}')
-        value = self.type(value, self.size, self.display)
+        value = self.factory(value, self.size, self.display)
         value = value.mod(self.mod)
         return value
 
@@ -136,8 +141,16 @@ class Field:
         value = value.unmod(self.mod)
         stream.overwrite(f'{self.bstype}:{self.size}={value}')
 
+    @classmethod
+    def from_spec(cls, dct):
+        dct = dct.copy()
+        dct['_type'] = dct.pop('type')
+        dct['offset'] = Offset.from_spec(dct['offset'])
+        dct['size'] = Size.from_spec(dct['size'])
+        return cls(**dct)
 
-class StringField(Field, register='str'):
+
+class StringField(Field):
     def __get__(self, obj, owner=None):
         if obj is None:
             return self
@@ -233,9 +246,9 @@ class Structure:
 
         subclass = type(name, (cls,), {})
         for dct in field_dicts:
-            setattr(subclass, dct['fid'], Field.define(dct))
-        cls.registry[name] = struct_subclass
-        return struct_subclass
+            setattr(subclass, dct['fid'], Field.from_spec(dct))
+        cls.registry[name] = subclass
+        return subclass
 
     def dump(self, use_labels=True):
         out = {}

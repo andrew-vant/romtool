@@ -74,14 +74,6 @@ class Bin(bitstring.BitArray):
             return self.codec.encode(self)
 
 
-def String(str):
-    def __new__(cls, obj, sz_bits, display='utf-8')
-        return super().__new__(obj, encoding)
-
-
-
-
-
 class BinCodec:
     """ encode/decode strings and bools based on a format str """
     registry = {}
