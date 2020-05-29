@@ -118,9 +118,11 @@ class Field:
         self.offset = offset
         self.size = size
         self.type = _type
-        self.bstype = _type if 'int' in _type else 'bin'
         self.factory = primitives.get(_type)
-        self.mod = util.intify(mod, None) if 'int' in _type else mod
+        # code smell: special behavior for ints
+        self._intish = issubclass(self.factory, int)
+        self.bstype = _type if self._intish else 'bin'
+        self.mod = util.intify(mod, None) if self._intish else mod
 
     def __get__(self, obj, owner=None):
         if obj is None:

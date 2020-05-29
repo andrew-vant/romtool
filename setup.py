@@ -13,6 +13,7 @@ def read(relative_path):
 
 dependencies = ["bitstring>=3.1.3",
                 "patricia-trie>=10",
+                "addict>=2",
                 "pyyaml>=3.10"]
 
 scm_version_options = {

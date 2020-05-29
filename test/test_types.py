@@ -1,14 +1,40 @@
 import unittest
 
-from romlib.types import Structure, Field, Size, Offset
 from bitstring import BitStream
+from addict import Dict
+
+from romlib.types import Structure, Field, Size, Offset
 
 class TestField(unittest.TestCase):
+    # A field's getter should
     def setUp(self):
+        self.field = Field('uint', 0, 8)
+        self.instance = Dict(
+                stream = BitStream(hex=uint=1, length=8),
+                offset = 0
+                )
+
+    # Rough plan: Test __get__ and __set__ directly, avoids external
+    # dependencies. Test self.factory.
+    @unittest.skip("not yet implemented")
+    def test_construction(self):
         pass
 
-    # Rough plan: mock the passed-in object to provide results for stream.read,
-    # etc.
+    @unittest.skip("not yet implemented")
+    def test_spec_construction(self):
+        pass
+
+    @unittest.skip("not yet implemented")
+    def test_factory(self):
+        pass
+
+    def test_get(self):
+        pass
+
+    @unittest.skip("not yet implemented")
+    def test_set(self):
+        pass
+
 
 class TestSize(unittest.TestCase):
     def test_valid_specs(self):
