@@ -9,7 +9,7 @@ from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        filename = "data/maps/7th Saga (US)/texttables/main.tbl"
+        filename = "src/romtool/maps/7th Saga (US)/texttables/main.tbl"
         with open(filename) as f:
             self.tbl = text.TextTable("main", f)
 

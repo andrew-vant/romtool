@@ -39,6 +39,12 @@ class Int(int):
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
 
+    def mod(self, modval):
+        return self + modval
+
+    def unmod(self, modval):
+        return self - modval
+
     def __str__(self):
         if self.display:
             return getattr(self, self.display)

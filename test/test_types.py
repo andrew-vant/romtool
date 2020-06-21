@@ -1,5 +1,7 @@
 import unittest
+from types import SimpleNamespace
 
+import yaml
 from bitstring import BitStream
 from addict import Dict
 
@@ -8,9 +10,9 @@ from romlib.types import Structure, Field, Size, Offset
 class TestField(unittest.TestCase):
     # A field's getter should
     def setUp(self):
-        self.field = Field('uint', 0, 8)
-        self.instance = Dict(
-                stream = BitStream(hex=uint=1, length=8),
+        self.field = Field('uint', '0', '8')
+        self.instance = SimpleNamespace(
+                stream = BitStream(uint=1, length=8),
                 offset = 0
                 )
 
@@ -29,11 +31,14 @@ class TestField(unittest.TestCase):
         pass
 
     def test_get(self):
-        pass
+        self.assertEqual(self.field.__get__(self.instance), 1)
 
     @unittest.skip("not yet implemented")
     def test_set(self):
         pass
+
+class TestOffset(unittest.TestCase):
+    pass
 
 
 class TestSize(unittest.TestCase):
@@ -68,16 +73,18 @@ class TestSize(unittest.TestCase):
 class TestStructure(unittest.TestCase):
     def setUp(self):
         self.data = b'\x01\x02\x03\x04abcdef'
-        self.fields = [{'fid': 'one',
+        self.fields = [{'id': 'one',
                         'label': 'One Label',
                         'type': 'uint',
                         'offset': '0',
-                        'size': '1'},
-                       {'fid': 'two',
+                        'size': '8',
+                        'mod': '0'},
+                       {'id': 'two',
                         'label': 'Two Label',
                         'type': 'uint',
-                        'offset': '1',
-                        'size': '1'}]
+                        'offset': '8',
+                        'size': '8',
+                        'mod': '0'}]
 
     def test_define_struct(self):
         structtype = Structure.define('scratch', self.fields, force=True)
@@ -90,7 +97,8 @@ class TestStructure(unittest.TestCase):
 
     def test_read_struct_attr(self):
         structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        stream = BitStream(self.data)
+        struct = structtype(stream, 0)
         self.assertEqual(struct.one, 1)
 
     def test_read_struct_item_by_fid(self):

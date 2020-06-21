@@ -87,30 +87,40 @@ def loading_context(listname, name, index=None):
         raise
 
 
-def hexify(i, len_bytes=None, len_bits=None):
+def hexify(i, len_bytes=None, len_bits=None, pad=None):
     """ Converts an integer to a hex string in 0x???? format
 
-    If a length is provided, the string will be padded as needed. The returned
-    value will always have an even number of digits (i.e. no half-bytes
-    represented). Letters are capitalized.
+    If a length is provided, the string will be padded as needed. Padding can
+    also be forced by setting pad=True. Letters are capitalized.
     """
 
     if len_bits and len_bytes:
         raise ValueError("Specify length in bits or bytes, but not both")
-    elif not len_bits and not len_bytes:
-        len_bits = i.bit_length()
+
+    if pad is None:
+        if len_bits or len_bytes:
+            pad = True
+        else:
+            pad = False
+
+    if len_bits:
+        bits = len_bits
     elif len_bytes:
-        len_bits = len_bytes * 8
+        bits = len_bytes * 8
+    else:
+        bits = i.bit_length()
 
+    minbytes = ceil(bits / 8)
 
-    prefix = '-' if i < 0 else ''
-    i = abs(i)
-    if len_bytes:
-        len_bits = len_bytes * 8
-    bits = len_bits or len_bytes * 8 or i.bit_length()
+    if pad:
+        w_digits = minbytes*2
+        w_prefix = 2
+        w_sign = 1 if i < 0 else 0
+        width = '0' + str(w_digits + w_prefix + w_sign)
+    else:
+        width = ''
 
-    digits = ceil(len_bits / 8) * 2
-    return f'{prefix}0x{i:0{digits}X}'
+    return f'{i:#{width}X}'.replace('X', 'x')
 
 
 def displaybits(bits, display):

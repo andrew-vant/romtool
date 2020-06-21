@@ -1,8 +1,11 @@
 import logging
 import abc
 from collections import Counter
+from types import SimpleNamespace
+from collections.abc import Mapping
 
 import bitstring
+import yaml
 
 from . import util, primitives
 
@@ -65,7 +68,7 @@ class Offset:
                    'parent': True}
 
     """ Offset of a field or structure """
-    def __init__(self, origin='parent', scale=8, count=1, sibling=None):
+    def __init__(self, origin='parent', scale=8, count=0, sibling=None):
         self.origin = origin
         self.scale = scale
         self.count = count
@@ -75,7 +78,7 @@ class Offset:
     def resolve(self, obj):
         start = obj.offset if self.relative else 0
         offset = obj[sibling] if self.sibling else self.count
-        return origin + offset
+        return start + offset
 
     @classmethod
     def from_spec(cls, spec):
@@ -118,6 +121,7 @@ class Field:
         self.offset = offset
         self.size = size
         self.type = _type
+        self.display = display
         self.factory = primitives.get(_type)
         # code smell: special behavior for ints
         self._intish = issubclass(self.factory, int)
@@ -130,18 +134,27 @@ class Field:
             # information about a field at the type level
             return self
         stream = obj.stream
-        stream.pos = self.offset.resolve(obj)
-        value = stream.read(f'{self.bstype}:{self.size}')
-        value = self.factory(value, self.size, self.display)
-        value = value.mod(self.mod)
+        offset = self.offset.resolve(obj)
+        size = self.size.resolve(obj)
+        spec = f'{self.bstype}:{size}'
+
+        stream.pos = offset
+        value = stream.read(spec)
+        value = self.factory(value, size, self.display)
+        if self.mod:
+            value = value.mod(self.mod)
         return value
 
     def __set__(self, obj, value):
-        stream = self._position(obj)
-        stream.pos = self.offset.resolve(obj)
-        value = self.type(value, self.size, self.display)
-        value = value.unmod(self.mod)
-        stream.overwrite(f'{self.bstype}:{self.size}={value}')
+        stream = obj.stream
+        offset = self.offset.resolve(obj)
+        size = self.size.resolve(obj)
+        value = self.factory(value, size, self.display)
+        if self.mod:
+            value = value.unmod(self.mod)
+
+        stream.pos = offset
+        stream.overwrite(f'{self.bstype}:{size}={value}')
 
     @classmethod
     def from_spec(cls, dct):
@@ -165,16 +178,30 @@ class StringField(Field):
         obj.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
 
 
-class Structure:
+class Structure(Mapping):
     registry = {}
     labels = {}
 
+    def __init__(self, stream, offset):
+        self.stream = stream
+        self.offset = offset
+
     def __getitem__(self, key):
-        return getattr(self, self.lookup[key])
+        return getattr(self, self.labels.get(key, key))
 
     def __setitem__(self, key, value):
-        setattr(self, self.lookup[key], value)
+        setattr(self, self.labels.get(key, key), value)
 
+    def __iter__(self):
+        return iter(self.labels.values())
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __str__(self):
+        return yaml.dump(dict(self))
+
+    @classmethod
     def define(cls, name, field_dicts, force=False):
         """ Define a type of structure from a list of stringdicts
 
@@ -195,13 +222,13 @@ class Structure:
                     msg =  "duplicated field id or label: '{name}.{ident}'"
                     raise ValueError(msg)
             fields[f.id] = (Field(f.type, f.offset, f.size, f.mod))
-            labels[f.label] = f.fid
+            labels[f.label] = f.id
         struct_subclass = type(name, (cls,), fields)
         cls.registry[name] = struct_subclass
         return struct_subclass
 
 
-class Structure:
+class Structure2:
     registry = {}
 
     # fields should be a list of Field subclasses. They will be used to

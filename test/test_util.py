@@ -40,10 +40,20 @@ class TestUtilFuncs(unittest.TestCase):
         self.assertEqual(util.hexify(4), "0x4")
 
     def test_hexify_bitlength(self):
-        self.assertEqual(util.hexify(4, 8), "0x04")
+        self.assertEqual(util.hexify(4, None, 8), "0x04")
 
     def test_hexify_partial_byte(self):
-        self.assertEqual(util.hexify(4, 5), "0x04")
+        self.assertEqual(util.hexify(4, None, 5), "0x04")
+
+    def test_hexify_long(self):
+        self.assertEqual(util.hexify(0x400, 3), "0x000400")
+
+    def test_hexify_negative(self):
+        self.assertEqual(util.hexify(-4), "-0x4")
+
+    def test_hexify_long_negative(self):
+        self.assertEqual(util.hexify(-0x400, 3), "-0x000400")
+
 
 
 class TestOrderedDictReader(unittest.TestCase):

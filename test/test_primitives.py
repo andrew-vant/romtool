@@ -2,7 +2,8 @@ import unittest
 
 import bitstring
 
-from romlib.primitives import Int, BinCodec, Bin
+import romlib.primitives as primitives
+from romlib.primitives import Int, Bin, BinCodec
 
 
 class TestInt(unittest.TestCase):
@@ -58,6 +59,14 @@ class TestInt(unittest.TestCase):
                 except ValueError as ex:
                     msg = f'Int({value}, {bits}) raised ValueError unexpectedly'
                     self.fail(msg)
+
+    def test_mod(self):
+        i = Int(0)
+        self.assertEqual(i.mod(5), 5)
+
+    def test_unmod(self):
+        i = Int(0)
+        self.assertEqual(i.unmod(5), -5)
 
 
 class TestBinCodec(unittest.TestCase):
@@ -115,3 +124,30 @@ class TestBin(unittest.TestCase):
     def test_bin_from_bs_init(self):
         bits = Bin('uint:32=4')
         self.assertEqual(bits.uint, 4)
+
+    def test_mod(self):
+        inbits = Bin('0b1010')
+        outbits = Bin('0b0101')
+        self.assertEqual(inbits.mod('lsb0'), outbits)
+        self.assertEqual(outbits.unmod('lsb0'), inbits)
+        self.assertEqual(inbits.mod(''), inbits)
+
+    def test_str(self):
+        bits = Bin('0b1010')
+        self.assertEqual(str(bits), '0b1010')
+
+    def test_str_from_bits(self):
+        text = 'AbCd'
+        bits = Bin(text, display='abcd')
+        self.assertEqual(str(bits), text)
+
+
+
+class TestUtils(unittest.TestCase):
+    def test_get_int(self):
+        self.assertIs(primitives.get('uint'), Int)
+    def test_get_bin(self):
+        self.assertIs(primitives.get('bin'), Bin)
+    def test_get_invalid_type(self):
+        self.assertRaises(ValueError, primitives.get, 'thingy')
+
