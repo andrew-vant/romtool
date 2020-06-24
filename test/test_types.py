@@ -5,7 +5,7 @@ import yaml
 from bitstring import BitStream
 from addict import Dict
 
-from romlib.types import Structure, Field, Size, Offset
+from romlib.types import Structure, Field, Size, Offset, Array
 
 class TestField(unittest.TestCase):
     # A field's getter should
@@ -69,6 +69,7 @@ class TestSize(unittest.TestCase):
         self.assertEqual(size.count, None)
         self.assertEqual(size.scale, 8)
         self.assertEqual(size.sibling, 'sibling')
+
 
 class TestStructure(unittest.TestCase):
     def setUp(self):
@@ -149,3 +150,26 @@ class TestStructure(unittest.TestCase):
         self.assertEqual(struct.two, 4)
         self.assertEqual(struct['two'], 4)
         self.assertEqual(struct['Two Label'], 4)
+
+class TestArray(unittest.TestCase):
+    def setUp(self):
+        self.data = b'\x01\x02\x03\x04abcdef'
+        self.fields = [{'id': 'one',
+                        'label': 'One Label',
+                        'type': 'uint',
+                        'offset': '0',
+                        'size': '8',
+                        'mod': '0'}]
+
+    def test_primitive_array(self):
+        bs = BitStream(self.data)
+        array = Array(bs, 'uint', 0, len(self.data), 1)
+        self.assertEqual(len(self.data), len(array))
+        self.assertEqual(list(self.data), list(array))
+
+    def test_struct_array(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        bs = BitStream(self.data)
+        array = Array(bs, 'scratch', 0, len(self.data), 1)
+        self.assertEqual(len(self.data), len(array))
+        self.assertEqual(list(self.data), [s.one for s in array])

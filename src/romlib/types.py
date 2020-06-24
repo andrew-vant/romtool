@@ -2,7 +2,7 @@ import logging
 import abc
 from collections import Counter
 from types import SimpleNamespace
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import bitstring
 import yaml
@@ -226,3 +226,42 @@ class Structure(Mapping):
         struct_subclass = type(name, (cls,), fields)
         cls.registry[name] = struct_subclass
         return struct_subclass
+
+
+class Array(Sequence):
+    def __init__(self, stream, _type, offset, count, stride, **kwargs):
+        self.stream = stream
+        self.offset = offset
+        self.data = []
+
+        if _type in Structure.registry:
+            self.primitive = False
+            itemtype = Structure.registry[_type]
+        else:
+            self.primitive = True
+            offset = Offset()
+            size = Size(count=stride)
+            class Primitive(Structure):
+                labels = {'value': 'value'}
+                value = Field(_type, offset, size, **kwargs)
+            itemtype = Primitive
+
+        for i in range(count):
+            offset = (self.offset + i * stride) * 8
+            self.data.append(itemtype(stream, offset))
+
+    def __getitem__(self, i):
+        if self.primitive:
+            return self.data[i].value
+        else:
+            return self.data[i]
+
+    def __setitem__(self, i, v):
+        if self.primitive:
+            self.data[i].value = v
+        else:
+            msg = "Attempt to overwrite a whole struct"
+            raise NotImplementedError(msg)
+
+    def __len__(self):
+        return len(self.data)
