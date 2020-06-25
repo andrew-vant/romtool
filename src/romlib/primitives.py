@@ -136,12 +136,13 @@ class BinCodec:
         return [dmap[char] for dmap, char
                 in zip(self.decoding_map, text)]
 
+
 def get(type_string):
     """ Get the right class for a given type string """
     if "int" in type_string:
         return Int
     elif "str" in type_string:
-        return String
+        return str
     elif "bin" in type_string:
         return Bin
     else:

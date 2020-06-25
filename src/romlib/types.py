@@ -9,6 +9,10 @@ import yaml
 
 from . import util, primitives
 
+# TODO: hungarian notation; bit_offset, byte_offset, bit_size, etc? Or just always use an
+# Offset object with bits/bytes as attributes? I keep having to remember when to
+# multiply by eight.
+
 
 log = logging.getLogger(__name__)
 
@@ -123,10 +127,17 @@ class Field:
         self.type = _type
         self.display = display
         self.factory = primitives.get(_type)
-        # code smell: special behavior for ints
-        self._intish = issubclass(self.factory, int)
-        self.bstype = _type if self._intish else 'bin'
-        self.mod = util.intify(mod, None) if self._intish else mod
+        # code smell: special behavior for ints/strings
+        if issubclass(self.factory, int):
+            self.bstype = _type
+            self.mod = util.intify(mod, None)
+        elif _type == 'str':
+            self.bstype = 'bits'
+            self.mod = mod
+            self.display = display or 'ascii'
+        else:
+            self.bstype = 'bin'
+            self.mod = mod
 
     def __get__(self, obj, owner=None):
         if obj is None:
@@ -140,7 +151,11 @@ class Field:
 
         stream.pos = offset
         value = stream.read(spec)
-        value = self.factory(value, size, self.display)
+        if self.factory is str:
+            value = value.bytes.decode(self.display)
+        else:
+            value = self.factory(value, size, self.display)
+
         if self.mod:
             value = value.mod(self.mod)
         return value
@@ -149,7 +164,10 @@ class Field:
         stream = obj.stream
         offset = self.offset.resolve(obj)
         size = self.size.resolve(obj)
-        value = self.factory(value, size, self.display)
+        if self.factory is str:
+            value = bitstring.Bits(value.encode(self.display))
+        else:
+            value = self.factory(value, size, self.display)
         if self.mod:
             value = value.unmod(self.mod)
 

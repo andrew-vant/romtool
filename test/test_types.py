@@ -37,6 +37,7 @@ class TestField(unittest.TestCase):
     def test_set(self):
         pass
 
+
 class TestOffset(unittest.TestCase):
     pass
 
@@ -85,7 +86,14 @@ class TestStructure(unittest.TestCase):
                         'type': 'uint',
                         'offset': '8',
                         'size': '8',
-                        'mod': '0'}]
+                        'mod': '0'},
+                       {'id': 'str',
+                        'label': 'String',
+                        'type': 'str',
+                        'offset': '32',
+                        'size': '48',
+                        'mod': '',
+                        'display': ''}]
 
     def test_define_struct(self):
         structtype = Structure.define('scratch', self.fields, force=True)
@@ -150,6 +158,32 @@ class TestStructure(unittest.TestCase):
         self.assertEqual(struct.two, 4)
         self.assertEqual(struct['two'], 4)
         self.assertEqual(struct['Two Label'], 4)
+
+    def test_read_string_field(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        struct = structtype(BitStream(self.data), 0)
+        self.assertEqual(struct.str, 'abcdef')
+
+    def test_write_string_field(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        struct = structtype(BitStream(self.data), 0)
+        struct.str = 'zyxwvu'
+        expected = b'\x01\x02\x03\x04zyxwvu'
+        self.assertEqual(struct.str, 'zyxwvu')
+        self.assertEqual(struct.stream.bytes, expected)
+
+    def test_oversized_string(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        struct = structtype(BitStream(self.data), 0)
+        with self.assertRaises(ValueError):
+            struct.str = 'abcdefghy'
+
+    def test_undersized_string(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        struct = structtype(BitStream(self.data), 0)
+        with self.assertRaises(ValueError):
+            struct.str = 'abc'
+
 
 class TestArray(unittest.TestCase):
     def setUp(self):
