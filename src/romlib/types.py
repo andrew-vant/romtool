@@ -174,27 +174,6 @@ class Field:
         stream.pos = offset
         stream.overwrite(f'{self.bstype}:{size}={value}')
 
-    @classmethod
-    def from_spec(cls, dct):
-        dct = dct.copy()
-        dct['_type'] = dct.pop('type')
-        dct['offset'] = Offset.from_spec(dct['offset'])
-        dct['size'] = Size.from_spec(dct['size'])
-        return cls(**dct)
-
-
-class StringField(Field):
-    def __get__(self, obj, owner=None):
-        if obj is None:
-            return self
-        self._position(obj)
-        bs = obj.stream.read(self.sz_bits)
-        return codecs.decode(bs.bytes, self.display or 'ascii')
-
-    def __set__(self, obj, value):
-        self._position(obj)
-        obj.stream.overwrite(codecs.encode(s, self.display or 'ascii'))
-
 
 class Structure(Mapping):
     registry = {}
