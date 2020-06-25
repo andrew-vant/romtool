@@ -38,8 +38,16 @@ class TestField(unittest.TestCase):
         pass
 
 
+@unittest.skip("not yet implemented")
 class TestOffset(unittest.TestCase):
-    pass
+    def test_valid_specs(self):
+        pass
+    def test_invalid_specs(self):
+        pass
+    def test_count_spec(self):
+        pass
+    def test_sibling_spec(self):
+        pass
 
 
 class TestSize(unittest.TestCase):
@@ -87,6 +95,12 @@ class TestStructure(unittest.TestCase):
                         'offset': '8',
                         'size': '8',
                         'mod': '0'},
+                       {'id': 'modded',
+                        'label': 'Modded Label',
+                        'type': 'uint',
+                        'offset': '16',
+                        'size': '8',
+                        'mod': '1'},
                        {'id': 'str',
                         'label': 'String',
                         'type': 'str',
@@ -158,6 +172,14 @@ class TestStructure(unittest.TestCase):
         self.assertEqual(struct.two, 4)
         self.assertEqual(struct['two'], 4)
         self.assertEqual(struct['Two Label'], 4)
+
+    def test_modded_field(self):
+        structtype = Structure.define('scratch', self.fields, force=True)
+        struct = structtype(BitStream(self.data), 0)
+        self.assertEqual(struct.modded, 4)
+        struct.modded = 4
+        self.assertEqual(struct.stream.bytes[2], 3)
+        self.assertEqual(struct.modded, 4)
 
     def test_read_string_field(self):
         structtype = Structure.define('scratch', self.fields, force=True)
