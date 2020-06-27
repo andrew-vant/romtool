@@ -6,6 +6,7 @@ from bitstring import BitStream
 from addict import Dict
 
 from romlib.types import Structure, Field, Size, Offset, Array
+from romlib.primitives import Primitive
 
 class TestField(unittest.TestCase):
     # A field's getter should
@@ -219,13 +220,14 @@ class TestArray(unittest.TestCase):
 
     def test_primitive_array(self):
         bs = BitStream(self.data)
-        array = Array(bs, 'uint', 0, len(self.data), 1)
+        uint = Primitive('uint', 8)
+        array = Array(bs, uint, 0, len(self.data), 1)
         self.assertEqual(len(self.data), len(array))
         self.assertEqual(list(self.data), list(array))
 
     def test_struct_array(self):
         structtype = Structure.define('scratch', self.fields, force=True)
         bs = BitStream(self.data)
-        array = Array(bs, 'scratch', 0, len(self.data), 1)
+        array = Array(bs, structtype, 0, len(self.data), 1)
         self.assertEqual(len(self.data), len(array))
         self.assertEqual(list(self.data), [s.one for s in array])

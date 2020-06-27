@@ -149,5 +149,5 @@ class TestUtils(unittest.TestCase):
     def test_get_bin(self):
         self.assertIs(primitives.get('bin'), Bin)
     def test_get_invalid_type(self):
-        self.assertRaises(ValueError, primitives.get, 'thingy')
+        self.assertRaises(KeyError, primitives.get, 'thingy')
 

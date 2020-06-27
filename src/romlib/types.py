@@ -225,40 +225,41 @@ class Structure(Mapping):
         return struct_subclass
 
 
-class Array(Sequence):
-    def __init__(self, stream, _type, offset, count, stride, **kwargs):
+class Table(Sequence):
+    def __init__(self, stream, factory, index):
+        """ Create a Table
+
+        stream: The underlying bitstream
+        index: a list of offsets within the stream
+        factory: a callable that takes a bitstream and offset, and returns that
+                 object.
+
+        In most cases the factory will be a Structure class or Primitive
+        instance.
+        """
+
         self.stream = stream
-        self.offset = offset
-        self.data = []
+        self.index = index
+        self.factory = factory
 
-        if _type in Structure.registry:
-            self.primitive = False
-            itemtype = Structure.registry[_type]
-        else:
-            self.primitive = True
-            offset = Offset()
-            size = Size(count=stride)
-            class Primitive(Structure):
-                labels = {'value': 'value'}
-                value = Field(_type, offset, size, **kwargs)
-            itemtype = Primitive
-
-        for i in range(count):
-            offset = (self.offset + i * stride) * 8
-            self.data.append(itemtype(stream, offset))
+    @classmethod
+    def build_index(offset, count, stride, scale=8):
+        return [(offset + stride * i) * scale
+                for i in range(count)]
 
     def __getitem__(self, i):
-        if self.primitive:
-            return self.data[i].value
-        else:
-            return self.data[i]
+        offset = self.index[i]
+        return self.factory(self.stream, offset)
 
     def __setitem__(self, i, v):
-        if self.primitive:
-            self.data[i].value = v
-        else:
-            msg = "Attempt to overwrite a whole struct"
-            raise NotImplementedError(msg)
+        self.factory.write(self.stream, self.index[i], v)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.index)
+
+
+class Array(Table):
+    def __init__(self, stream, factory, offset, count, stride, scale=8):
+        index = [(offset + stride * i) * scale
+                 for i in range(count)]
+        super().__init__(stream, factory, index)

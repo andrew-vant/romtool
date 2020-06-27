@@ -391,3 +391,9 @@ def bracket(s, index):
     char = '[{}]'.format(s[index])
     end = s[index+1:]
     return start + char + end
+
+def all_none(*args):
+    return all(i is None for i in args)
+
+def any_none(*args):
+    return any(i is None for i in args)

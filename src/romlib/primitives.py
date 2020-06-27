@@ -137,6 +137,28 @@ class BinCodec:
                 in zip(self.decoding_map, text)]
 
 
+class Primitive:
+    """ A struct-like class for primitives """
+    def __init__(self, bstype, sz_bits, display=None):
+        self.bstype = bstype
+        self.sz_bits = sz_bits
+        self.display = display
+        self.type = get(bstype)
+        self.bsfmt = f'{bstype}:{sz_bits}'
+
+    def __call__(self, stream, offset):
+        return self.read(stream, offset)
+
+    def read(self, stream, offset):
+        stream.pos = offset
+        bits = stream.read(self.bsfmt)
+        return self.type(bits, self.sz_bits, self.display)
+
+    def write(self, stream, offset, value):
+        stream.pos = offset
+        stream.overwrite(f'{self.bsfmt}={value}')
+
+
 def get(type_string):
     """ Get the right class for a given type string """
     if "int" in type_string:
@@ -146,4 +168,4 @@ def get(type_string):
     elif "bin" in type_string:
         return Bin
     else:
-        raise ValueError("Invalid type string")
+        raise KeyError("Invalid type string")
