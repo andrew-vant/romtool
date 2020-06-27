@@ -126,7 +126,7 @@ class Field:
         self.size = size
         self.type = _type
         self.display = display
-        self.factory = primitives.get(_type)
+        self.factory = primitives.getcls(_type)
         # code smell: special behavior for ints/strings
         if issubclass(self.factory, int):
             self.bstype = _type

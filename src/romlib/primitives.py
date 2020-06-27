@@ -143,7 +143,7 @@ class Primitive:
         self.bstype = bstype
         self.sz_bits = sz_bits
         self.display = display
-        self.type = get(bstype)
+        self.type = getcls(bstype)
         self.bsfmt = f'{bstype}:{sz_bits}'
 
     def __call__(self, stream, offset):
@@ -159,13 +159,18 @@ class Primitive:
         stream.overwrite(f'{self.bsfmt}={value}')
 
 
-def get(type_string):
+def getbst(type_string):
+    """ Get bitstring type for a given type string """
+    bstype = {'str': 'bytes'}
+    return bstype.get(type_string, type_string)
+
+
+def getcls(type_string):
     """ Get the right class for a given type string """
-    if "int" in type_string:
-        return Int
-    elif "str" in type_string:
-        return str
-    elif "bin" in type_string:
-        return Bin
-    else:
-        raise KeyError("Invalid type string")
+    strtypes = {'int': Int,
+                'str': str,
+                'bin': Bin,}
+    for substr, cls in strtypes.items():
+        if substr in type_string:
+            return cls
+    raise KeyError("Invalid type string")

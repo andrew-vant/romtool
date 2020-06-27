@@ -142,12 +142,11 @@ class TestBin(unittest.TestCase):
         self.assertEqual(str(bits), text)
 
 
-
 class TestUtils(unittest.TestCase):
     def test_get_int(self):
-        self.assertIs(primitives.get('uint'), Int)
+        self.assertIs(primitives.getcls('uint'), Int)
     def test_get_bin(self):
-        self.assertIs(primitives.get('bin'), Bin)
+        self.assertIs(primitives.getcls('bin'), Bin)
     def test_get_invalid_type(self):
-        self.assertRaises(KeyError, primitives.get, 'thingy')
+        self.assertRaises(KeyError, primitives.getcls, 'thingy')
 
