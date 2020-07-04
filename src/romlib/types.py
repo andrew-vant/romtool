@@ -126,17 +126,14 @@ class Field:
         self.size = size
         self.type = _type
         self.display = display
-        self.factory = primitives.getcls(_type)
+        self.factory = Structure.registry.get(_type, primitives.getcls(_type))
         # code smell: special behavior for ints/strings
         if issubclass(self.factory, int):
-            self.bstype = _type
             self.mod = util.intify(mod, None)
         elif _type == 'str':
-            self.bstype = 'bits'
             self.mod = mod
             self.display = display or 'ascii'
         else:
-            self.bstype = 'bin'
             self.mod = mod
 
     def __get__(self, obj, owner=None):
@@ -145,11 +142,16 @@ class Field:
             # information about a field at the type level
             return self
         offset = self.offset.resolve(obj)
-        sz_bits = self.size.resolve(obj)
-        obj.stream.pos = offset
-        return obj.stream.read(self.type, sz_bits, self.mod, self.display)
+        if issubclass(self.factory, Structure):
+            return self.factory(obj.stream, offset)
+        else:
+            sz_bits = self.size.resolve(obj)
+            obj.stream.pos = offset
+            return obj.stream.read(self.type, sz_bits, self.mod, self.display)
 
     def __set__(self, obj, value):
+        if issubclass(self.factory, Structure):
+            raise NotImplementedError("Can't set entire structure at once yet")
         offset = self.offset.resolve(obj)
         sz_bits = self.size.resolve(obj)
         obj.stream.pos = offset
@@ -203,14 +205,15 @@ class Structure(Mapping):
                 if ident in fields or ident in labels:
                     msg =  "duplicated field id or label: '{name}.{ident}'"
                     raise ValueError(msg)
-            fields[f.id] = Field(f.type, f.offset, f.size, f.mod)
+            fields[f.id] = Field(f.type, f.offset, f.size, f.mod, getattr(f, 'display', None))
             labels[f.label] = f.id
         return type(name, (cls,), fields)
 
-def BitField(Structure):
+
+class BitField(Structure):
     def __str__(self):
-        return ''.join(l.upper() if self[field] else l.lower()
-                       for field in self)
+        return ''.join(str(v) for v in self.values())
+
 
 class Table(Sequence):
     def __init__(self, stream, factory, index):

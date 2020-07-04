@@ -150,7 +150,10 @@ class TestUtils(unittest.TestCase):
         self.assertIs(primitives.getcls('uint'), Int)
     def test_get_bin(self):
         self.assertIs(primitives.getcls('bin'), Bin)
+    def test_get_flag(self):
+        self.assertIs(primitives.getcls('flag'), Flag)
     def test_get_invalid_type(self):
         self.assertRaises(KeyError, primitives.getcls, 'thingy')
+
 
 

@@ -46,6 +46,7 @@ class Int(int):
         else:
             return super().__str__()
 
+
 class Flag(int):
     valid_letters = list(string.ascii_letters) + [None]
 
@@ -179,7 +180,8 @@ def getcls(type_string):
     """ Get the right class for a given type string """
     strtypes = {'int': Int,
                 'str': str,
-                'bin': Bin,}
+                'bin': Bin,
+                'flag': Flag}
     for substr, cls in strtypes.items():
         if substr in type_string:
             return cls

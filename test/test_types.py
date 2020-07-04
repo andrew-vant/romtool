@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import yaml
 from addict import Dict
 
-from romlib.types import Structure, Field, Size, Offset, Array
-from romlib.primitives import Primitive
+from romlib.types import Structure, Field, Size, Offset, Array, BitField
+from romlib.primitives import Primitive, Flag
 from romlib.io import Stream
 
 class TestField(unittest.TestCase):
@@ -195,6 +195,84 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data), 0)
         struct.str = 'abc'
         self.assertEqual(struct.str, 'abc   ')
+
+class TestSubstructures(unittest.TestCase):
+    def setUp(self):
+        subfields = [{'id': 'one',
+                      'label': 'One Label',
+                      'type': 'flag',
+                      'offset': '0',
+                      'size': '1',
+                      'display': 'J',
+                      'mod': '0'},
+                     {'id': 'two',
+                      'label': 'Two Label',
+                      'type': 'flag',
+                      'offset': '2',
+                      'size': '1',
+                      'display': 'Q',
+                      'mod': '0'}]
+        fields = [{'id': 'sub',
+                   'label': 'sub',
+                   'type': 'flags',
+                   'offset': '0',
+                   'size': '2',
+                   'display': None,
+                   'mod': None,}]
+        self.cls_flags = BitField.define('flags', subfields)
+        self.cls_struct = Structure.define('scratch', fields)
+        self.data = bytes([0b10000000])
+
+    def test_substruct(self):
+        struct = self.cls_struct(Stream(self.data), 0)
+        self.assertTrue(struct.sub.one)
+
+    def tearDown(self):
+        del Structure.registry['scratch']
+        del Structure.registry['flags']
+
+
+class TestBitField(unittest.TestCase):
+    def setUp(self):
+        self.data = bytes([0b10000000])
+        self.fields = [{'id': 'one',
+                        'label': 'One Label',
+                        'type': 'flag',
+                        'offset': '0',
+                        'size': '1',
+                        'display': 'J',
+                        'mod': '0'},
+                       {'id': 'two',
+                        'label': 'Two Label',
+                        'type': 'flag',
+                        'offset': '2',
+                        'size': '1',
+                        'display': 'Q',
+                        'mod': '0'}]
+        self.scratch = BitField.define('scratch', self.fields)
+
+    def test_define(self):
+        self.assertTrue(issubclass(self.scratch, BitField))
+
+    def test_construction(self):
+        bf = self.scratch(Stream(self.data), 0)
+        self.assertIsInstance(bf, BitField)
+        self.assertTrue(bf.one)
+        self.assertFalse(bf.two)
+        self.assertIsInstance(bf.one, Flag)
+        self.assertIsInstance(bf.two, Flag)
+
+    def test_chars(self):
+        bf = self.scratch(Stream(self.data), 0)
+        self.assertEqual(bf.one.char, 'J')
+        self.assertEqual(bf.two.char, 'Q')
+
+    def test_str(self):
+        bf = self.scratch(Stream(self.data), 0)
+        self.assertEqual(str(bf), 'Jq')
+
+    def tearDown(self):
+        del Structure.registry['scratch']
 
 
 class TestArray(unittest.TestCase):
