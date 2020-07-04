@@ -4,6 +4,7 @@ These all inherit builtin types; the difference is mainly in stringification.
 """
 
 import logging
+import string
 from math import ceil, log
 from abc import ABCMeta
 
@@ -44,6 +45,22 @@ class Int(int):
             return getattr(self, self.display)
         else:
             return super().__str__()
+
+class Flag(int):
+    valid_letters = list(string.ascii_letters) + [None]
+
+    def __new__(cls, value, sz_bits=1, display=None):
+        if display not in cls.valid_letters:
+            raise ValueError("flag display format must be a single letter")
+        f = super().__new__(cls, value)
+        f.char = display
+        return f
+
+    def __str__(self):
+        if not self.char:
+            return '1' if self else '0'
+        else:
+            return self.char.upper() if self else self.char.lower()
 
 
 class Bin(bitstring.BitArray):

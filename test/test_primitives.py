@@ -3,7 +3,18 @@ import unittest
 import bitstring
 
 import romlib.primitives as primitives
-from romlib.primitives import Int, Bin, BinCodec
+from romlib.primitives import Int, Bin, BinCodec, Flag
+
+class TestFlag(unittest.TestCase):
+    def test_flag_creation(self):
+        f = Flag(0)
+        self.assertFalse(f)
+        f = Flag(1)
+        self.assertTrue(f)
+        f = Flag(False)
+        self.assertFalse(f)
+        f = Flag(True)
+        self.assertTrue(f)
 
 
 class TestInt(unittest.TestCase):
@@ -141,4 +152,5 @@ class TestUtils(unittest.TestCase):
         self.assertIs(primitives.getcls('bin'), Bin)
     def test_get_invalid_type(self):
         self.assertRaises(KeyError, primitives.getcls, 'thingy')
+
 
