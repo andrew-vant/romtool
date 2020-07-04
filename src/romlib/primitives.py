@@ -39,12 +39,6 @@ class Int(int):
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
 
-    def mod(self, modval):
-        return self + modval
-
-    def unmod(self, modval):
-        return self - modval
-
     def __str__(self):
         if self.display:
             return getattr(self, self.display)
@@ -139,24 +133,23 @@ class BinCodec:
 
 class Primitive:
     """ A struct-like class for primitives """
-    def __init__(self, bstype, sz_bits, display=None):
-        self.bstype = bstype
+    def __init__(self, _type, sz_bits, mod=None, display=None):
         self.sz_bits = sz_bits
         self.display = display
-        self.type = getcls(bstype)
-        self.bsfmt = f'{bstype}:{sz_bits}'
+        self.mod = mod
+
+        self.ioargs = {'tid': _type,
+                       'sz_bits': sz_bits,
+                       'mod': mod,
+                       'display': display}
 
     def __call__(self, stream, offset):
-        return self.read(stream, offset)
-
-    def read(self, stream, offset):
         stream.pos = offset
-        bits = stream.read(self.bsfmt)
-        return self.type(bits, self.sz_bits, self.display)
+        return stream.read(**self.ioargs)
 
     def write(self, stream, offset, value):
         stream.pos = offset
-        stream.overwrite(f'{self.bsfmt}={value}')
+        stream.write(**self.ioargs)
 
 
 def getbst(type_string):

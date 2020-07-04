@@ -2,18 +2,18 @@ import unittest
 from types import SimpleNamespace
 
 import yaml
-from bitstring import BitStream
 from addict import Dict
 
 from romlib.types import Structure, Field, Size, Offset, Array
 from romlib.primitives import Primitive
+from romlib.io import Stream
 
 class TestField(unittest.TestCase):
     # A field's getter should
     def setUp(self):
         self.field = Field('uint', '0', '8')
         self.instance = SimpleNamespace(
-                stream = BitStream(uint=1, length=8),
+                stream = Stream(uint=1, length=8),
                 offset = 0
                 )
 
@@ -109,43 +109,40 @@ class TestStructure(unittest.TestCase):
                         'size': '48',
                         'mod': '',
                         'display': ''}]
+        self.scratch = Structure.define('scratch', self.fields)
+
+    def tearDown(self):
+        del Structure.registry['scratch']
 
     def test_define_struct(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        self.assertTrue(issubclass(structtype, Structure))
+        self.assertTrue(issubclass(self.scratch, Structure))
 
     def test_instantiate_struct(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
-        self.assertIsInstance(struct, structtype)
+        struct = self.scratch(Stream(self.data), 0)
+        self.assertIsInstance(struct, self.scratch)
 
     def test_read_struct_attr(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        stream = BitStream(self.data)
-        struct = structtype(stream, 0)
+        stream = Stream(self.data)
+        struct = self.scratch(stream, 0)
         self.assertEqual(struct.one, 1)
 
     def test_read_struct_item_by_fid(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         self.assertEqual(struct['one'], 1)
 
     def test_read_struct_item_by_label(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         self.assertEqual(struct['One Label'], 1)
 
     def test_write_struct_attr(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         struct.one = 2
         self.assertEqual(struct.one, 2)
         self.assertEqual(struct['one'], 2)
         self.assertEqual(struct['One Label'], 2)
 
     def test_write_struct_item_by_fid(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         struct['one'] = 2
         self.assertEqual(struct.one, 2)
         self.assertEqual(struct['one'], 2)
@@ -153,59 +150,51 @@ class TestStructure(unittest.TestCase):
 
     def test_write_struct_stream_contents(self):
         # Test that writes do the right thing with the underlying stream
-        structtype = Structure.define('scratch', self.fields, force=True)
-        stream = BitStream(self.data)
-        struct = structtype(stream, 0)
+        stream = Stream(self.data)
+        struct = self.scratch(stream, 0)
         struct.one = 2
         stream.pos = 0
         self.assertEqual(stream.bytes[0], 2)
 
     def test_read_field_with_offset(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         self.assertEqual(struct.two, 2)
         self.assertEqual(struct['two'], 2)
 
     def test_write_field_with_offset(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         struct.two = 4
         self.assertEqual(struct.two, 4)
         self.assertEqual(struct['two'], 4)
         self.assertEqual(struct['Two Label'], 4)
 
     def test_modded_field(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         self.assertEqual(struct.modded, 4)
         struct.modded = 4
         self.assertEqual(struct.stream.bytes[2], 3)
         self.assertEqual(struct.modded, 4)
 
     def test_read_string_field(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         self.assertEqual(struct.str, 'abcdef')
 
     def test_write_string_field(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         struct.str = 'zyxwvu'
         expected = b'\x01\x02\x03\x04zyxwvu'
         self.assertEqual(struct.str, 'zyxwvu')
         self.assertEqual(struct.stream.bytes, expected)
 
     def test_oversized_string(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
+        struct = self.scratch(Stream(self.data), 0)
         with self.assertRaises(ValueError):
             struct.str = 'abcdefghy'
 
     def test_undersized_string(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        struct = structtype(BitStream(self.data), 0)
-        with self.assertRaises(ValueError):
-            struct.str = 'abc'
+        struct = self.scratch(Stream(self.data), 0)
+        struct.str = 'abc'
+        self.assertEqual(struct.str, 'abc   ')
 
 
 class TestArray(unittest.TestCase):
@@ -217,17 +206,20 @@ class TestArray(unittest.TestCase):
                         'offset': '0',
                         'size': '8',
                         'mod': '0'}]
+        self.scratch = Structure.define('scratch', self.fields)
+
+    def tearDown(self):
+        del Structure.registry['scratch']
 
     def test_primitive_array(self):
-        bs = BitStream(self.data)
+        bs = Stream(self.data)
         uint = Primitive('uint', 8)
         array = Array(bs, uint, 0, len(self.data), 1)
         self.assertEqual(len(self.data), len(array))
         self.assertEqual(list(self.data), list(array))
 
     def test_struct_array(self):
-        structtype = Structure.define('scratch', self.fields, force=True)
-        bs = BitStream(self.data)
-        array = Array(bs, structtype, 0, len(self.data), 1)
+        bs = Stream(self.data)
+        array = Array(bs, self.scratch, 0, len(self.data), 1)
         self.assertEqual(len(self.data), len(array))
         self.assertEqual(list(self.data), [s.one for s in array])

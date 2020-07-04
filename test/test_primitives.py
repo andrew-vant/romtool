@@ -60,14 +60,6 @@ class TestInt(unittest.TestCase):
                     msg = f'Int({value}, {bits}) raised ValueError unexpectedly'
                     self.fail(msg)
 
-    def test_mod(self):
-        i = Int(0)
-        self.assertEqual(i.mod(5), 5)
-
-    def test_unmod(self):
-        i = Int(0)
-        self.assertEqual(i.unmod(5), -5)
-
 
 class TestBinCodec(unittest.TestCase):
     def test_bincodec_creation(self):

@@ -144,35 +144,16 @@ class Field:
             # We might actually want to do this sometimes, e.g. to print
             # information about a field at the type level
             return self
-        stream = obj.stream
         offset = self.offset.resolve(obj)
-        size = self.size.resolve(obj)
-        spec = f'{self.bstype}:{size}'
-
-        stream.pos = offset
-        value = stream.read(spec)
-        if self.factory is str:
-            value = value.bytes.decode(self.display)
-        else:
-            value = self.factory(value, size, self.display)
-
-        if self.mod:
-            value = value.mod(self.mod)
-        return value
+        sz_bits = self.size.resolve(obj)
+        obj.stream.pos = offset
+        return obj.stream.read(self.type, sz_bits, self.mod, self.display)
 
     def __set__(self, obj, value):
-        stream = obj.stream
         offset = self.offset.resolve(obj)
-        size = self.size.resolve(obj)
-        if self.factory is str:
-            value = bitstring.Bits(value.encode(self.display))
-        else:
-            value = self.factory(value, size, self.display)
-        if self.mod:
-            value = value.unmod(self.mod)
-
-        stream.pos = offset
-        stream.overwrite(f'{self.bstype}:{size}={value}')
+        sz_bits = self.size.resolve(obj)
+        obj.stream.pos = offset
+        obj.stream.write(value, self.type, sz_bits, self.mod, self.display)
 
 
 class Structure(Mapping):
@@ -198,15 +179,19 @@ class Structure(Mapping):
     def __str__(self):
         return yaml.dump(dict(self))
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name = cls.__name__
+        if name in cls.registry:
+            raise ValueError(f"duplicate definition of '{name}'")
+        cls.registry[name] = cls
+
     @classmethod
     def define(cls, name, field_dicts, force=False):
         """ Define a type of structure from a list of stringdicts
 
         The newly-defined type will be registered and also returned.
         """
-        if name in cls.registry and not force:
-            raise ValueError(f"duplicate definition of '{name}'")
-
         fields = {'labels': {}}
         labels = fields['labels']
         for dct in field_dicts:
@@ -218,12 +203,14 @@ class Structure(Mapping):
                 if ident in fields or ident in labels:
                     msg =  "duplicated field id or label: '{name}.{ident}'"
                     raise ValueError(msg)
-            fields[f.id] = (Field(f.type, f.offset, f.size, f.mod))
+            fields[f.id] = Field(f.type, f.offset, f.size, f.mod)
             labels[f.label] = f.id
-        struct_subclass = type(name, (cls,), fields)
-        cls.registry[name] = struct_subclass
-        return struct_subclass
+        return type(name, (cls,), fields)
 
+def BitField(Structure):
+    def __str__(self):
+        return ''.join(l.upper() if self[field] else l.lower()
+                       for field in self)
 
 class Table(Sequence):
     def __init__(self, stream, factory, index):
