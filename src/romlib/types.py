@@ -214,6 +214,12 @@ class BitField(Structure):
     def __str__(self):
         return ''.join(str(v) for v in self.values())
 
+    def parse(self, s):
+        if len(s) != len(self):
+            raise ValueError("String length must match bitfield length")
+        for k, letter in zip(self, s):
+            yield letter.isupper()
+
 
 class Table(Sequence):
     def __init__(self, stream, factory, index):

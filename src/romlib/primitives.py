@@ -13,24 +13,68 @@ import bitstring
 from . import util
 
 log = logging.getLogger(__name__)
+builtins = {}
+
+class Primitive(ABC):
+    # Default __new__ given mainly to provide the expected arguments
+    def __new__(cls, value, sz_bits, fmt):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load(cls, string, sz_bits, fmt):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def read(cls, stream, sz_bits, mod, fmt):
+        raise NotImplementedError
+
+    @abstractmethod
+    def write(self, stream, sz_bits, mod):
+        raise NotImplementedError
+
+    @abstractmethod
+    def dump(self):
+        raise NotImplementedError
+
+    def __str__(self):
+        return self.dump()
+
+    def __repr__(self):
+        name = type(self).__name__
+        return f'{name}({self}, {self.sz_bits}, {self.fmt})'
 
 
-class Int(int):
-    def __new__(cls, value, sz_bits=None, display=None):
-        if isinstance(value, int):
-            i = super().__new__(cls, value)
-        else:
-            i = super().__new__(cls, value, 0)
+class BaseInt(Primitive, int):
+    # This gets overridden in subclasses and is used to determine the type to
+    # pass to bitstring.read
+    _bstype = None
 
-        i.display = display
-        if sz_bits is None:
-            sz_bits = max(i.bit_length(), 1)
-        if sz_bits == 0:
-            raise ValueError("Can't have a zero-bit integer")
-        if sz_bits < i.bit_length():
-            raise ValueError(f"{i} won't fit in {sz_bits} bits")
-        i.sz_bits = sz_bits
+    def __new__(cls, value, sz_bits=None, fmt=None):
+        i = int.__new__(cls, value)
+        i.sz_bits = sz_bits or value.sz_bits
+        i.fmt = fmt
+
+        if i.sz_bits is None:
+            raise ValueError('No size given')
+        elif i.sz_bits == 0:
+            raise ValueError("Can't have a zero-size int")
+        elif i.sz_bits < i.bit_length():
+            raise ValueError(f"{i} won't fit in {i.sz_bits} bits")
         return i
+
+    @classmethod
+    def read(cls, stream, sz_bits, mod, fmt):
+        value = stream.read(f'{cls._bstype}:{sz_bits}')
+        value += mod
+        if fmt == 'hex':
+            value = HexInt(value)
+        return value
+
+    @classmethod
+    def load(cls, string, sz_bits, fmt):
+        return cls(int(string, 0), sz_bits, fmt)
 
     @property
     def hex(self):
@@ -40,149 +84,87 @@ class Int(int):
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
 
-    def __str__(self):
-        if self.display:
-            return getattr(self, self.display)
+    def dump(self):
+        if self.fmt == 'hex':
+            return self.hex
+        elif self.fmt:
+            return self.fmt.format(self)
         else:
-            return super().__str__()
+            return int.__str__(self)
+
+    def write(self, stream, value, sz_bits, mod):
+        # Helper method for subclasses that only differ by bstype
+        value -= mod
+        stream.overwrite(f'{bstype}:{sz_bits}={value}')
+
+    @staticmethod
+    def _builtins():
+        bases = (BaseInt,)
+        bstypes = ['uintle', 'uintbe', 'uint',
+                   'intle', 'intbe']
+        return {bstype: type(key, bases, {'_bstype': bstype})
+                for bstype in bstypes}
 
 
-class Flag(int):
-    valid_letters = list(string.ascii_letters) + [None]
+class Flag(Primitive, BaseInt):
+    _bstype = 'uint'
+    valid_letters = list(string.ascii_letters)
 
-    def __new__(cls, value, sz_bits=1, display=None):
-        if display not in cls.valid_letters:
+    def __new__(cls, value, sz_bits, fmt):
+        f = BaseInt.__new__(cls, value, sz_bits, fmt)
+        if f.sz_bits != 1:
+            raise ValueError("flags must be exactly one bit in size")
+        if f.fmt and f.fmt not in cls.valid_letters:
             raise ValueError("flag display format must be a single letter")
-        f = super().__new__(cls, value)
-        f.char = display
         return f
 
-    def __str__(self):
-        if not self.char:
+    @classmethod
+    def load(cls, string, sz_bits, fmt):
+        if string == fmt.upper():
+            value = True
+        elif string == fmt.lower():
+            value = False
+        else:
+            value = strtobool(string)
+        return cls(value, sz_bits, fmt)
+
+    def char(self):
+        # used by structs to get a single-char representation
+        if not self.fmt:
             return '1' if self else '0'
         else:
-            return self.char.upper() if self else self.char.lower()
+            return self.fmt.upper() if self else self.fmt.lower()
 
 
-class Bin(bitstring.BitArray):
-    # Not sure if this should really subclass bitstring or wrap it or something
-    codecs = {}
-
-    def __new__(cls, auto=None, sz_bits=None, display=None, **kwargs):
-        codec = BinCodec.get(display) if display else None
-        if isinstance(auto, str) and codec:
-            auto = codec.decode(auto)
-        bs = super().__new__(cls, auto, **kwargs)
-        bs.codec = codec
-        return bs
-
-    def mod(self, mod_s):
-        if mod_s == 'lsb0':
-            return type(self)(util.lbin_reverse(self))
-        else:
-            return self
-
-    def unmod(self, mod_s):
-        return self.mod(mod_s)
-
-    def __str__(self):
-        if self.codec is None:
-            return '0b' + self.bin
-        else:
-            return self.codec.encode(self)
-
-
-class BinCodec:
-    """ encode/decode strings and bools based on a format str """
-    registry = {}
+class String(Primitive, str):
+    def __new__(cls, string, sz_bits, fmt):
+        s = str.__new__(string)
+        s.sz_bits = sz_bits
+        s.fmt = fmt
+        return s
 
     @classmethod
-    def get(cls, keystr):
-        if keystr not in cls.registry:
-            cls.registry[keystr] = cls(keystr)
-        return cls.registry[keystr]
+    def load(cls, string, sz_bits, fmt):
+        return cls(string, sz_bits, fmt)
 
-    class InputLengthError(ValueError):
-        def __init__(self, keystr, _input):
-            assert len(keystr) != len(_input)
-            self.keystr = keystr
-            self.input = _input
-            msg = (f"length of key '{keystr}' ({len(keystr)}) doesn't "
-                   f"match length of input '{_input}' ({len(_input)}) ")
-            super().__init__(msg)
+    @classmethod
+    def read(cls, stream, sz_bits, mod, fmt):
+        return stream.read(sz_bits).bytes.decode(fmt)
 
-    def __init__(self, keystr):
-        self.keystr = keystr
-        if len(set(keystr)) < len(keystr):
-            log.warn("display string '%s' has repeated characters", keystr)
+    def write(self, stream, sz_bits, mod):
+        # Only write if the text has changed. This avoids spurious patches when
+        # there is more than one valid encoding for text.
+        pos = stream.pos
+        old = self.read(stream, sz_bits, mod, self.fmt)
+        if self != old:
+            stream.pos = pos
+            stream.overwrite(self.encode(self.fmt))
 
-        # start with a list of tuples, where each item is the 'falsy char' and
-        # 'truthy char' for that position in a string. Use that to build
-        # encoding and decoding map sets.
-        self.key = [('0', '1')
-                    if char == '?'
-                    else (char.lower(), char.upper())
-                    for char in keystr]
-
-        for i, (truthy, falsy) in enumerate(self.key):
-            if truthy == falsy:
-                msg = f'invalid display string char: {util.bracket(keystr, i)}'
-                raise ValueError(msg)
-
-        self.encoding_map = [{True: ch_true, False: ch_false}
-                             for ch_false, ch_true in self.key]
-        self.decoding_map = [{ch_true: True, ch_false: False}
-                             for ch_false, ch_true in self.key]
-
-    def encode(self, bools, strict=True):
-        if len(bools) != len(self.keystr) and strict:
-            raise self.InputLengthError(self.keystr, bools)
-
-        return ''.join(char[bit] for char, bit
-                       in zip(self.encoding_map, bools))
-
-    def decode(self, text, strict=True):
-        if len(text) != len(self.keystr) and strict:
-            raise self.InputLengthError(self.keystr, text)
-
-        return [dmap[char] for dmap, char
-                in zip(self.decoding_map, text)]
+    def dump(self):
+        return self
 
 
-class Primitive:
-    """ A struct-like class for primitives """
-    def __init__(self, _type, sz_bits, mod=None, display=None):
-        self.sz_bits = sz_bits
-        self.display = display
-        self.mod = mod
-
-        self.ioargs = {'tid': _type,
-                       'sz_bits': sz_bits,
-                       'mod': mod,
-                       'display': display}
-
-    def __call__(self, stream, offset):
-        stream.pos = offset
-        return stream.read(**self.ioargs)
-
-    def write(self, stream, offset, value):
-        stream.pos = offset
-        stream.write(**self.ioargs)
-
-
-def getbst(type_string):
-    """ Get bitstring type for a given type string """
-    bstype = {'str': 'bytes'}
-    return bstype.get(type_string, type_string)
-
-
-def getcls(type_string):
-    """ Get the right class for a given type string """
-    strtypes = {'int': Int,
-                'str': str,
-                'bin': Bin,
-                'flag': Flag}
-    for substr, cls in strtypes.items():
-        if substr in type_string:
-            return cls
-    raise KeyError("Invalid type string")
+def init():
+    builtins.update(BaseInt._builtins())
+    builtins['str'] = String
+    builtins['flag'] = Flag

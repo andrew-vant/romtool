@@ -7,11 +7,8 @@ from .primitives import Int, Flag
 log = logging.getLogger(__name__)
 
 
-# TODO: Maybe these should be read/write methods on Int/Flag/String objects.
-# Might make it easier to add new types?
-#
-# Each 'type' needs to be able to read/write from string, stream, and value
-# from parent type.
+# TODO: Each 'type' needs to be able to read/write from string, stream, and
+# value from parent type. Read/write/str/parse on the primitive type?
 
 class Stream(BitStream):
     def read_int(self, tid, sz_bits, mod, display):
