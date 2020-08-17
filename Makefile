@@ -16,4 +16,4 @@ cov :
 	pytest-3 --cov src --cov-report term-missing
 
 clean :
-	-rm -rf build dist venv *.egg-info .tox
+	-rm -rf build dist venv src/*.egg-info .tox
