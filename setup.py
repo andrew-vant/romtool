@@ -12,7 +12,9 @@ def read(relative_path):
         return f.read()
 
 dependencies = ["bitstring>=3.1.3",
+                "bitarray>=1.5.0",
                 "patricia-trie>=10",
+                "parse",
                 "addict>=2",
                 "pyyaml>=3.10"]
 
