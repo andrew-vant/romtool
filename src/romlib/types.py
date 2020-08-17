@@ -3,16 +3,18 @@ import abc
 from collections import Counter
 from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import bitstring
 import yaml
 
-from . import util, primitives
+from . import util
 
-# TODO: hungarian notation; bit_offset, byte_offset, bit_size, etc? Or just always use an
-# Offset object with bits/bytes as attributes? I keep having to remember when to
-# multiply by eight.
+""" Rom data structures
 
+These objects form a layer over the raw rom, such that accessing them
+automagically turns the bits and bytes into integers, strings, etc.
+"""
 
 log = logging.getLogger(__name__)
 
@@ -60,29 +62,29 @@ class Size(object):
         except (ValueError, TypeError):
             count = None
             sibling = sz_raw
-        except KeyError as err:
+        except KeyError:
             raise ValueError(f"Invalid size spec: {spec}")
 
         return cls(scale, count, sibling)
 
+
+@dataclass
 class Offset:
+    """ Offset of a field or structure """
     _unit_scale = {'bits': 1,
                    'bytes': 8}
     _relativity = {'rom': False,
                    'parent': True}
 
-    """ Offset of a field or structure """
-    def __init__(self, origin='parent', scale=8, count=0, sibling=None):
-        self.origin = origin
-        self.scale = scale
-        self.count = count
-        self.sibling = sibling
-        self.relative = self._relativity[origin]
+    relative: bool = True
+    scale: int = 8
+    count: int = 1
+    sibling: str = None
 
     def resolve(self, obj):
-        start = obj.offset if self.relative else 0
+        origin = obj.offset if self.relative else 0
         offset = obj[sibling] if self.sibling else self.count
-        return start + offset
+        return origin + offset
 
     @classmethod
     def from_spec(cls, spec):
@@ -93,69 +95,127 @@ class Offset:
         can be 'bits' or 'bytes, defaulting to bytes. 'count' can be a fixed
         number or the name of a field in the parent structure.
         """
+        relative = cls.relative
+        scale = cls.scale
+        count = cls.count
+        sibling = cls.sibling
+
         parts = spec.split(":")
         ct_raw = parts.pop()
         try:
             count = int(ct_raw, 0)
-            sibling = None
         except (ValueError, TypeError):
-            count = None
             sibling = ct_raw
 
-        origin = 'parent'
-        scale = 8
         for part in parts:
             if part in _unit_scale:
                 scale = _unit_scale[part]
             elif part in _relativity:
-                origin = part
+                relative = _relativity[part]
             else:
                 raise ValueError("Invalid offset spec: " + spec)
-        return cls(origin, scale, count, sibling)
+
+        return cls(relative, scale, count, sibling)
 
 
 class Field:
-    def __init__(self, _type, offset, size, mod=None, display=None,
-            **kwargs):
+    def __init__(self, type, offset, size, mod=None, display=None, **kwargs):
         if isinstance(offset, str):
             offset = Offset.from_spec(offset)
         if isinstance(size, str):
             size = Size.from_spec(size)
+        if isinstance(mod, str) and 'int' in _type:
+            mod = int(mod, 0)
+        if 'str' in type and not display:
+            display = 'ascii'
 
         self.offset = offset
         self.size = size
-        self.type = _type
+        self.typename = type
+        self.mod = mod
         self.display = display
-        self.factory = Structure.registry.get(_type, primitives.getcls(_type))
-        # code smell: special behavior for ints/strings
-        if issubclass(self.factory, int):
-            self.mod = util.intify(mod, None)
-        elif _type == 'str':
-            self.mod = mod
-            self.display = display or 'ascii'
+
+    # These are implemented as get/set methods so that they can be overridden
+    # in plugins. Necessary for things like unions, e.g. the effectivity spell
+    # byte in ff1.
+
+    @property
+    def is_struct(self):
+        return self.typename in Structure.registry
+
+    @property
+    def is_int(self):
+        return 'int' in self.typename
+
+    @property
+    def is_str(self):
+        return self.typename == 'str'
+
+    @property
+    def type(self):
+        if self.typename in Structure.registry:
+            return Structure.registry(self.typename)
+        elif 'int' in self.typename and self.display == 'hex':
+            return util.HexInt
+        elif 'int' in self.typename:
+            return int
         else:
-            self.mod = mod
+            msg = f"Don't know what to do with a {self.typename}"
+            raise NotImplementedError(msg)
 
     def __get__(self, obj, owner=None):
         if obj is None:
-            # We might actually want to do this sometimes, e.g. to print
-            # information about a field at the type level
             return self
-        offset = self.offset.resolve(obj)
-        if issubclass(self.factory, Structure):
-            return self.factory(obj.stream, offset)
-        else:
-            sz_bits = self.size.resolve(obj)
-            obj.stream.pos = offset
-            return obj.stream.read(self.type, sz_bits, self.mod, self.display)
 
-    def __set__(self, obj, value):
-        if issubclass(self.factory, Structure):
-            raise NotImplementedError("Can't set entire structure at once yet")
         offset = self.offset.resolve(obj)
         sz_bits = self.size.resolve(obj)
         obj.stream.pos = offset
-        obj.stream.write(value, self.type, sz_bits, self.mod, self.display)
+
+        if self.is_struct:
+            return self.type(obj.stream, offset)
+        elif self.is_int:
+            bits = obj.stream.readbits(sz_bits)
+            read = converters.reader(self.typename)
+            return self.type(read(bits))
+        elif self.is_str:
+            bits = obj.stream.readbits(sz_bits)
+            return bits.bytes.decode(self.display)
+        else:
+            msg = f"Don't know what to do with a {self.typename}"
+            raise NotImplementedError(msg)
+
+    def __set__(self, obj, value):
+        offset = self.offset.resolve(obj)
+        sz_bits = self.size.resolve(obj)
+        obj.stream.pos = offset
+
+        if self.is_struct:
+            raise NotImplementedError("Can't set entire structure at once yet")
+        elif self.is_int:
+            write = converters.writer(self.typename)
+            bits = write(value, length=sz_bits)
+            obj.stream.writebits(bits)
+        elif self.is_str:
+            orig_str = self.__get__(obj)
+            if orig_str == value:
+                return
+            _bytes = value.encode(self.display)
+            obj.stream.writebytes(_bytes)
+        else:
+            msg = f"Don't know what to do with a {self.typename}"
+            raise NotImplementedError(msg)
+
+    @classmethod
+    def from_spec(cls, spec, **defaults):
+        spec = {k: v if v else defaults[k]
+                for k, v in spec.items() if v}
+        return cls(
+                _type=spec['type'],
+                offset=Offset.from_spec(spec['offset'])
+                size=Size.from_spec(spec['size'])
+                mod=int(spec['mod'], 0)
+                display=spec['display']
+                )
 
 
 class Structure(Mapping):
@@ -189,25 +249,25 @@ class Structure(Mapping):
         cls.registry[name] = cls
 
     @classmethod
-    def define(cls, name, field_dicts, force=False):
+    def define(cls, name, field_dicts):
         """ Define a type of structure from a list of stringdicts
 
         The newly-defined type will be registered and also returned.
         """
-        fields = {'labels': {}}
-        labels = fields['labels']
+        attrs = {'labels': {}}
+        labels = attrs['labels']
         for dct in field_dicts:
             f = SimpleNamespace(**dct)  # For dot lookups
             for ident in f.id, f.label:
                 if hasattr(cls, ident):
                     msg = f"field id or label '{name}.{ident}' shadows a built-in attribute"
                     raise ValueError(msg)
-                if ident in fields or ident in labels:
+                if ident in attrs or ident in labels:
                     msg =  "duplicated field id or label: '{name}.{ident}'"
                     raise ValueError(msg)
-            fields[f.id] = Field(f.type, f.offset, f.size, f.mod, getattr(f, 'display', None))
+            attrs[f.id] = Field(f.type, f.offset, f.size, f.mod, getattr(f, 'display', None))
             labels[f.label] = f.id
-        return type(name, (cls,), fields)
+        return type(name, (cls,), attrs)
 
 
 class BitField(Structure):
@@ -237,11 +297,6 @@ class Table(Sequence):
         self.stream = stream
         self.index = index
         self.factory = factory
-
-    @classmethod
-    def build_index(offset, count, stride, scale=8):
-        return [(offset + stride * i) * scale
-                for i in range(count)]
 
     def __getitem__(self, i):
         offset = self.index[i]

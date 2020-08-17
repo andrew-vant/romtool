@@ -50,6 +50,16 @@ class HeaderError(RomFormatError):
 
 
 class Rom:
+    def __init__(self, infile, rommap):
+        ba = bitarray()
+        ba.fromfile(infile)
+
+        self.stream = Stream(ba)
+        self.orig = Stream(bitarray(ba))
+        self.map = rommap
+
+
+class Rom:
     def __init__(self, romfile, rommap=None):
         self.validate(romfile)
         self.map = rommap

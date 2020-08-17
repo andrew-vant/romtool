@@ -1,71 +1,83 @@
 import logging
+import yaml
 
-from bitstring import BitStream
-
-from .primitives import Int, Flag
+from bitarray import bitarray
 
 log = logging.getLogger(__name__)
 
 
-# TODO: Each 'type' needs to be able to read/write from string, stream, and
-# value from parent type. Read/write/str/parse on the primitive type?
+class Stream:
+    # Low level stream
+    # Do I want to have this handle type conversions for read/write?
+    def __init__(self, ba):
+        self.bits = ba
+        self.bytes = memoryview(self.bits)
+        self.bitpos = 0
 
-class Stream(BitStream):
-    def read_int(self, tid, sz_bits, mod, display):
-        if not mod:  # Catch None and empty strings
-            mod = 0
-        bstype = tid
-        i = super().read(f'{bstype}:{sz_bits}')
-        i += mod
-        return Int(i, sz_bits, display)
+    def __len__(self):
+        return len(self.bytes)
 
-    def read_flag(self, tid, sz_bits, mod, display):
-        if sz_bits > 1:
-            raise ValueError("Flags must be a single bit")
-        f = super().read('bool')
-        return Flag(f, sz_bits, display)
-
-    def read_str(self, tid, sz_bits, mod, display):
-        return super().read(sz_bits).bytes.decode(display)
-
-    def write_int(self, i, tid, sz_bits, mod, display):
-        if not mod:
-            mod = 0
-        bstype = tid
-        i -= mod
-        self.overwrite(f'{bstype}:{sz_bits}={i}')
-
-    def write_flag(self, v, tid, sz_bits, mod, display):
-        if sz_bits > 1:
-            raise ValueError("Flags must be a single bit")
-        self.overwrite(f'bool:1={v}')
-
-    def write_str(self, s, tid, sz_bits, mod, display):
-        """ Write a fixed-length string
-
-        Undersized strings will be padded with spaces.
-        """
-        s = s.ljust(sz_bits // 8)
-        self.write_strz(s, tid, sz_bits, mod, display)
-
-    def write_strz(self, s, tid, sz_bits, mod, display):
-        """ Write a variable-length string """
-
-        pos = self.pos
-        old = self.read_str(tid, sz_bits, mod, display)
-
-        if old == s:
-            log.debug("Not writing unchanged string: %s", s)
+    @property
+    def bytepos(self):
+        if self.bitpos % 8 != 0:
+            raise ValueError("Cursor is not byte-aligned")
         else:
-            self.pos = pos
-            self.overwrite(s.encode(display))
+            return self.bitpos // 8
 
-    def read(self, tid, sz_bits, mod, display):
-        reader = (self.read_int if 'int' in tid
-                  else getattr(self, f'read_{tid}'))
-        return reader(tid, sz_bits, mod, display)
+    @bytepos.setter
+    def bytepos(self, value):
+        self.bitpos = value * 8
 
-    def write(self, value, tid, sz_bits, mod, display):
-        writer = (self.write_int if 'int' in tid
-                  else getattr(self, f'write_{tid}'))
-        writer(value, tid, sz_bits, mod, display)
+    def readbits(self, ct_bits):
+        pos = self.bitpos
+        end = pos + ct_bits
+        out = self.bits[pos:end]
+        self.bitpos = end
+        return out
+
+    def readbytes(self, ct_bytes):
+        pos = self.bytepos
+        end = pos + ct_bytes
+        out = bytes(self.bytes[pos:end])
+        self.bytepos = end
+        return out
+
+    def write(self, data):
+        """ Overwrite the rom with bits or bytes
+
+        This convenience function checks the input type and forwards to
+        writebits or writebytes as appropriate. If it doesn't work as expected
+        (or if it's slow), call them explicitly instead.
+        """
+        # can't check type(data) because it might be something odd like a
+        # memoryview; can't check isinstance(sequence) because bits and bytes
+        # are both sequences; can't check type of data items because data might
+        # be a generator...but we can if we listify it first, so do that.
+        data = list(data)
+        if not data:
+            # Empty input. No-op.
+            return
+        elif isinstance(data[0], bool):
+            self.writebits(data)
+        elif isinstance(data[0], int):
+            self.writebytes(data)
+        else:
+            intype = type(data).__name__
+            msg = f"Don't know how to write data from a '{intype}'"
+            raise ValueError(msg)
+
+    def writebits(self, bits, bitpos=None):
+        if bitpos is not None:
+            self.bitpos = bitpos
+        pos = self.bitpos
+        end = pos + len(bits)
+        self.bits[pos:end] = bits
+        self.bitpos = end
+
+    def writebytes(self, _bytes, bytepos=None):
+        if bytepos is not None:
+            self.bytepos = bytepos
+        pos = self.bytepos
+        end = pos + len(_bytes)
+        self.bytes[pos:end] = _bytes
+        self.bytepos = end

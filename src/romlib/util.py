@@ -12,6 +12,7 @@ from math import ceil
 from bitstring import ConstBitStream
 
 
+log = logging.getLogger(__name__)
 libroot = dirname(realpath(__file__))
 
 # romtool's expected format is tab-separated values, no quoting, no
@@ -24,7 +25,6 @@ csv.register_dialect(
         quoting=csv.QUOTE_NONE,
         strict=True,
         )
-
 
 class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
     """ Read a csv file as a list of ordered dictionaries.
@@ -68,6 +68,50 @@ class CheckedDict(dict):
             logging.debug(self.cmsg, key, self[key], value)
 
 
+class HexInt(int):
+    """ An int that always prints as hex
+
+    Suitable for printing offsets.
+    """
+    def __new__(cls, value, sz_bits=None):
+        if isinstance(value, str):
+            value = int(value, 0)
+        self = int.__new__(cls, value)
+        self.sz_bits = sz_bits
+
+    def __str__(self):
+        """ Print self as a hex representation of bytes """
+        # two digits per byte; bytes are bits/8 rounding up.
+        digits = ceil(self.sz_bits / 8) * 2
+        sign = '-' if self < 0 else ''
+        return f'{sign}0x{abs(self):0{digits}X}'
+
+
+class PrettifierMixin:
+    """ Provides the .pretty method and sets up yaml representers for it """
+    class _PrettyDumper(yaml.Dumper):
+        """ Mostly-dummy dumper to put representers in """
+
+        def represent_short_seq(self, data):
+            data = f'[{len(data)} items]'
+            return self.represent_str(data)
+
+    @property
+    def pretty(self):
+        return yaml.dump(self, Dumper=self._PrettyDumper)
+
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        representers = {
+                Mapping: yaml.Dumper.represent_dict,
+                Sequence: cls._PrettyDumper.represent_short_seq,
+                }
+        for supercls, representer in representers.items():
+            if issubclass(cls, supercls):
+                cls._PrettyDumper.add_representer(cls, representer)
+
+
 @contextlib.contextmanager
 def loading_context(listname, name, index=None):
     """ Context manager for loading lists or files.
@@ -87,109 +131,8 @@ def loading_context(listname, name, index=None):
         raise
 
 
-def hexify(i, len_bytes=None, len_bits=None, pad=None):
-    """ Converts an integer to a hex string in 0x???? format
-
-    If a length is provided, the string will be padded as needed. Padding can
-    also be forced by setting pad=True. Letters are capitalized.
-    """
-
-    if len_bits and len_bytes:
-        raise ValueError("Specify length in bits or bytes, but not both")
-
-    if pad is None:
-        if len_bits or len_bytes:
-            pad = True
-        else:
-            pad = False
-
-    if len_bits:
-        bits = len_bits
-    elif len_bytes:
-        bits = len_bytes * 8
-    else:
-        bits = i.bit_length()
-
-    minbytes = ceil(bits / 8)
-
-    if pad:
-        w_digits = minbytes*2
-        w_prefix = 2
-        w_sign = 1 if i < 0 else 0
-        width = '0' + str(w_digits + w_prefix + w_sign)
-    else:
-        width = ''
-
-    return f'{i:#{width}X}'.replace('X', 'x')
-
-
-def displaybits(bits, display):
-    # FIXME: The chronic problem here is that spreadsheets insist on
-    # interpreting bitfields like 00001000 as 1000. Fields that are all
-    # numerals are treated as integers, and tsv provides no method of
-    # indicating otherwise.
-    #
-    # For now I'm going to use the 0b prefix on unformatted strings to force
-    # spreadsheets to treat it as a string (because it has a letter in it)
-    # while still being implicitly binary.
-    out = ""
-    if not display:
-        out += "0b"
-        display = "?" * len(bits)
-    if len(bits) != len(display):
-        raise ValueError("display length doesn't match bitfield length.")
-
-    for bit, letter in zip(bits, display):
-        trtable = {False: letter.lower(),
-                   True: letter.upper(),
-                   '0': letter.lower(),
-                   '1': letter.upper()}
-        if letter == "?":
-            out += "1" if bit else "0"
-        else:
-            out += trtable[bit]
-    return out
-
-
-def undisplaybits(s, display):
-    if not display:
-        if not s.startswith("0b"):
-            raise ValueError("Unformatted bitfields must start with 0b")
-        return s[2:]
-    if not len(s) == len(display):
-        raise ValueError("display length doesn't match string length.")
-
-    out = ""
-    for i, (char, letter) in enumerate(zip(s, display)):
-        if letter == "?":
-            trtable = {'0': '0',
-                       '1': '1'}
-        else:
-            trtable = {letter.lower(): '0',
-                       letter.upper(): '1'}
-        try:
-            out += trtable[char]
-        except KeyError:
-            errstr = "{}[{}]{}".format(s[:i], char , s[i+1:])
-            msg = "Unrecognized or out of order bitfield character: {}"
-            raise ValueError(msg.format(errstr))
-    return out
-
-
 def str_reverse(s):
     return s[::-1]
-
-
-def lbin_reverse(bs):
-    """ Reverse the bits in each byte of a bitstring.
-
-    Used when the source data assumes LSB-0. This may not do what you expect
-    if the input is both >1 byte and not an even number of bytes.
-    """
-    substrings = [bs[i:i+8] for i in range(0, len(bs), 8)]
-    revstrings = [bs[::-1] for bs in substrings]
-    # This makes it work both before and after string conversion
-    return type(bs)().join(revstrings)
 
 
 def remap_od(odict, keymap):
@@ -227,72 +170,6 @@ def merge_dicts(dicts, allow_overlap=False):
     return out
 
 
-def tobits(size, default=-1):
-    """ Convert a size specifier to number of bits.
-
-    size should be a string containing a size specifier. e.g. 4 (4 bytes),
-    or b4 (4 bits). If size is not a valid size specifier and default is
-    not set, ValueError will be raised. If default is set, it will be returned
-    for strings that are invalid sizes, such as empty strings.
-    """
-
-    isbits = size.startswith('b')
-    try:
-        if isbits:
-            bits = int(size[1:])
-        else:
-            bits = int(size, 0) * 8
-    except ValueError:
-        # Note: I use -1 as the default rather than None because I want to
-        # allow None as a legitimate default value.
-        if default != -1:
-            bits = default
-        else:
-            raise
-    return bits
-
-
-def filebytes(f):
-    """ Get an iterator over the bytes in a file."""
-    byte = f.read(1)
-    while byte:
-        yield byte[0]
-        byte = f.read(1)
-
-
-def bit_offset(source):
-    """ Find the current read position of *source*, in bits.
-
-    Used for cases where *source* may be a file, a bitstring, or a bytes.
-    Returns f.tell(), bs.pos, or 0 respectively.
-    """
-    # Don't like this if chain but try/except comes out worse...
-    if hasattr(source, 'tell'):
-        return source.tell() * 8
-    elif hasattr(source, 'pos'):
-        return source.pos
-    else:
-        return 0
-
-
-def bsify(source, cls=ConstBitStream):
-    """ Convert source to a bitstream if, and only if, necessary.
-
-    Current read position is preserved if possible.
-
-    This turned out to be necessary because apparently creating a
-    ConstBitStream is expensive. Field converting a data source to CBS on every
-    read was taking up 80% of runtime.
-    """
-    if isinstance(source, cls):
-        return source
-    else:
-        pos = bit_offset(source)
-        bs = cls(source)
-        bs.pos = pos
-        return bs
-
-
 def divup(a, b):  # pylint: disable=invalid-name
     """ Divide A by B with integer division, rounding up instead of down."""
     # Credit to stackoverflow: http://stackoverflow.com/a/7181952/4638839
@@ -318,7 +195,7 @@ def get_subfiles(root, folder, extension):
                  for filename in filenames]
         return zip(names, paths)
     except FileNotFoundError:
-        # FIXME: Subfolder missing. Log warning here?
+        log.warn(f"{root}/{folder} not found, treating as empty")
         return []
 
 def libpath(path):
@@ -337,14 +214,6 @@ def load_builtins(path, extension, loader):
         if ext == extension:
             builtins[base] = loader(pathjoin(path, filename))
     return builtins
-
-def int_format_str(displaymode, bitsize):
-    hexfmt = "0x{{:0{}X}}"
-    ifmt = {
-            "pointer": hexfmt.format(divup(bitsize, 4)),
-            "hex": hexfmt.format(divup(bitsize, 4))
-            }
-    return ifmt.get(displaymode, "{}")
 
 def writetsv(path, data, force=False, headers=None):
     mode = "w" if force else "x"
