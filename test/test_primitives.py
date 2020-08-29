@@ -3,7 +3,7 @@ import unittest
 import bitstring
 
 import romlib.primitives as primitives
-from romlib.primitives import Int, Bin, BinCodec, Flag
+from romlib.primitives import Int, Flag
 
 class TestFlag(unittest.TestCase):
     def test_flag_creation(self):
@@ -70,79 +70,6 @@ class TestInt(unittest.TestCase):
                 except ValueError as ex:
                     msg = f'Int({value}, {bits}) raised ValueError unexpectedly'
                     self.fail(msg)
-
-
-class TestBinCodec(unittest.TestCase):
-    def test_bincodec_creation(self):
-        codec = BinCodec("abcdefg")
-        self.assertIsInstance(codec, BinCodec)
-
-    def test_bincodec_registry(self):
-        c1 = BinCodec.get("abcdefg")
-        c2 = BinCodec.get("abcdefg")
-        self.assertIsInstance(c1, BinCodec)
-        self.assertIs(c1, c2)
-
-    def test_bincodec_invalid_keystr(self):
-        self.assertRaises(ValueError, BinCodec, '!')
-
-    def test_bincodec_encode(self):
-        codec = BinCodec('abcd')
-        text = "AbCd"
-        bools = [True, False, True, False]
-
-        self.assertEqual(codec.encode(bools), text)
-
-    def test_bincodec_decode(self):
-        codec = BinCodec('abcd')
-        text = "AbCd"
-        bools = [True, False, True, False]
-
-        self.assertEqual(codec.decode(text), bools)
-
-    def test_bincodec_lenerr(self):
-        codec = BinCodec('abcd')
-        text = "AbCd" * 2
-        bools = [True, False, True, False] * 2
-
-        self.assertRaises(ValueError, codec.decode, text)
-        self.assertRaises(ValueError, codec.encode, bools)
-
-
-class TestBin(unittest.TestCase):
-    def setUp(self):
-        self.codec = BinCodec('abcd')
-
-    def test_bin_creation(self):
-        bits = Bin()
-        self.assertIsInstance(bits, Bin)
-        self.assertIsInstance(bits, bitstring.Bits)
-
-    def test_bin_from_str(self):
-        text = 'AbCd'
-        bools = [True, False, True, False]
-        bits = Bin(text, len(text), 'abcd')
-        self.assertEqual(bits, bools)
-
-    def test_bin_from_bs_init(self):
-        bits = Bin('uint:32=4')
-        self.assertEqual(bits.uint, 4)
-
-    def test_mod(self):
-        inbits = Bin('0b1010')
-        outbits = Bin('0b0101')
-        self.assertEqual(inbits.mod('lsb0'), outbits)
-        self.assertEqual(outbits.unmod('lsb0'), inbits)
-        self.assertEqual(inbits.mod(''), inbits)
-
-    def test_str(self):
-        bits = Bin('0b1010')
-        self.assertEqual(str(bits), '0b1010')
-
-    def test_str_from_bits(self):
-        text = 'AbCd'
-        bits = Bin(text, display='abcd')
-        self.assertEqual(str(bits), text)
 
 
 class TestUtils(unittest.TestCase):
