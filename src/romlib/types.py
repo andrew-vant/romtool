@@ -4,6 +4,9 @@ from collections import Counter
 from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from fixedint import FixedInt
+from bitarray import bitarray
+from bitarray.util import int2ba, ba2int
 
 import bitstring
 import yaml
@@ -119,112 +122,70 @@ class Offset:
 
 
 class Field:
-    def __init__(self, type, offset, size, mod=None, display=None, **kwargs):
+    def __init__(self, cls, offset, mod=None):
         if isinstance(offset, str):
             offset = Offset.from_spec(offset)
         if isinstance(size, str):
             size = Size.from_spec(size)
-        if isinstance(mod, str) and 'int' in _type:
+        if isinstance(mod, str) and issubclass(cls, int):
             mod = int(mod, 0)
-        if 'str' in type and not display:
-            display = 'ascii'
 
+        self.cls = cls
         self.offset = offset
         self.size = size
-        self.typename = type
         self.mod = mod
-        self.display = display
-
-    # These are implemented as get/set methods so that they can be overridden
-    # in plugins. Necessary for things like unions, e.g. the effectivity spell
-    # byte in ff1.
-
-    @property
-    def is_struct(self):
-        return self.typename in Structure.registry
-
-    @property
-    def is_int(self):
-        return 'int' in self.typename
-
-    @property
-    def is_str(self):
-        return self.typename == 'str'
-
-    @property
-    def type(self):
-        if self.typename in Structure.registry:
-            return Structure.registry(self.typename)
-        elif 'int' in self.typename and self.display == 'hex':
-            return util.HexInt
-        elif 'int' in self.typename:
-            return int
-        else:
-            msg = f"Don't know what to do with a {self.typename}"
-            raise NotImplementedError(msg)
 
     def __get__(self, obj, owner=None):
         if obj is None:
             return self
 
         offset = self.offset.resolve(obj)
-        sz_bits = self.size.resolve(obj)
         obj.stream.pos = offset
-
-        if self.is_struct:
-            return self.type(obj.stream, offset)
-        elif self.is_int:
-            bits = obj.stream.readbits(sz_bits)
-            read = converters.reader(self.typename)
-            return self.type(read(bits))
-        elif self.is_str:
-            bits = obj.stream.readbits(sz_bits)
-            return bits.bytes.decode(self.display)
-        else:
-            msg = f"Don't know what to do with a {self.typename}"
-            raise NotImplementedError(msg)
+        return self.cls.from_stream(obj.stream)
 
     def __set__(self, obj, value):
-        offset = self.offset.resolve(obj)
-        sz_bits = self.size.resolve(obj)
-        obj.stream.pos = offset
+        if self.mod:
+            value -= self.mod
 
-        if self.is_struct:
-            raise NotImplementedError("Can't set entire structure at once yet")
-        elif self.is_int:
-            write = converters.writer(self.typename)
-            bits = write(value, length=sz_bits)
-            obj.stream.writebits(bits)
-        elif self.is_str:
-            orig_str = self.__get__(obj)
-            if orig_str == value:
-                return
-            _bytes = value.encode(self.display)
-            obj.stream.writebytes(_bytes)
-        else:
-            msg = f"Don't know what to do with a {self.typename}"
-            raise NotImplementedError(msg)
+        offset = self.offset.resolve(obj)
+        obj.stream.pos = offset
+        value.to_stream(obj.stream)
 
     @classmethod
     def from_spec(cls, spec, **defaults):
-        spec = {k: v if v else defaults[k]
-                for k, v in spec.items() if v}
-        return cls(
-                _type=spec['type'],
-                offset=Offset.from_spec(spec['offset'])
-                size=Size.from_spec(spec['size'])
-                mod=int(spec['mod'], 0)
-                display=spec['display']
-                )
+        offset = spec['offset']
+        mod = spec['mod']
+        size = Size.from_spec(spec['size'])
+        sz_bits = size.count * size.scale
+        tpname = spec['type']
+
+        instance_cls = (Structure.registry.get(tpname, None)
+                        or uint.lookup(tpname, sz_bits)
+                        or None)
+
+        if instance_cls is None:
+            raise ValueError(f"type '{tpname}' not found")
+
+        return cls(instance_cls, offset, mod)
 
 
 class Structure(Mapping):
+    """ A structure in the ROM."""
+
     registry = {}
     labels = {}
+
+    @classmethod
+    def lookup(cls, tpname):
+        return cls.registry.get(tpname, None)
 
     def __init__(self, stream, offset):
         self.stream = stream
         self.offset = offset
+
+    @classmethod
+    def from_stream(cls, stream):
+        return cls(stream, stream.bitpos)
 
     def __getitem__(self, key):
         return getattr(self, self.labels.get(key, key))
@@ -269,6 +230,18 @@ class Structure(Mapping):
             labels[f.label] = f.id
         return type(name, (cls,), attrs)
 
+    def copy(self, other):
+        """ Copy all attributes from one struct to another"""
+        for k, v in self.items():
+            if isinstance(v, Mapping):
+                v.copy(other[k])
+            else:
+                other[k] = v
+
+    def to_stream(self, stream):
+        if self.offset != stream.bitpos:
+            self.copy(self.from_stream(stream))
+
 
 class BitField(Structure):
     def __str__(self):
@@ -282,31 +255,108 @@ class BitField(Structure):
 
 
 class Table(Sequence):
-    def __init__(self, stream, factory, index):
+    def __init__(self, stream, cls, index):
         """ Create a Table
 
         stream: The underlying bitstream
-        index: a list of offsets within the stream
-        factory: a callable that takes a bitstream and offset, and returns that
-                 object.
-
-        In most cases the factory will be a Structure class or Primitive
-        instance.
+        index:  a list of offsets within the stream
+        cls:    The type of object contained in this table.
         """
 
         self.stream = stream
         self.index = index
-        self.factory = factory
+        self.cls = cls
 
     def __getitem__(self, i):
-        offset = self.index[i]
-        return self.factory(self.stream, offset)
+        self.stream.bitpos = self.index[i]
+        return self.cls.from_stream(self.stream)
 
     def __setitem__(self, i, v):
-        self.factory.write(self.stream, self.index[i], v)
+        self.stream.bitpos = self.index[i]
+        v.to_stream(self.stream)
 
     def __len__(self):
         return len(self.index)
+
+
+# NOTE FOR MORNING: This won't work with fixedint, because I can't subclass
+# FixedInt. But I think I can do something similar myself. Make a fixedint
+# class of my own with a define() classmethod that returns a subclass with a
+# specific size, byte-endianness, etc. Nothing signed.
+#
+# When to enforce size? In __new__? Take a look at how fixedint does it.
+#
+# alternative, I can't subclass FixedInt, but I *can* subclass the
+# classes it returns...do so, and add the appropriate methods via multiple
+# inheritance.
+
+def make_uint_cls(tpname, sz_bits):
+    registry = {'uint': uint_mixin,
+                'uintle': uintle_mixin,
+                'uintbe': uintbe_mixin}
+    ficls = FixedInt(width=sz_bits, signed=False, mutable=False)
+    newcls = type(tpname + str(sz_bits), (registry[tpname], ficls), {})
+    return newcls
+
+
+class uint_mixin:
+    @classmethod
+    def lookup(cls, tpname, sz_bits):
+        types = {subcls.__name__: subcls
+                 for subcls in cls.__subclasses__()}
+        types[cls.__name__] = cls
+        if tpname not in types:
+            return None
+        else:
+            return types[tpname](width=sz_bits, signed=False, mutable=False)
+
+
+    @classmethod
+    def from_bits(cls, ba):
+        return cls(ba2int(ba), width=len(ba), signed=False, mutable=False)
+
+    @classmethod
+    def from_stream(cls, stream):
+        return cls.from_bits(stream.readbits(cls.width))
+
+    def to_bits(self):
+        return int2ba(self, length=self.width)
+
+    def to_stream(self, stream):
+        stream.writebits(self.to_bits())
+
+    # Convenience properties
+    @property
+    def bits(self):
+        return self.to_bits()
+
+    @property
+    def bytes(self):
+        return self.to_bytes()
+
+
+class uintle_mixin(uint):
+    def to_bits(self):
+        _bytes = self.to_bytes(byteorder='little')
+        ba = bitarray()
+        ba.frombytes(_bytes)
+        return ba
+
+    @classmethod
+    def from_bits(cls, ba):
+        return cls.from_bytes(ba.tobytes(), byteorder='little', signed=False)
+
+
+class uintbe_mixin(uint):
+    def to_bits(self):
+        _bytes = self.to_bytes(byteorder='big')
+        ba = bitarray()
+        ba.frombytes(_bytes)
+        return ba
+
+    @classmethod
+    def from_bits(cls, ba):
+        return cls.from_bytes(ba.tobytes(), byteorder='big', signed=False)
 
 
 class Array(Table):
