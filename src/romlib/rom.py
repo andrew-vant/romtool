@@ -35,7 +35,6 @@ from os.path import join as pathjoin
 from bitstring import BitStream, ConstBitStream
 
 from . import util
-from . import struct
 
 
 log = logging.getLogger(__name__)

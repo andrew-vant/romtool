@@ -9,6 +9,8 @@ from os.path import dirname, realpath
 from os.path import join as pathjoin
 from math import ceil
 
+import yaml
+import asteval
 from bitstring import ConstBitStream
 
 
@@ -169,6 +171,9 @@ def merge_dicts(dicts, allow_overlap=False):
         out.update(d)
     return out
 
+def aeval(expr, context):
+    interpreter = asteval.Interpreter(symtable=context, minimal=True)
+    return interpreter.eval(expr)
 
 def divup(a, b):  # pylint: disable=invalid-name
     """ Divide A by B with integer division, rounding up instead of down."""

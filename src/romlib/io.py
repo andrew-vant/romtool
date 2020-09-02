@@ -5,7 +5,6 @@ from bitarray import bitarray
 
 log = logging.getLogger(__name__)
 
-
 class Stream:
     # Low level stream
     # Do I want to have this handle type conversions for read/write?

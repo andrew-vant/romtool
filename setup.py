@@ -15,6 +15,7 @@ dependencies = ["bitstring>=3.1.3",
                 "bitarray>=1.5.0",
                 "patricia-trie>=10",
                 "parse",
+                "asteval",
                 "addict>=2",
                 "pyyaml>=3.10"]
 

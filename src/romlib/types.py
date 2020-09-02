@@ -1,6 +1,6 @@
 import logging
 import abc
-from collections import Counter
+from collections import Counter, ChainMap
 from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -10,6 +10,7 @@ from bitarray.util import int2ba, ba2int
 
 import bitstring
 import yaml
+import asteval
 
 from . import util
 
@@ -21,146 +22,122 @@ automagically turns the bits and bytes into integers, strings, etc.
 
 log = logging.getLogger(__name__)
 
-class Size(object):
-    """ Size of a field or structure """
 
-    _unit_scale = {'bits': 1,
-                   'bytes': 8,
-                   'kb': 8*1024}
+class Origin(enum.Enum):
+    rom = 'rom'
+    parent = 'parent'
 
-    def __init__(self, scale=8, count=1, sibling=None):
-        if count is None and not sibling:
-            raise ValueError("No specified count or sibling")
-        self.count = count
-        self.scale = scale
-        self.sibling = sibling
-
-    def resolve(self, instance):
-        """ Get the size of the object, in bits. """
-
-        if self.sibling is None:
-            size = self.count * self.scale
-        else:
-            size = instance.parent[self.sibling] * self.scale
-        assert isinstance(size, int)
-        return size
-
-    @classmethod
-    def from_spec(cls, spec):
-        """ Create a size from a string spec
-
-        Size specs are UNIT:COUNT. Unit can be bits or bytes, defaulting to
-        bits. Count can be a fixed number or the name of a field in the
-        parent structure.
-        """
-        if ':' in spec:
-            unit, sep, sz_raw = spec.partition(":")
-        else:
-            unit, sep, sz_raw = 'bits', '', spec
-
-        try:
-            scale = cls._unit_scale[unit]
-            count = int(sz_raw, 0)
-            sibling = None
-        except (ValueError, TypeError):
-            count = None
-            sibling = sz_raw
-        except KeyError:
-            raise ValueError(f"Invalid size spec: {spec}")
-
-        return cls(scale, count, sibling)
+    def __contains__(self, item):
+        return item in self.__members__ or super().__contains__(item)
 
 
-@dataclass
+class Unit(enum.IntEnum):
+    bits = 1
+    bytes = 8
+    kb = 1024
+
+    def __contains__(self, item):
+        return item in self.__members__ or super().__contains__(item)
+
+
 class Offset:
-    """ Offset of a field or structure """
-    _unit_scale = {'bits': 1,
-                   'bytes': 8}
-    _relativity = {'rom': False,
-                   'parent': True}
+    def __init__(self, expr, unit=Unit.bytes, origin=Origin.relative):
+        expr = str(expr)  # Just in case someone passes int
+        self.expr = expr
+        self.origin = origin
+        self.unit = unit
+        try:
+            self.count = int(self.expr, 0)
+        except ValueError:
+            # We'll have to calc it on the fly.
+            self.count = None
 
-    relative: bool = True
-    scale: int = 8
-    count: int = 1
-    sibling: str = None
+    @property
+    def is_static(self):
+        return self.count is not None
 
-    def resolve(self, obj):
-        origin = obj.offset if self.relative else 0
-        offset = obj[sibling] if self.sibling else self.count
-        return origin + offset
+    @property
+    def absolute(self):
+        return self.origin is Origin.rom
+
+    @property
+    def relative(self):
+        return self.origin is Origin.parent
+
+    def eval(self, context=None):
+        if self.is_static:
+            count = self.count
+        else:
+            count = util.aeval(self.expr, context)
+        return count * self.unit
 
     @classmethod
-    def from_spec(cls, spec):
-        """ Create an offset from a string spec
-
-        The string spec format is origin:unit:count. Origin and unit are
-        optional. Origin can be 'rom' or 'parent', defaulting to parent. Unit
-        can be 'bits' or 'bytes, defaulting to bytes. 'count' can be a fixed
-        number or the name of a field in the parent structure.
-        """
-        relative = cls.relative
-        scale = cls.scale
-        count = cls.count
-        sibling = cls.sibling
-
-        parts = spec.split(":")
-        ct_raw = parts.pop()
-        try:
-            count = int(ct_raw, 0)
-        except (ValueError, TypeError):
-            sibling = ct_raw
-
+    def define(cls, spec, **defaults):
+        parts = spec.split(':')
+        kwargs = defaults.copy()
         for part in parts:
-            if part in _unit_scale:
-                scale = _unit_scale[part]
-            elif part in _relativity:
-                relative = _relativity[part]
+            if part in Unit:
+                kwargs['unit'] = Unit[part]
+            elif part in Origin:
+                kwargs['origin'] = Origin[part]
+            elif expr is None:
+                kwargs['expr'] = part
             else:
-                raise ValueError("Invalid offset spec: " + spec)
+                raise ValueError(f"Invalid offset spec: {spec}")
+        return cls(**kwargs)
 
-        return cls(relative, scale, count, sibling)
+
+class Size:
+    def __init__(self, count, unit=Unit.bytes):
+        self.count = count
+        self.unit = unit
+
+        @property
+        def bits(self):
+            return self.count * self.scale
 
 
 class Field:
     def __init__(self, cls, offset, mod=None):
-        if isinstance(offset, str):
-            offset = Offset.from_spec(offset)
-        if isinstance(size, str):
-            size = Size.from_spec(size)
         if isinstance(mod, str) and issubclass(cls, int):
             mod = int(mod, 0)
-
         self.cls = cls
-        self.offset = offset
         self.size = size
         self.mod = mod
+        self.offset = offset
+
+    def _resolve_offset(self, obj):
+        origin = 0 if self.offset.absolute else obj.offset
+        return origin + self.offset.eval(obj)
 
     def __get__(self, obj, owner=None):
         if obj is None:
             return self
-
-        offset = self.offset.resolve(obj)
-        obj.stream.pos = offset
-        return self.cls.from_stream(obj.stream)
+        obj.stream.pos = self._resolve_offset(obj)
+        value = self.cls.from_stream(obj.stream)
+        if self.mod:
+            value += self.mod
+        return value
 
     def __set__(self, obj, value):
         if self.mod:
             value -= self.mod
-
-        offset = self.offset.resolve(obj)
-        obj.stream.pos = offset
+        obj.stream.pos = self._resolve_offset(obj)
         value.to_stream(obj.stream)
 
+    def __set_name__(self, owner, name):
+        # Maybe useful for error messages/logging...
+        self.name = '{}.{}'.format(owner.__name__, name)
+
     @classmethod
-    def from_spec(cls, spec, **defaults):
-        offset = spec['offset']
+    def define(cls, spec, **defaults):
+        offset = Offset.define(spec['offset'])
+        size = Size.define(spec['size'])
         mod = spec['mod']
-        size = Size.from_spec(spec['size'])
-        sz_bits = size.count * size.scale
         tpname = spec['type']
 
         instance_cls = (Structure.registry.get(tpname, None)
-                        or uint.lookup(tpname, sz_bits)
+                        or uint_cls(tpname, size.bits)
                         or None)
 
         if instance_cls is None:
@@ -179,9 +156,10 @@ class Structure(Mapping):
     def lookup(cls, tpname):
         return cls.registry.get(tpname, None)
 
-    def __init__(self, stream, offset):
+    def __init__(self, stream, offset, parent=None):
         self.stream = stream
         self.offset = offset
+        self.parent = parent
 
     @classmethod
     def from_stream(cls, stream):
@@ -213,10 +191,11 @@ class Structure(Mapping):
     def define(cls, name, field_dicts):
         """ Define a type of structure from a list of stringdicts
 
-        The newly-defined type will be registered and also returned.
+        The newly-defined type will be registered and returned.
         """
         attrs = {'labels': {}}
         labels = attrs['labels']
+
         for dct in field_dicts:
             f = SimpleNamespace(**dct)  # For dot lookups
             for ident in f.id, f.label:
@@ -224,9 +203,9 @@ class Structure(Mapping):
                     msg = f"field id or label '{name}.{ident}' shadows a built-in attribute"
                     raise ValueError(msg)
                 if ident in attrs or ident in labels:
-                    msg =  "duplicated field id or label: '{name}.{ident}'"
+                    msg =  f"duplicated field id or label: '{name}.{ident}'"
                     raise ValueError(msg)
-            attrs[f.id] = Field(f.type, f.offset, f.size, f.mod, getattr(f, 'display', None))
+            attrs[f.id] = Field.define(dct)
             labels[f.label] = f.id
         return type(name, (cls,), attrs)
 
@@ -245,13 +224,14 @@ class Structure(Mapping):
 
 class BitField(Structure):
     def __str__(self):
-        return ''.join(str(v) for v in self.values())
+        return ''.join(label.upper() if self[label] else label.lower()
+                       for label in self.labels.keys())
 
     def parse(self, s):
         if len(s) != len(self):
             raise ValueError("String length must match bitfield length")
         for k, letter in zip(self, s):
-            yield letter.isupper()
+            self[k] = letter.isupper()
 
 
 class Table(Sequence):
@@ -288,29 +268,27 @@ class Table(Sequence):
 #
 # alternative, I can't subclass FixedInt, but I *can* subclass the
 # classes it returns...do so, and add the appropriate methods via multiple
-# inheritance.
+# inheritance. Will that work?
 
-def make_uint_cls(tpname, sz_bits):
+def uint_cls(tpname, sz_bits, fmt=None):
     registry = {'uint': uint_mixin,
                 'uintle': uintle_mixin,
                 'uintbe': uintbe_mixin}
-    ficls = FixedInt(width=sz_bits, signed=False, mutable=False)
-    newcls = type(tpname + str(sz_bits), (registry[tpname], ficls), {})
+    if tpname not in registry:
+        return None
+
+    bases = [FixedInt(width=sz_bits, signed=False, mutable=False)]
+    if fmt == 'hex':
+        bases.append(fixedint.util.HexFormattingMixin)  # Love that this is builtin
+    bases.append(registry[tpname])
+    bases.reverse()
+    clsname = f'{tpname}{sz_bits}'
+
+    newcls = type(clsname, bases, {})
     return newcls
 
 
 class uint_mixin:
-    @classmethod
-    def lookup(cls, tpname, sz_bits):
-        types = {subcls.__name__: subcls
-                 for subcls in cls.__subclasses__()}
-        types[cls.__name__] = cls
-        if tpname not in types:
-            return None
-        else:
-            return types[tpname](width=sz_bits, signed=False, mutable=False)
-
-
     @classmethod
     def from_bits(cls, ba):
         return cls(ba2int(ba), width=len(ba), signed=False, mutable=False)
@@ -336,8 +314,11 @@ class uint_mixin:
 
 
 class uintle_mixin(uint):
+    def to_bytes(self, byteorder='little'):
+        return super().to_bytes(byteorder)
+
     def to_bits(self):
-        _bytes = self.to_bytes(byteorder='little')
+        _bytes = self.to_bytes()
         ba = bitarray()
         ba.frombytes(_bytes)
         return ba
@@ -348,8 +329,11 @@ class uintle_mixin(uint):
 
 
 class uintbe_mixin(uint):
+    def to_bytes(self, byteorder='big'):
+        return super().to_bytes(byteorder)
+
     def to_bits(self):
-        _bytes = self.to_bytes(byteorder='big')
+        _bytes = self.to_bytes()
         ba = bitarray()
         ba.frombytes(_bytes)
         return ba
