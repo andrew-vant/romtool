@@ -105,3 +105,13 @@ def uint_cls(tpname, sz_bits, fmt=None):
     clsname = f'{tpname}{sz_bits}'
     newcls = type(clsname, tuple(reversed(bases)), {})
     return newcls
+
+class String(collections.UserString):
+    maxlength = None
+    codec = None
+
+    def from_bits(cls, ba):
+        pass
+
+    def to_bits(self):
+        pass

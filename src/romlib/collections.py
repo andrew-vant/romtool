@@ -104,7 +104,6 @@ class Size:
         return cls(**kwargs)
 
 
-
 class Field:
     def __init__(self, cls, offset, size=None, mod=None):
         if isinstance(mod, str) and issubclass(cls, int):
