@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import UserString
 
 from bitarray import bitarray
 from bitarray.util import ba2int, int2ba
@@ -106,10 +107,11 @@ def uint_cls(tpname, sz_bits, fmt=None):
     newcls = type(clsname, tuple(reversed(bases)), {})
     return newcls
 
-class String(collections.UserString):
+class String(UserString):
     maxlength = None
     codec = None
 
+    @classmethod
     def from_bits(cls, ba):
         pass
 
