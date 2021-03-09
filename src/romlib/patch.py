@@ -165,10 +165,11 @@ class Patch(object):
         modified: A verion of the ROM containing the desired modifications.
         """
         lzip = itertools.zip_longest  # convenience alias
-        iter1 = util.filebytes(original)
-        iter2 = util.filebytes(modified)
+        old = original.read()
+        new = modified.read()
         patch = Patch()
-        for i, (byte1, byte2) in enumerate(lzip(iter1, iter2, fillvalue=0)):
+
+        for i, (byte1, byte2) in enumerate(lzip(old, new, fillvalue=0)):
             if byte2 != byte1:
                 patch.changes[i] = byte2
         return patch
