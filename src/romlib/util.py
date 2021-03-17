@@ -11,7 +11,7 @@ from math import ceil
 
 import yaml
 import asteval
-from bitstring import ConstBitStream
+from bitarray import bitarray
 
 
 log = logging.getLogger(__name__)
@@ -271,3 +271,8 @@ def all_none(*args):
 
 def any_none(*args):
     return any(i is None for i in args)
+
+def bytes2ba(_bytes, *args, **kwargs):
+    ba = bitarray(*args, **kwargs)
+    ba.frombytes(_bytes)
+    return ba
