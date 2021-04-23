@@ -3,7 +3,6 @@ import unittest
 import bitstring
 
 import romlib.primitives as primitives
-from romlib.primitives import Int, Flag
 
 class TestFlag(unittest.TestCase):
     def test_flag_creation(self):

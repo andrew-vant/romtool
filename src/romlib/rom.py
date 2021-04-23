@@ -1,35 +1,9 @@
-# Thinking: Ignore file objects completely. Just convert to bitstream
-# when the rom object is instantiated. Everything everywhere assumes
-# bitstring objects.
-#
-# Move most of the reader functions out of RomMap and into Rom?
-#
-# Alternately, generate Rom class from the map, rather than having a
-# RomMap object?
-#
-# Use __getattr__ and some listlike object to let the program navigate
-# through the rom data through normal attribute access and list
-# indexing? Seems like it would help with crossreferencing.
-#
-# Fake a database interface? Where the object offset is the ID within
-# its table. Dumps them become the equivalent of a select; patches the
-# equivalent of an update (but what happens when an object's offset
-# changes?)
-#
-# Alternately: No lists. Everything is a dict of offset to object. For
-# pointers, just keep dereferencing until you get a real object. (nope,
-# this doesn't work, some crossrefs are by list index. So each object
-# needs both an index and an offset.)
-#
-# Seriously consider just doing everything in memory. Anything big
-# enough to be too big for memory probably has a real filesystem.
-
 import io
 import string
 import logging
 import math
 from abc import ABCMeta
-from os.path import dirname, basename, realpath
+from os.path import dirname, basename, realpath, splitext
 from os.path import join as pathjoin
 
 from bitstring import BitStream, ConstBitStream
@@ -38,7 +12,8 @@ from . import util
 
 
 log = logging.getLogger(__name__)
-headers = util.load_builtins('headers', '.tsv', struct.load)
+headers = util.load_builtins('headers', '.tsv', struct.define)
+
 
 class RomFormatError(Exception):
     pass
@@ -49,34 +24,40 @@ class HeaderError(RomFormatError):
 
 
 class Rom:
-    def __init__(self, infile, rommap):
-        ba = bitarray()
-        ba.fromfile(infile)
+    extensions = {'.nes': INESRom,
+                  '.sfc': SNESRom}
 
-        self.stream = Stream(ba)
+    def __new__(cls, romfile, rommap=None):
+        subcls = cls.identify(romfile)
+        return subcls(romfile, rommap)
+
+    def __init__(self, romfile, rommap=None):
+        ba = bitarray()
+        ba.fromfile(romfile)
+
+        self.file = Stream(ba)
         self.orig = Stream(bitarray(ba))
         self.map = rommap
 
-
-class Rom:
-    def __init__(self, romfile, rommap=None):
-        self.validate(romfile)
-        self.map = rommap
-        self.file = ConstBitStream(romfile)
-        self.data = BitStream(self.file)
+    def validate(self):
+        raise NotImplementedError(f"No validator available for {type(self)}")
 
     @classmethod
-    def make(cls, romfile):
-        log.debug("Autodetecting rom type")
-        for romcls in cls.__subclasses__():
+    def identify(cls, romfile):
+        # Check file extension first, if possible
+        ext = splitext(romfile.name)[1]
+        if ext in cls.extensions:
+            return cls.extensions[ext]
+
+        log.debug("Unknown extension '%s', inspecting contents", ext)
+        for subcls in self.__subclasses__():
+            log.debug("Trying: %s", romcls.romtype)
             try:
-                log.debug("Trying: %s", romcls.romtype)
-                if romcls.validate(romfile):
-                    return romcls(romfile)
+                subcls.validate(romfile)
+                return subcls
             except RomFormatError:
                 pass
-        else:
-            raise RomFormatError("Input does not match any known ROM format")
+        raise RomFormatError("Can't figure out what type of ROM this is")
 
 
 class INESRom(Rom):
@@ -172,10 +153,3 @@ class SNESRom(Rom):
             raise HeaderError("Bogus ROM name in header.")
 
         return True
-
-
-def identify(romfile):
-    # Requires reading the whole rom to determine its type. There must be a
-    # better way to do this.
-    return Rom.make(romfile).romtype
-

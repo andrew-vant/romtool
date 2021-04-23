@@ -22,8 +22,8 @@ class Primitive(ABC):
     def from_bits(cls, ba):
         raise NotImplementedError
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_stream(cls, ba):
         raise NotImplementedError
 
@@ -107,13 +107,43 @@ def uint_cls(tpname, sz_bits, fmt=None):
     newcls = type(clsname, tuple(reversed(bases)), {})
     return newcls
 
+
 class String(UserString):
+    # We inherit from userstring, instead of str, so that operations with
+    # standard strings preserve the type.
+
     maxlength = None
     codec = None
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.bytelen > self.maxlength:
+            msg = (f"{self} won't fit in {self.maxlength} bytes "
+                   f"(needs {self.bytelen})")
+            raise ValueError(msg)
+
     @classmethod
     def from_bits(cls, ba):
-        pass
+        return cls(ba.to_bytes().decode(cls.codec))
 
     def to_bits(self):
-        pass
+        ba = bitarray()
+        ba.frombytes(self.bytes)
+        return ba
+
+    @property
+    def bytes(self):
+        return self.encode(self.codec)
+
+    @property
+    def bytelen(self):
+        return len(self.encode(self.codec))
+
+    @classmethod
+    def define(cls, name, maxlen, encoding):
+        if isinstance(maxlen, str):
+            maxlen = int(maxlen, 0)
+
+        bases = (cls,)
+        attrs = {'maxlength': maxlen, 'codec': encoding}
+        return type(name, bases, attrs)

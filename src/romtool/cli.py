@@ -76,7 +76,7 @@ def parser_setup(parser, spec, defaults):
 
 def conf_load(argv):
     """ Get the --conf argument and do the needful with it
-    
+
     This copies argv before parsing, so it doesn't actually consume
     args. It returns the dict from the --conf file, or an empty dict if
     none was provided.

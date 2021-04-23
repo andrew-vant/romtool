@@ -4,6 +4,7 @@ import enum
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
 from anytree import NodeMixin
+from anytree.search import find
 
 from .util import bytes2ba
 
@@ -21,27 +22,23 @@ class Unit(enum.IntEnum):
         return item in type(self).__members__
 
 
-class Stream(NodeMixin):
-    # Low level stream
-    # Do I want to have this handle type conversions for read/write?
-    # You can have several streams on the same ba; changes to one will be seen
-    # by the others. This is useful for data/header segments.
+class BitArrayView(NodeMixin):
     """ Low level data handler
 
-    A Stream is a view on part of a bitarray -- typically a data block (header
-    vs rom), or a structure's contents. Slicing a stream will produce a smaller
-    stream. The "step" slice attribute has been altered; it represents the
+    A BitArrayView is a view on part of a bitarray -- typically a data block (header
+    vs rom), or a structure's contents. Slicing a view will produce a smaller
+    view. The "step" slice attribute has been altered; it represents the
     size-unit of the slice indexes.
 
-    Hence, stream[1:8:Unit.bytes] would return a stream containing bytes one
-    through seven inclusive. stream[1:8:Unit.bites] would get a stream of
+    Hence, view[1:8:Unit.bytes] would return a view containing bytes one
+    through seven inclusive. view[1:8:Unit.bits] would get a view of
     *bits* one through seven inclusive.
 
-    Slices are indexed relative to the stream's start and end, not the
-    underlying bitarray. The underlying bitarray is available as Stream.bits.
+    Slices are indexed relative to the view's start and end, not the
+    underlying bitarray. The underlying bitarray is available as BitArrayView.bits.
     """
-    def __init__(self, auto, offset=None, length=None):
-        if isinstance(auto, Stream):
+    def __init__(self, auto, offset=None, length=None, name=None):
+        if isinstance(auto, BitArrayView):
             self.parent = auto
         elif isinstance(auto, bitarray):
             self.parent = None
@@ -49,25 +46,29 @@ class Stream(NodeMixin):
         else:
             raise TypeError(f"Don't know what to do with a {type(auto)}")
 
+        self.name = name
         self.offset = offset or 0
         self.length = (length if length
-                       else len(self.parent) - self.offset if self.parent
+                       else (len(self.parent) - self.offset) if self.parent
                        else len(self._ba) - self.abs_start)
-
+        assert self.length >= 0
 
     def __len__(self):
         return self.length
 
     def __str__(self):
-        return f'Stream[{self.offset}:{self.end}]'
+        return f'BitArrayView[{self.offset}:{self.end}]'
 
     def __repr__(self):
         _inobj = 'parent' if self.parent else 'ba'
-        return f'Stream({_inobj}, {self.offset}, {len(self)})'
+        return f'BitArrayView({_inobj}, {self.offset}, {len(self)})'
+
+    def origin(self, name):
+        return find(self.root, lambda n: n.name == name)
 
     @property
     def end(self):
-        return self.offset + self.length
+        return self.offset + len(self)
 
     def __getitem__(self, sl):
         if not isinstance(sl, slice):
@@ -92,7 +93,7 @@ class Stream(NodeMixin):
         if stop < 0:
             stop += len(self)
 
-        return Stream(self, start, stop-start)
+        return BitArrayView(self, start, stop-start)
 
     @property
     def ba(self):

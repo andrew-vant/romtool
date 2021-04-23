@@ -28,27 +28,6 @@ csv.register_dialect(
         strict=True,
         )
 
-class OrderedDictReader(csv.DictReader):  # pylint: disable=R0903
-    """ Read a csv file as a list of ordered dictionaries.
-
-    This has one additional option over DictReader, "orderfunc", which
-    specifies a sorting key over a dictionary's items. If it is not provided,
-    the dictionary items will be sorted in the same order as the csv's columns.
-    This makes it possible to re-write the same file without interfering with
-    its column order.
-
-    Note that a corresponding OrderedDictWriter is not needed; supply an
-    ordered dictionary's .keys() as the fieldnames for a regular DictWriter.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._orderfunc = kwargs.get("orderfunc",
-                                     lambda t: self.fieldnames.index(t[0]))
-
-    def __next__(self):
-        d = super().__next__()  # pylint: disable=invalid-name
-        return OrderedDict(sorted(d.items(), key=self._orderfunc))
-
 
 class CheckedDict(dict):
     """ A dictionary that warns you if you overwrite keys."""
@@ -183,11 +162,19 @@ def divup(a, b):  # pylint: disable=invalid-name
 
 def intify(x, default):  # pylint: disable=invalid-name
     """ A forgiving int() cast; returns default if typecast fails."""
+    if isinstance(x, int):
+        return x
     try:
         return int(x, 0)
     except (ValueError, TypeError):
         return x if default is None else default
 
+def intify_items(dct, keys, default=None):
+    for key in keys:
+        if not dct[key]:  # empty string
+            dct[key] = default
+            continue
+        dct[key] = int(dct[key], 0)
 
 def get_subfiles(root, folder, extension):
     try:
@@ -236,7 +223,7 @@ def writetsv(path, data, force=False, headers=None):
 
 def readtsv(path):
     with open(path, newline='') as f:
-        return list(csv.DictReader(f, dialect='romtool'))
+        return (Dict(item) for item in csv.DictReader(f, dialect='romtool'))
 
 def filesize(f):
     """ Get the size of a file """
@@ -276,3 +263,24 @@ def bytes2ba(_bytes, *args, **kwargs):
     ba = bitarray(*args, **kwargs)
     ba.frombytes(_bytes)
     return ba
+
+def convert(dct, mapper):
+    return {k: conv_map[k](v) if k in mapper else v}
+
+def duplicates(iterable):
+    return [k for k, v
+            in Counter(chain(*iterables)).items()
+            if v > 1]
+
+def subregistry(cls):
+    def initsub(cls, **kwargs):
+        cls.__init_subclass__(**kwargs) # FIXME: not sure how to make this work
+        name = cls.__name__
+        if name in cls.registry:
+            raise ValueError(f"duplicate definition of '{name}'")
+        cls.registry[name] = cls
+
+    cls.registry = {}
+    cls.__init_subclass__ = initsub
+    return cls
+

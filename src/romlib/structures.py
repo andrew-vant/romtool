@@ -7,8 +7,11 @@ import logging
 import enum
 from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
+from collections import Counter
+from itertools import chain, combinations
 
 import yaml
+from anytree import NodeMixin
 
 from .primitives import uint_cls
 from . import util
@@ -17,174 +20,105 @@ from . import util
 log = logging.getLogger(__name__)
 
 
-class Origin(enum.Enum):
-    rom = 'rom'
-    parent = 'parent'
-
-    def __contains__(self, item):
-        return item in type(self).__members__ or super().__contains__(item)
-
-
-class Unit(enum.IntEnum):
-    bits = 1
-    bytes = 8
-    kb = 1024
-
-    def __contains__(self, item):
-        return item in type(self).__members__
-
-
-class Offset:
-    def __init__(self, expr, unit=Unit.bytes, origin=Origin.parent):
-        expr = str(expr)  # Just in case someone passes int
-        self.expr = expr
-        self.origin = origin
-        self.unit = unit
-        try:
-            self.count = int(self.expr, 0)
-        except ValueError:
-            # We'll have to calc it on the fly.
-            self.count = None
-
-    @property
-    def is_static(self):
-        return self.count is not None
-
-    @property
-    def absolute(self):
-        return self.origin is Origin.rom
-
-    @property
-    def relative(self):
-        return self.origin is Origin.parent
-
-    def eval(self, context=None):
-        if self.is_static:
-            count = self.count
-        else:
-            count = util.aeval(self.expr, context)
-        return count * self.unit
-
-    @classmethod
-    def define(cls, spec, **defaults):
-        parts = spec.split(':')
-        kwargs = defaults.copy()
-        for part in parts:
-            if part in Unit:
-                kwargs['unit'] = Unit[part]
-            elif part in Origin:
-                kwargs['origin'] = Origin[part]
-            elif 'expr' not in kwargs:
-                kwargs['expr'] = part
-            else:
-                raise ValueError(f"Invalid offset spec: {spec}")
-        return cls(**kwargs)
-
-
-class Size:
-    def __init__(self, count, unit=Unit.bytes):
-        self.count = count
-        self.unit = unit
-
-    @property
-    def bits(self):
-        return self.count * self.unit
-
-    @classmethod
-    def define(cls, spec, **defaults):
-        parts = spec.split(':')
-        kwargs = defaults.copy()
-        for part in parts:
-            if part in Unit:
-                kwargs['unit'] = Unit[part]
-            elif 'expr' not in kwargs:
-                kwargs['expr'] = part
-            else:
-                raise ValueError(f"Invalid size spec: {spec}")
-        return cls(**kwargs)
-
-
-class Field:
-    def __init__(self, cls, offset, size=None, mod=None):
-        if isinstance(mod, str) and issubclass(cls, int):
-            mod = int(mod, 0)
-        self.cls = cls
-        self.size = size
-        self.mod = mod
-        self.offset = offset
-        self.name = None  # Specified by set_name below
-
-    def _resolve_offset(self, obj):
-        origin = 0 if self.offset.absolute else obj.offset
-        return origin + self.offset.eval(obj)
-
-    def __get__(self, obj, owner=None):
-        if obj is None:
-            return self
-        obj.stream.pos = self._resolve_offset(obj)
-        value = self.cls.from_stream(obj.stream)
-        if self.mod:
-            value += self.mod
-        return value
-
-    def __set__(self, obj, value):
-        if self.mod:
-            value -= self.mod
-        obj.stream.pos = self._resolve_offset(obj)
-        value.to_stream(obj.stream)
-
-    def __set_name__(self, owner, name):
-        # Maybe useful for error messages/logging...
-        self.name = '{}.{}'.format(owner.__name__, name)
-
-    @classmethod
-    def define(cls, spec, **defaults):
-        spec = dict(**defaults, **spec)
-        offset = Offset.define(spec['offset'])
-        size = Size.define(spec['size']) if 'size' in spec else None
-        mod = spec['mod']
-        tpname = spec['type']
-
-        instance_cls = (Structure.registry.get(tpname, None)
-                        or uint_cls(tpname, size.bits)
-                        or None)
-
-        if instance_cls is None:
-            raise ValueError(f"type '{tpname}' not found")
-
-        return cls(instance_cls, offset, mod)
-
-
-class Structure(Mapping):
+class Structure(Mapping, NodeMixin):
     """ A structure in the ROM."""
 
     registry = {}
     labels = {}
 
-    @classmethod
-    def lookup(cls, tpname):
-        return cls.registry.get(tpname, None)
-
-    def __init__(self, stream, offset, parent=None):
-        self.stream = stream
-        self.offset = offset
+    def __init__(self, view, parent=None):
+        self.view = view
         self.parent = parent
 
-    @classmethod
-    def from_stream(cls, stream):
-        return cls(stream, stream.bitpos)
+    def _subview(self, field):
+        # This ugliness is supposed to get us a bitarrayview of a single field
+        # It's surprisingly difficult to handle int, str, and None values
+        # concisely.
+        context = (self.view if field.origin is None
+                   else find(self.view.root, lambda n: n.name == field.origin))
+
+        mapper = {str: lambda v: self[v] * field.unit,
+                  int: lambda v: v * field.unit,
+                  type(None): lambda v: v}
+
+        offset = mapper[type(field.offset)](field.offset)
+        size = mapper[type(field.size)](field.size)
+        end = (size if not offset
+               else offset + size if size
+               else None)
+        return context[offset:end]
+
+    def _get(self, field):
+        """ Plumbing behind getitem/getattr """
+        subview = self._subview(field)
+        if field.type in self.registry:
+            return Structure.registry[field.type](subview, self)
+        else:
+            return field.read(subview)
+
+    def _set(self, field, value):
+        if field.type in self.registry:
+            value.copy(self._get_struct(field))
+        else:
+            subview = self._subview(field)
+            field.write(subview, value)
 
     def __getitem__(self, key):
-        return getattr(self, self.labels.get(key, key))
+        return self._get(self._fbnm(key))
 
     def __setitem__(self, key, value):
-        setattr(self, self.labels.get(key, key), value)
+        self._set(self._fbnm(key), value)
+
+    def __getattr__(self, key):
+        return self._get(self._fbid(key))
+
+    def __setattr__(self, key, value):
+        # TODO: don't allow setting new attributes after definition is done.
+        try:
+            self._set(self._fbid(key), value)
+        except AttributeError:
+            super().__setattr__(key, value)
+
+    @classmethod
+    def _fbid(cls, fid):
+        """ Get field by fid """
+        # Consider functools.lru_cache if this is slow.
+        try:
+            return next(f for f in cls.fields if f.id == fid)
+        except StopIteration as ex:
+            raise AttributeError(f"No such field: {cls.__name__}.{fid}") from ex
+
+    @classmethod
+    def _fbnm(cls, fnm):
+        """ Get field by name """
+        try:
+            return next(f for f in cls.fields if f.name == fnm)
+        except StopIteration as ex:
+            raise KeyError(f"No such field: {cls.__name__}[{fnm}])") from ex
 
     def __iter__(self):
-        return iter(self.labels.values())
+        return (f.name for f in self.fields)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.fields)
+
+    def _debug(self):
+        return ''.join(f'{field.id}: {getattr(self, field.id)}\n'
+                       for field in self.fields)
+
+    def __format__(self, spec):
+        outfmt, identifier = spec.split(":")
+        if outfmt != 'y':
+            raise ValueError("bad format string: {spec}")
+        if identifier == 'i':
+            return ''.join(f'{field.id}: {getattr(self, field.id)}\n'
+                           for field in self.fields)
+        elif identifier == 'n':
+            return ''.join(f'{field.name}: {self[field.name]}\n'
+                           for field in self.fields)
+        else:
+            raise ValueError("bad format string: {spec}")
+
 
     def __str__(self):
         return yaml.dump(dict(self))
@@ -197,26 +131,28 @@ class Structure(Mapping):
         cls.registry[name] = cls
 
     @classmethod
-    def define(cls, name, field_dicts):
-        """ Define a type of structure from a list of stringdicts
+    def define(cls, name, fields):
+        """ Define a type of structure from a list of Fields
 
         The newly-defined type will be registered and returned.
         """
-        attrs = {'labels': {}}
-        labels = attrs['labels']
+        fields = list(fields)
+        fids = [f.id for f in fields]
+        names = [f.name for f in fields]
+        for identifier in chain(fids, names):
+            if hasattr(cls, identifier):
+                msg = f"{name}.{identifier} shadows a built-in attribute"
+                raise ValueError(msg)
 
-        for dct in field_dicts:
-            f = SimpleNamespace(**dct)  # For dot lookups
-            for ident in f.id, f.label:
-                if hasattr(cls, ident):
-                    msg = f"field id or label '{name}.{ident}' shadows a built-in attribute"
-                    raise ValueError(msg)
-                if ident in attrs or ident in labels:
-                    msg = f"duplicated field id or label: '{name}.{ident}'"
-                    raise ValueError(msg)
-            attrs[f.id] = Field.define(dct)
-            labels[f.label] = f.id
-        return type(name, (cls,), attrs)
+        for a, b in combinations(fields, 2):
+            dupes = set(a.identifiers) & set(b.identifiers)
+            if dupes:
+                msg = f"Duplicate identifier(s) in {name} spec: {dupes}"
+                raise ValueError(msg)
+
+        bases = (cls,)
+        attrs = {'fields': fields}
+        return type(name, bases, attrs)
 
     def copy(self, other):
         """ Copy all attributes from one struct to another"""
@@ -225,10 +161,6 @@ class Structure(Mapping):
                 v.copy(other[k])
             else:
                 other[k] = v
-
-    def to_stream(self, stream):
-        if self.offset != stream.bitpos:
-            self.copy(self.from_stream(stream))
 
 
 class BitField(Structure):
@@ -242,34 +174,31 @@ class BitField(Structure):
         for k, letter in zip(self, s):
             self[k] = letter.isupper()
 
-
 class Table(Sequence):
-    def __init__(self, stream, cls, index):
+    def __init__(self, view, typename, index):
         """ Create a Table
 
-        stream: The underlying bitstream
-        index:  a list of offsets within the stream
+        view:   The underlying bitarray view
+        index:  a list of offsets within the view
         cls:    The type of object contained in this table.
         """
 
-        self.stream = stream
+        self.view = view
         self.index = index
         self.cls = cls
 
     def __getitem__(self, i):
-        self.stream.bitpos = self.index[i]
-        return self.cls.from_stream(self.stream)
+        self.view.bitpos = self.index[i]
+        return self.cls.from_view(self.view[i:])
 
     def __setitem__(self, i, v):
-        self.stream.bitpos = self.index[i]
-        v.to_stream(self.stream)
+        self.view.bitpos = self.index[i]
+        v.to_view(self.view)
 
     def __len__(self):
         return len(self.index)
 
-
-class Array(Table):
-    def __init__(self, stream, cls, offset, count, stride, scale=8):
-        index = [(offset + stride * i) * scale
-                 for i in range(count)]
-        super().__init__(stream, cls, index)
+    @staticmethod
+    def make_index(offset, count, stride, scale=8):
+        return [(offset + stride * i) * scale
+                for i in range(count)]

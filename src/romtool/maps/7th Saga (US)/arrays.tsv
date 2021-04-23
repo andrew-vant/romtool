@@ -1,4 +1,4 @@
-name	label	set	type	offset	length	stride	mod	index	priority	display	comment
+name	label	set	type	offset	count	stride	mod	index	priority	display	comment
 characters		characters	character	0x623F	7	18		char_ptr			
 cname_ptr	Name Pointer	characters	uintle	0x1ED25	7	3	-0xC00000			pointer	Pointers to character names. This set is used for the default names during character creation, but there are other copies in ROM, not sure where or how they're used.
 charnames	Name	characters	strz					cname_ptr	1	main	
