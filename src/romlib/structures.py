@@ -119,9 +119,20 @@ class Structure(Mapping, NodeMixin):
         else:
             raise ValueError("bad format string: {spec}")
 
-
     def __str__(self):
         return yaml.dump(dict(self))
+
+    def __repr__(self):
+        tpnm = type(self).__name__
+        offset = str(util.HexInt(self.view.abs_start,
+            len(self.view.root).bit_length()))
+        out = f"{tpnm}@{offset}"
+        if hasattr(self, 'name'):
+            name = self.name[:16]
+            if len(self.name) > 16:
+                name += '..'
+            out += f" ({name})"
+        return f"<{out}>"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

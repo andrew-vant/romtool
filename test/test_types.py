@@ -36,6 +36,13 @@ class TestStructure(unittest.TestCase):
                         'offset': '4',
                         'size': '6',
                         'arg': '',
+                        'display': 'ascii'},
+                       {'id': 'name',
+                        'name': 'Name',
+                        'type': 'str',
+                        'offset': '4',
+                        'size': '6',
+                        'arg': '',
                         'display': 'ascii'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = Structure.define('scratch', self.fields)
@@ -118,6 +125,10 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data))
         struct.str = 'abc'
         self.assertEqual(struct.str, 'abc   ')
+
+    def test_repr(self):
+        struct = self.scratch(Stream(self.data))
+        self.assertEqual(repr(struct), "<scratch@0x00 (abcdef)>")
 
 class TestSubstructures(unittest.TestCase):
     def setUp(self):

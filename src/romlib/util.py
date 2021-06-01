@@ -12,6 +12,7 @@ from math import ceil
 import yaml
 import asteval
 from bitarray import bitarray
+from bitarray.util import bits2bytes
 
 
 log = logging.getLogger(__name__)
@@ -58,12 +59,16 @@ class HexInt(int):
         if isinstance(value, str):
             value = int(value, 0)
         self = int.__new__(cls, value)
-        self.sz_bits = sz_bits
+        self.sz_bits = sz_bits or value.bit_length() or 8
+        if self.sz_bits < value.bit_length():
+            msg = f"can't fit {value} in {self.sz_bits} bits"
+            raise ValueError(msg)
+        return self
 
     def __str__(self):
         """ Print self as a hex representation of bytes """
         # two digits per byte; bytes are bits/8 rounding up.
-        digits = ceil(self.sz_bits / 8) * 2
+        digits = bits2bytes(self.sz_bits) * 2
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
 
