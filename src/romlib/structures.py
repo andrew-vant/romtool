@@ -176,14 +176,22 @@ class Structure(Mapping, NodeMixin):
 
 class BitField(Structure):
     def __str__(self):
-        return ''.join(label.upper() if self[label] else label.lower()
-                       for label in self.labels.keys())
+        return ''.join(field.display.upper() if self[field.name]
+                       else field.display.lower()
+                       for field in self.fields)
+
+    def __repr__(self):
+        tpnm = type(self).__name__
+        offset = str(util.HexInt(self.view.abs_start,
+                                 len(self.view.root).bit_length()))
+        return f"<{tpnm}@{offset} ({str(self)})>"
 
     def parse(self, s):
         if len(s) != len(self):
             raise ValueError("String length must match bitfield length")
         for k, letter in zip(self, s):
             self[k] = letter.isupper()
+
 
 class Table(Sequence):
     def __init__(self, view, typename, index):

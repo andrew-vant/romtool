@@ -6,7 +6,7 @@ from addict import Dict
 
 from romlib.io import BitArrayView as Stream
 from romlib.types import Field
-from romlib.structures import Structure
+from romlib.structures import Structure, BitField
 from romlib.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
@@ -169,20 +169,23 @@ class TestSubstructures(unittest.TestCase):
 class TestBitField(unittest.TestCase):
     def setUp(self):
         self.data = bytes2ba(bytes([0b10000000]))
-        self.fields = [{'id': 'one',
+        self.specs = [{'id': 'one',
                         'name': 'One Label',
-                        'type': 'flag',
+                        'type': 'uint',
                         'offset': '0',
                         'size': '1',
+                        'unit': 'bits',
                         'display': 'J',
                         'arg': '0'},
                        {'id': 'two',
                         'name': 'Two Label',
-                        'type': 'flag',
+                        'type': 'uint',
                         'offset': '2',
                         'size': '1',
+                        'unit': 'bits',
                         'display': 'Q',
                         'arg': '0'}]
+        self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = BitField.define('scratch', self.fields)
 
     def test_define(self):
@@ -193,17 +196,21 @@ class TestBitField(unittest.TestCase):
         self.assertIsInstance(bf, BitField)
         self.assertTrue(bf.one)
         self.assertFalse(bf.two)
-        self.assertIsInstance(bf.one, Flag)
-        self.assertIsInstance(bf.two, Flag)
-
-    def test_chars(self):
-        bf = self.scratch(Stream(self.data))
-        self.assertEqual(bf.one.char, 'J')
-        self.assertEqual(bf.two.char, 'Q')
 
     def test_str(self):
         bf = self.scratch(Stream(self.data))
         self.assertEqual(str(bf), 'Jq')
+
+    def test_repr(self):
+        bf = self.scratch(Stream(self.data))
+        self.assertEqual(repr(bf), '<scratch@0x00 (Jq)>')
+
+    def test_parse(self):
+        bf = self.scratch(Stream(self.data))
+        bf.parse("jQ")
+        self.assertFalse(bf.one)
+        self.assertTrue(bf.two)
+        self.assertEqual(str(bf), "jQ")
 
     def tearDown(self):
         del Structure.registry['scratch']
