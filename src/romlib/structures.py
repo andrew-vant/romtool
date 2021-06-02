@@ -134,8 +134,14 @@ class Structure(Mapping, NodeMixin):
 
     def __repr__(self):
         tpnm = type(self).__name__
-        offset = str(util.HexInt(self.view.abs_start,
-            len(self.view.root).bit_length()))
+
+        offset_bitlen = len(self.view.root).bit_length()
+        byte_offset = util.HexInt(self.view.abs_start // 8, offset_bitlen)
+        bit_remainder = self.view.abs_start % 8
+        offset = str(byte_offset)
+        if bit_remainder:
+            offset += f"%{bit_remainder}"
+
         out = f"{tpnm}@{offset}"
         if hasattr(self, 'name'):
             name = self.name[:16]
@@ -241,9 +247,15 @@ class Table(Sequence, NodeMixin):
         end = start + self._isz_bits
         return self.view[start:end]
 
+    def __repr__(self):
+        content = ', '.join(repr(item) for item in self)
+        return f'Table({content})\n'
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             return Table(self.view, self.typename, index[i])
+        elif i >= len(self):
+            raise IndexError("Table index out of range")
         elif self._struct:
             return self._struct(self._subview(i), self)
         else:
@@ -280,6 +292,8 @@ class Index(Sequence):
     def __getitem__(self, i):
         if isinstance(i, slice):
             return (self[i] for i in range(i.start, i.stop, i.step))
+        elif i >= self.count:
+            raise IndexError("Index doesn't extend that far")
         else:
             return self.offset + i * self.stride
 
