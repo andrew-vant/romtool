@@ -6,7 +6,7 @@ from addict import Dict
 
 from romlib.io import BitArrayView as Stream
 from romlib.types import Field
-from romlib.structures import Structure, BitField
+from romlib.structures import Structure, BitField, Table, Index
 from romlib.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
@@ -130,6 +130,11 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data))
         self.assertEqual(repr(struct), "<scratch@0x00 (abcdef)>")
 
+    @unittest.skip("Test not implemented yet")
+    def test_copy(self):
+        raise NotImplementedError
+
+
 class TestSubstructures(unittest.TestCase):
     def setUp(self):
         subfields = [{'id': 'one',
@@ -216,30 +221,51 @@ class TestBitField(unittest.TestCase):
         del Structure.registry['scratch']
 
 
-class TestArray(unittest.TestCase):
+class TestIndex(unittest.TestCase):
+    def test_make_index(self):
+        index = Index(0, 4, 1)
+        self.assertEqual(index, (0, 1, 2, 3))
+
+
+class TestTable(unittest.TestCase):
     def setUp(self):
-        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef')
-        self.specs =  [{'id': 'one',
-                        'name': 'One Label',
-                        'type': 'uint',
-                        'offset': '0',
-                        'size': '8',
-                        'arg': '0'}]
-        self.fields = [Field.from_tsv_row(row) for row in self.specs]
+        self.data = bytes2ba(b'\x00\x01\x02\x03abcdef')
+        self.struct_spec =  [{'id': 'one',
+                              'name': 'One Label',
+                              'type': 'uint',
+                              'offset': '0',
+                              'size': '1',
+                              'arg': '0'}]
+        self.fields = [Field.from_tsv_row(row) for row in self.struct_spec]
+        self.stream = Stream(self.data)
         self.scratch = Structure.define('scratch', self.fields)
 
     def tearDown(self):
         del Structure.registry['scratch']
 
-    def test_primitive_array(self):
-        bs = Stream(self.data)
-        uint = Primitive('uint', 8)
-        array = Array(bs, uint, 0, len(self.data), 1)
-        self.assertEqual(len(self.data), len(array))
-        self.assertEqual(list(self.data), list(array))
+    def test_primitive_array_construction(self):
+        array = Table(self.stream, 'uint', Index(0, 4, 1))
+        self.assertEqual(len(array), 4)
+        self.assertEqual(len(array.index), 4)
+        for i in range(4):
+            self.assertEqual(array[i], i)
 
-    def test_struct_array(self):
-        bs = Stream(self.data)
-        array = Array(bs, self.scratch, 0, len(self.data), 1)
-        self.assertEqual(len(self.data), len(array))
-        self.assertEqual(list(self.data), [s.one for s in array])
+    def test_structure_array_construction(self):
+        array = Table(self.stream, 'scratch', Index(0, 4, 1))
+        self.assertIsInstance(array[0], self.scratch)
+        self.assertEqual(len(array), 4)
+        self.assertEqual(len(array.index), 4)
+        for i in range(4):
+            self.assertEqual(array[i].one, i)
+
+    def test_indexed_table(self):
+        index = Table(self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
+        table = Table(self.stream, 'scratch', index)
+        for i in range(4):
+            self.assertEqual(table[i].one, i)
+
+    def test_primitive_table(self):
+        index = Table(self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
+        table = Table(self.stream, 'uint', index, size=1)
+        for i in range(4):
+            self.assertEqual(table[i], i)

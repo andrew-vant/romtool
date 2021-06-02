@@ -15,6 +15,7 @@ from anytree import NodeMixin
 
 from .primitives import uint_cls
 from . import util
+from .io import Unit
 
 
 log = logging.getLogger(__name__)
@@ -95,6 +96,15 @@ class Structure(Mapping, NodeMixin):
             return next(f for f in cls.fields if f.name == fnm)
         except StopIteration as ex:
             raise KeyError(f"No such field: {cls.__name__}[{fnm}])") from ex
+
+    @classmethod
+    def size(cls):
+        """ Get total size of structure, in bits
+
+        If the structure size is variable, get the maximum possible size
+        """
+        return sum(field.size * field.unit for field in cls.fields)
+
 
     def __iter__(self):
         return (f.name for f in self.fields)
@@ -193,8 +203,9 @@ class BitField(Structure):
             self[k] = letter.isupper()
 
 
-class Table(Sequence):
-    def __init__(self, view, typename, index):
+class Table(Sequence, NodeMixin):
+    def __init__(self, view, typename, index,
+                 size=None, units=Unit.bytes, parent=None):
         """ Create a Table
 
         view:   The underlying bitarray view
@@ -203,21 +214,80 @@ class Table(Sequence):
         """
 
         self.view = view
+        self.parent = parent
         self.index = index
-        self.cls = cls
+        self.units = units
+        self.typename = typename
+        self.size = size
+
+    @property
+    def _struct(self):
+        return Structure.registry.get(self.typename, None)
+
+    @property
+    def _isz_bits(self):
+        """ Get the size of items in the table."""
+        if self.size:
+            return self.size * self.units
+        elif self._struct:
+            return self._struct.size()
+        elif isinstance(self.index, Index):
+            return self.index.stride * self.units
+        else:
+            raise ValueError("Couldn't figure out item size")
+
+    def _subview(self, i):
+        start = self.index[i] * self.units
+        end = start + self._isz_bits
+        return self.view[start:end]
 
     def __getitem__(self, i):
-        self.view.bitpos = self.index[i]
-        return self.cls.from_view(self.view[i:])
+        if isinstance(i, slice):
+            return Table(self.view, self.typename, index[i])
+        elif self._struct:
+            return self._struct(self._subview(i), self)
+        else:
+            return getattr(self._subview(i), self.typename)
 
     def __setitem__(self, i, v):
-        self.view.bitpos = self.index[i]
-        v.to_view(self.view)
+        if isinstance(i, slice):
+            indices = list(range(i.start, i.stop, i.step))
+            if len(indices) != len(v):
+                msg = "mismatched slice length; {len(indices)} != {len(v)}"
+                raise ValueError(msg)
+            for i, v in zip(range(i.start, i.stop, i.step), v):
+                self[i] = v
+
+        cls = self._struct
+        if self._struct:
+            self[i].copy(v)
+        else:
+            setattr(self._subview(i), self.typename, v)
 
     def __len__(self):
         return len(self.index)
 
-    @staticmethod
-    def make_index(offset, count, stride, scale=8):
-        return [(offset + stride * i) * scale
-                for i in range(count)]
+
+class Index(Sequence):
+    def __init__(self, offset, count, stride):
+        self.offset = offset
+        self.count = count
+        self.stride = stride
+
+    def __len__(self):
+        return self.count
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return (self[i] for i in range(i.start, i.stop, i.step))
+        else:
+            return self.offset + i * self.stride
+
+    def __repr__(self):
+        return f"Index({self.offset}, {self.count}, {self.stride})"
+
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        else:
+            return all(a == b for a, b in zip(self, other))
