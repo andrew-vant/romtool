@@ -139,16 +139,18 @@ class TestSubstructures(unittest.TestCase):
     def setUp(self):
         subfields = [{'id': 'one',
                       'name': 'One Label',
-                      'type': 'flag',
+                      'type': 'uint',
                       'offset': '0',
                       'size': '1',
+                      'unit': 'bits',
                       'display': 'J',
                       'arg': '0'},
                      {'id': 'two',
                       'name': 'Two Label',
-                      'type': 'flag',
+                      'type': 'uint',
                       'offset': '2',
                       'size': '1',
+                      'unit': 'bits',
                       'display': 'Q',
                       'arg': '0'}]
         fields = [{'id': 'sub',
@@ -158,8 +160,10 @@ class TestSubstructures(unittest.TestCase):
                    'size': '2',
                    'display': None,
                    'arg': None,}]
-        self.cls_flags = BitField.define('flags', subfields)
-        self.cls_struct = Structure.define('scratch', fields)
+        structfields = [Field.from_tsv_row(row) for row in fields]
+        flagfields = [Field.from_tsv_row(row) for row in subfields]
+        self.cls_flags = BitField.define('flags', flagfields)
+        self.cls_struct = Structure.define('scratch', structfields)
         self.data = bytes2ba(bytes([0b10000000]))
 
     def test_substruct(self):
