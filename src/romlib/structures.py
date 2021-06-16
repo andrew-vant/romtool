@@ -9,10 +9,12 @@ from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
 from collections import Counter
 from itertools import chain, combinations
+from os.path import basename, splitext
 
 import yaml
 from anytree import NodeMixin
 
+from .types import Field
 from .primitives import uint_cls
 from . import util
 from .io import Unit
@@ -181,6 +183,13 @@ class Structure(Mapping, NodeMixin):
         attrs = {'fields': fields}
         return type(name, bases, attrs)
 
+    @classmethod
+    def define_from_tsv(cls, path):
+        name = splitext(basename(path))[0]
+        fields = [Field.from_tsv_row(row)
+                  for row in util.readtsv(path)]
+        return cls.define(name, fields)
+
     def copy(self, other):
         """ Copy all attributes from one struct to another"""
         for k, v in self.items():
@@ -210,8 +219,12 @@ class BitField(Structure):
 
 
 class Table(Sequence, NodeMixin):
+
+    # Can't do a registry; what if you have more than one rom open? No, the rom
+    # object has to maintain tables and their names, connect indexes, etc.
+
     def __init__(self, view, typename, index,
-                 size=None, units=Unit.bytes, parent=None):
+                 offset=0, size=None, units=Unit.bytes, parent=None):
         """ Create a Table
 
         view:   The underlying bitarray view
@@ -224,6 +237,7 @@ class Table(Sequence, NodeMixin):
         self.index = index
         self.units = units
         self.typename = typename
+        self.offset = offset
         self.size = size
 
     @property
@@ -243,7 +257,7 @@ class Table(Sequence, NodeMixin):
             raise ValueError("Couldn't figure out item size")
 
     def _subview(self, i):
-        start = self.index[i] * self.units
+        start = (self.offset + self.index[i]) * self.units
         end = start + self._isz_bits
         return self.view[start:end]
 

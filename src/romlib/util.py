@@ -209,6 +209,7 @@ def load_builtins(path, extension, loader):
     for filename in os.listdir(path):
         base, ext = os.path.splitext(filename)
         if ext == extension:
+            log.debug("Loading builtin: %s", filename)
             builtins[base] = loader(pathjoin(path, filename))
     return builtins
 
@@ -228,7 +229,7 @@ def writetsv(path, data, force=False, headers=None):
 
 def readtsv(path):
     with open(path, newline='') as f:
-        return (Dict(item) for item in csv.DictReader(f, dialect='romtool'))
+        return list(csv.DictReader(f, dialect='romtool'))
 
 def filesize(f):
     """ Get the size of a file """

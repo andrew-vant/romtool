@@ -1,18 +1,17 @@
-import io
 import string
 import logging
 import math
-from abc import ABCMeta
-from os.path import dirname, basename, realpath, splitext
-from os.path import join as pathjoin
+from os.path import splitext, basename
 
-from bitstring import BitStream, ConstBitStream
+from bitarray import bitarray
 
 from . import util
+from .io import Unit, BitArrayView as Stream
+from .structures import Structure
 
 
 log = logging.getLogger(__name__)
-headers = util.load_builtins('headers', '.tsv', struct.define)
+headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
 
 
 class RomFormatError(Exception):
@@ -24,15 +23,12 @@ class HeaderError(RomFormatError):
 
 
 class Rom:
-    extensions = {'.nes': INESRom,
-                  '.sfc': SNESRom}
-
-    def __new__(cls, romfile, rommap=None):
-        subcls = cls.identify(romfile)
-        return subcls(romfile, rommap)
+    registry = {}
+    extensions = []
 
     def __init__(self, romfile, rommap=None):
-        ba = bitarray()
+        romfile.seek(0)
+        ba = bitarray(endian='little')
         ba.fromfile(romfile)
 
         self.file = Stream(ba)
@@ -42,114 +38,144 @@ class Rom:
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name = cls.__name__
+        for ext in cls.extensions:
+            if ext in cls.registry:
+                msg = ("%s attempted to claim %s extension, but it is "
+                      "already registered; ignoring")
+                log.warning(msg, name, ext)
+            else:
+                cls.registry[ext] = cls
+
     @classmethod
-    def identify(cls, romfile):
+    def make(cls, romfile, rommap=None, ignore_extension=False):
         # Check file extension first, if possible
         ext = splitext(romfile.name)[1]
-        if ext in cls.extensions:
-            return cls.extensions[ext]
+        if ext in cls.registry and not ignore_extension:
+            subcls = cls.registry[ext]
+            rom = subcls(romfile, rommap)
+            msg = "%s loaded by extension as a %s"
+            log.info(msg, basename(romfile.name), subcls.__name__)
+            return cls.registry[ext](romfile, rommap)
 
         log.debug("Unknown extension '%s', inspecting contents", ext)
-        for subcls in self.__subclasses__():
-            log.debug("Trying: %s", romcls.romtype)
+        for subcls in Rom.__subclasses__():
+            log.debug("Trying: %s", subcls.romtype)
             try:
-                subcls.validate(romfile)
-                return subcls
-            except RomFormatError:
-                pass
+                rom = subcls(romfile)
+                rom.validate()
+                msg = "%s loaded as a %s"
+                log.info(msg, basename(romfile.name), subcls.__name__)
+                return rom
+            except RomFormatError as ex:
+                log.debug("Couldn't validate: %s", ex)
         raise RomFormatError("Can't figure out what type of ROM this is")
 
 
 class INESRom(Rom):
     romtype = 'ines'
+    extensions = ['.nes', '.ines']
     hdr_ident = b"NES\x1a"
+    sz_header = 16
 
     def __init__(self, romfile, rommap=None):
         super().__init__(romfile, rommap)
-        bs_head = self.file[:16*8]
-        self.header = headers[self.romtype](bs_head)
-        self.data = self.file[16*8:]
+        hsz = self.sz_header * Unit.bytes
+        hcls = headers[self.romtype]
+        self.header = hcls(self.file[:hsz])
+        self.data = self.file[hsz:]
 
-    @classmethod
-    def validate(cls, romfile):
-        romfile.seek(0)
-        ident = romfile.read(4)
-        if ident != cls.hdr_ident:
-            msg = "Bad ines header ident ({} != {})"
-            raise HeaderError(msg.format(ident, cls.hdr_ident))
+    def validate(self):
+        hid = self.header.ident
+        if hid != self.hdr_ident:
+            msg = f"Bad ines header ident ({hid} != {self.hdr_ident})"
+            raise HeaderError(msg)
         return True
 
 
 class SNESRom(Rom):
     romtype = 'snes'
+    extensions = ['.sfc', '.smc']
     sz_smc = 0x200
-    ofs_lorom = 0x7FB0
-    ofs_hirom = 0xFFB0
+    # FIXME: Pretty sure these are SNES addresses, not ROM addresses, will have
+    # to work out correponding address
+    header_locations = {0x20: 0x7FC0,
+                        0x21: 0xFFC0,
+                        0x23: 0x7FC0,
+                        0x30: 0x7FC0,
+                        0x31: 0xFFC0,
+                        0x32: 0x7FC0,
+                        0x35: 0xFFC0}
+
+    devid_magic = 0x33  # Indicates extended registration data available
 
     def __init__(self, romfile, rommap=None):
         super().__init__(romfile, rommap)
-        self.smc = self._load_smc(romfile)
-        self.header = self._load_header(romfile)
-        self.data = BitStream(self.file[len(self.smc*8):])
+        os_data = len(self.smc) if self.smc else 0
+        self.data = self.file[os_data:]
 
-    @classmethod
-    def validate(cls, romfile):
-        try:
-            return bool(cls._load_header(romfile))
-        except HeaderError:
-            return False
+    @property
+    def header(self):
+        for offset in set(self.header_locations.values()):
+            log.debug("Looking for header at 0x%X", offset)
+            hdr = headers['snes-hdr'](self.data[offset::Unit.bytes])
 
-    @classmethod
-    def _load_smc(cls, romfile):
-        sz_file = util.filesize(romfile)
-        sz_smc = sz_file % 1024
+            # Mapping mode check
+            if self.header_locations.get(hdr.mapmode, None) == offset:
+                log.debug("0x%X: mapmode check: ok", offset)
+            else:
+                log.debug("0x%X: mapmode check: failed "
+                          "(mode doesn't match header location)", offset)
+                continue
+
+            # Size byte check
+            sz_max = 2**(hdr.sz_rom) * 1024
+            sz_min = sz_max // 2
+            sz_real = self.data.ct_bytes
+            if sz_max >= sz_real > sz_min:
+                log.debug("0x%X: size check: ok", offset)
+            else:
+                msg = "0x%X: size check: failed (%s not between %s and %s)"
+                log.debug(msg, offset, sz_real, sz_min, sz_max)
+                continue
+
+            # Header version 2 has a null byte where the last printable character
+            # would be, so strip it for this check.
+            if all(chr(c) in string.printable for c in hdr.b_name[:-1]):
+                log.debug("0x%X: name check: ok", offset)
+            else:
+                log.debug("0x%X: name check: failed (unprintable chars in name)", offset)
+
+            log.debug("0x%X: all header checks passed, using this header", offset)
+            return hdr
+        else:
+            raise HeaderError("No valid SNES header found")
+
+    @property
+    def registration(self):
+        if self.header.devid != self.devid_magic:
+            return None
+        offset = self.header_locations[self.header.mapmode] - 0x10
+        return headers['snes-reg'](self.data[offset::Unit.bytes])
+
+    @property
+    def smc(self):
+        sz_smc = self.file.ct_bytes % 1024
         if sz_smc == 0:
             return None
-        elif sz_smc == cls.sz_smc:
-            romfile.seek(0)
-            return romfile.read(sz_smc)
+        elif sz_smc == self.sz_smc:
+            return self.file[0:sz_smc:Unit.bytes]
         else:
             raise HeaderError("Bad rom file size or corrupt SMC header")
 
-    @classmethod
-    def checksum(cls, romdata):
-        if not math.log(len(romdata), 2).is_integer():
-            msg = "Rom size {} is not a power of two"
-            raise NotImplementedError(msg.format(len(romdata)))
-        return sum(romdata) % 0xFFFF
+    @property
+    def checksum(self):
+        if not math.log(self.data.ct_bytes, 2).is_integer():
+            msg = "Rom size {self.data.ct_bytes} is not a power of two"
+            raise NotImplementedError(msg)
+        return sum(self.data.bytes) % 0xFFFF
 
-
-    @classmethod
-    def _load_header(cls, romfile):
-        smc = cls._load_smc(romfile)
-        romfile.seek(len(smc))
-        data = romfile.read()
-
-        for offset in [cls.ofs_hirom, cls.ofs_lorom]:
-            if offset > len(data):
-                # Happens for at least one Game Genie rom -- it's lorom and not
-                # physically large enough to be hirom
-                continue
-            bs_head = BitStream(bytes=data[offset:offset+64])
-            try:
-                header = headers[cls.romtype](bs_head)
-                cls._validate_header(offset, len(data), header)
-                return header
-            except (UnicodeDecodeError, HeaderError) as e:
-                # The unicode one gets thrown when the name string isn't valid.
-                log.debug(str(e))
-                continue
-        raise HeaderError("No valid header found")
-
-    @classmethod
-    def _validate_header(cls, offset, datasize, header):
-        sz_max = 1024*2**(header.sz_rom)
-
-        if offset != (cls.ofs_hirom if header.hirom else cls.ofs_lorom):
-            raise HeaderError("Hirom bit doesn't match location")
-        if not sz_max >= datasize > sz_max/2:
-            raise HeaderError("Rom file size doesn't match header.")
-        if not all(c in string.printable for c in header.name):
-            raise HeaderError("Bogus ROM name in header.")
-
-        return True
+    def validate(self):
+        return bool(self.header)

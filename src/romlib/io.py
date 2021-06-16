@@ -50,14 +50,47 @@ class BitArrayView(NodeMixin):
         self.offset = offset or 0
         self.length = (length if length
                        else (len(self.parent) - self.offset) if self.parent
-                       else len(self._ba) - self.abs_start)
-        assert self.length >= 0
+                       else len(self.ba) - self.abs_start)
 
     def __len__(self):
         return self.length
 
+    @property
+    def sha1(self):
+        """ Get sha1 hash of contents """
+        return hashlib.sha1(self.bytes).hexdigest()
+
+    @property
+    def md5(self):
+        return hashlib.md5(self.bytes).hexdigest()
+
+    @property
+    def crc32(self):
+        checksum = zlib.crc32(self.bytes)
+        return f"{checksum:08X}"
+        return zlib.crc32(self.bytes)
+
+    @property
+    def ct_bytes(self):
+        if len(self) % Unit.bytes:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return len(self) // Unit.bytes
+
+    @property
+    def ct_bits(self):
+        return len(self)
+
+    @property
+    def os_bytes(self):
+        if len(self) % Unit.bytes:
+            raise ValueError("Not an even number of bytes")
+        else:
+            return self.offset // Unit.bytes
+
     def __str__(self):
-        return f'BitArrayView[{self.offset}:{self.end}]'
+        bits = ''.join('1' if b else '0' for b in self)
+        return f'BitArrayView({bits})'
 
     def __repr__(self):
         _inobj = 'parent' if self.parent else 'ba'
@@ -109,7 +142,6 @@ class BitArrayView(NodeMixin):
 
     @property
     def abs_slice(self):
-        assert self.abs_end - self.abs_start == len(self)
         return slice(self.abs_start, self.abs_end)
 
     #
@@ -126,7 +158,9 @@ class BitArrayView(NodeMixin):
 
     @property
     def bits(self):
-        return self.ba[self.abs_slice]
+        bits = self.ba[self.abs_slice]
+        assert len(bits) == len(self), f"{len(bits)} != {len(self)}"
+        return bits
 
     @bits.setter
     def bits(self, ba):
@@ -134,6 +168,10 @@ class BitArrayView(NodeMixin):
             msg = f"expected {len(self)} bits, got {len(ba)}"
             raise ValueError(msg)
         self.ba[self.abs_slice] = ba
+
+    @property
+    def bin(self):
+        return ''.join('1' if bit else '0' for bit in self)
 
     @property
     def bytes(self):

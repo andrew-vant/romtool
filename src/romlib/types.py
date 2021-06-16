@@ -87,10 +87,7 @@ class Field:
         return cls(**kwargs)
 
     def _get_str(self, bitview):
-        if not self.display:
-            return bitview.bytes
-        else:
-            return bitview.bytes.decode(self.display)
+        return bitview.bytes.decode(self.display or 'ascii')
 
     def _set_str(self, bitview, value):
         # This check avoids spurious changes in patches when there's more than
@@ -100,7 +97,7 @@ class Field:
         # I haven't come up with a good way to give views a .str property (no
         # way to feed it a codec), so this is a bit circuitous.
         content = BytesIO(bitview.bytes)
-        content.write(value.encode(self.display))
+        content.write(value.encode(self.display or 'ascii'))
         content.seek(0)
         bitview.bytes = content.read()
 
@@ -122,7 +119,9 @@ class Field:
                'uintbe': _get_int,
                'uintle': _get_int,
                'str':    _get_str,
-               'strz':   _get_str}
+               'strz':   _get_str,
+               'bytes':  lambda self, bv: bv.bytes,
+               'bin':    lambda self, bv: bv.bin}
 
     writers = {'int':    _set_int,
                'uint':   _set_int,
