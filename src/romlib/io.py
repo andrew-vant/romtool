@@ -109,17 +109,20 @@ class BitArrayView(NodeMixin):
 
         start, stop, unit = sl.start, sl.stop, sl.step
 
-        if start is None:
-            start = 0
-        if stop is None:
-            stop = self.end
         if unit is None:
             unit = 1
         if isinstance(unit, str):
             unit = Unit[unit]
 
-        start *= unit
-        stop *= unit
+        if start is None:
+            start = 0
+        else:
+            start *= unit
+
+        if stop is None:
+            stop = self.end
+        else:
+            stop *= unit
 
         if start < 0:
             start += len(self)

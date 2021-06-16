@@ -82,7 +82,7 @@ class TestBAVSlicing(TestCase):
                 self.assertEqual(ba2hex(child.bits), expected)
 
     def test_byte_slicing(self):
-        child = self.parent[0:2:Unit['bytes']]
+        child = self.parent[0:2:Unit.bytes]
         self.assertEqual(ba2hex(child.bits),  'abcd')
         child = self.parent[1::Unit.bytes]
         self.assertEqual(ba2hex(child.bits), 'cdef')
