@@ -83,7 +83,10 @@ class Field:
             k = field.name
             v = row.get(k, None) or None  # ignore missing or empty values
             if v is not None:
-                kwargs[k] = convtbl[field.type](v)
+                try:
+                    kwargs[k] = convtbl[field.type](v)
+                except ValueError:
+                    kwargs[k] = v
         return cls(**kwargs)
 
     def _get_str(self, bitview):

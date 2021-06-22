@@ -1,13 +1,16 @@
 import string
 import logging
 import math
+import operator
 from os.path import splitext, basename
 
 from bitarray import bitarray
+from anytree import NodeMixin
 
 from . import util
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure
+from .structures import Structure, Table, Index
+from .rommap import RomMap
 
 
 log = logging.getLogger(__name__)
@@ -22,18 +25,30 @@ class HeaderError(RomFormatError):
     pass
 
 
-class Rom:
+class Rom(NodeMixin):
     registry = {}
     extensions = []
 
     def __init__(self, romfile, rommap=None):
+        if rommap is None:
+            rommap = RomMap()
+
         romfile.seek(0)
         ba = bitarray(endian='little')
         ba.fromfile(romfile)
 
         self.file = Stream(ba)
         self.orig = Stream(bitarray(ba))
+
         self.map = rommap
+        byidx = lambda row: row.get('index', '')
+        for spec in sorted(self.map.tables.values(), key=byidx):
+            log.debug("creating table: %s", spec['id'])
+            setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
+
+    @property
+    def data(self):
+        return self.file
 
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")
@@ -85,7 +100,10 @@ class INESRom(Rom):
         hsz = self.sz_header * Unit.bytes
         hcls = headers[self.romtype]
         self.header = hcls(self.file[:hsz])
-        self.data = self.file[hsz:]
+
+    @property
+    def data(self):
+        return self.file[self.sz_header * Unit.bytes:]
 
     def validate(self):
         hid = self.header.ident
@@ -111,10 +129,11 @@ class SNESRom(Rom):
 
     devid_magic = 0x33  # Indicates extended registration data available
 
-    def __init__(self, romfile, rommap=None):
-        super().__init__(romfile, rommap)
-        os_data = len(self.smc) if self.smc else 0
-        self.data = self.file[os_data:]
+    @property
+    def data(self):
+        """ Data block """
+        offset = len(self.smc) if self.smc else 0
+        return self.file[offset:]
 
     @property
     def header(self):

@@ -77,7 +77,7 @@ class RomMap:
         structfiles = util.get_subfiles(root, 'structs', '.tsv')
         for name, path in structfiles:
             log.info("Loading structure '%s' from '%s'", name, path)
-            structcls = Structure.define(name, util.readtsv(path))
+            structcls = Structure.define_from_tsv(path)
             kwargs.structs[name] = structcls
 
         # Now load the array definitions. Note that this doesn't instantiate
@@ -86,16 +86,5 @@ class RomMap:
         kwargs.tables = Dict()
         path = root + "/arrays.tsv"
         log.info("Loading array specs from %s", path)
-        specs = list(util.readtsv(path))
-        for spec in specs:
-            # Intify integral fields
-            integral_fields = ['offset', 'count', 'stride']
-            util.intify_items(spec, integral_fields)
-            if not spec.index:
-                spec.index = Table.make_index(
-                    spec.offset,
-                    spec.count,
-                    spec.stride
-                    )
-            kwargs.tables[spec.name] = spec
+        kwargs.tables = {record['id']: record for record in util.readtsv(path)}
         return cls(**kwargs)

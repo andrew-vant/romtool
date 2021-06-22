@@ -158,6 +158,7 @@ class TestSubstructures(unittest.TestCase):
                    'type': 'flags',
                    'offset': '0',
                    'size': '2',
+                   'unit': 'bits',
                    'display': None,
                    'arg': None,}]
         structfields = [Field.from_tsv_row(row) for row in fields]

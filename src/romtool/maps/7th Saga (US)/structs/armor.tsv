@@ -11,4 +11,4 @@ rvac	Death Resist	1	uint					stat
 reff	Effect Resist	1	uint					stat	
 nmp	Name Pointer	3	uintle	-0xC00000	pointer			pointer	
 unk1	Unknown 1	2	uintle					unknown	Appears to be a 2-byte uintle because it comes up as round numbers that way.
-name	Name		strz		main	nmp		name	
+name	Name	12	strz		main	nmp		name	

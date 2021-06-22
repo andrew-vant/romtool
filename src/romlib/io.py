@@ -51,6 +51,7 @@ class BitArrayView(NodeMixin):
         self.length = (length if length
                        else (len(self.parent) - self.offset) if self.parent
                        else len(self.ba) - self.abs_start)
+        assert len(self.bits) == len(self), f"{len(self.bits)} != {len(self)}"
 
     def __len__(self):
         return self.length
@@ -162,7 +163,6 @@ class BitArrayView(NodeMixin):
     @property
     def bits(self):
         bits = self.ba[self.abs_slice]
-        assert len(bits) == len(self), f"{len(bits)} != {len(self)}"
         return bits
 
     @bits.setter

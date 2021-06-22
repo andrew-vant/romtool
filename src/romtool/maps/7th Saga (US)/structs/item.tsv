@@ -5,4 +5,4 @@ cost	Cost	2	uintle
 usr	Users	1	lbin		koewxvjn			Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil	
 gem	Gem	1	uint					Gems sell for 100% of their value	 non-gems 50%
 nmp	Name Pointer	3	uintle	-0xC00000	pointer				
-name	Name		strz		main		nmp		
+name	Name	10	strz		main		nmp		

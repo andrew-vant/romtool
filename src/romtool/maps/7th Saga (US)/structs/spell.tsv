@@ -7,4 +7,4 @@ emt	Element	1	uint					stats	0: No element (e.g. healing) | 1: Thunder | 2: Unus
 unk1	Unknown 1	1	bin					unknown	
 unk2	Status?	1	bin					unknown	
 nmp	Name Pointer	3	uintle	-0xC00000	pointer			pointer	
-name	Name		strz		main		nmp	name	
+name	Name	10	strz		main		nmp	name	

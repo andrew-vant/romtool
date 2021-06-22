@@ -4,10 +4,7 @@ These objects form a layer over the raw rom, such that accessing them
 automagically turns the bits and bytes into integers, strings, etc.
 """
 import logging
-import enum
-from types import SimpleNamespace
 from collections.abc import Mapping, Sequence
-from collections import Counter
 from itertools import chain, combinations
 from os.path import basename, splitext
 
@@ -15,7 +12,6 @@ import yaml
 from anytree import NodeMixin
 
 from .types import Field
-from .primitives import uint_cls
 from . import util
 from .io import Unit
 
@@ -38,7 +34,8 @@ class Structure(Mapping, NodeMixin):
         # It's surprisingly difficult to handle int, str, and None values
         # concisely.
         context = (self.view if field.origin is None
-                   else find(self.view.root, lambda n: n.name == field.origin))
+                   else self.view.root if field.origin == 'root'
+                   else self.view.root.find(field.origin))
 
         mapper = {str: lambda v: self[v] * field.unit,
                   int: lambda v: v * field.unit,
@@ -156,7 +153,7 @@ class Structure(Mapping, NodeMixin):
         super().__init_subclass__(**kwargs)
         name = cls.__name__
         if name in cls.registry:
-            raise ValueError(f"duplicate definition of '{name}'")
+            log.warning("duplicate definition of '%s'", name)
         cls.registry[name] = cls
 
     @classmethod
@@ -267,7 +264,7 @@ class Table(Sequence, NodeMixin):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return Table(self.view, self.typename, index[i])
+            return Table(self.view, self.typename, self.index[i])
         elif i >= len(self):
             raise IndexError("Table index out of range")
         elif self._struct:
@@ -292,6 +289,26 @@ class Table(Sequence, NodeMixin):
 
     def __len__(self):
         return len(self.index)
+
+    @classmethod
+    def from_tsv_row(cls, row, parent, view=None):
+        if not view:
+            view = parent.view
+
+        # Filter out empty strings
+        row = {k: v for k, v in row.items() if v}
+        aid = row['id']
+        typename = row['type']
+        offset = int(row.get('offset', '0'), 0)
+        units = Unit[row.get('unit', 'bytes')]
+        size = int(row['size'], 0) if 'size' in row else None
+        if 'index' in row:
+            index = getattr(parent, row['index'])
+        else:
+            count = int(row['count'], 0)
+            stride = int(row.get('stride', '0'), 0)
+            index = Index(0, count, stride)
+        return Table(view, typename, index, offset, size, units, parent)
 
 
 class Index(Sequence):
