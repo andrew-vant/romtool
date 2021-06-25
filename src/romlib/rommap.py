@@ -1,7 +1,8 @@
 """This module contains classes for locating data within a ROM."""
 
+import os
 import logging
-from typing import Mapping
+from typing import Mapping, Sequence
 from functools import partial
 from dataclasses import dataclass, field
 
@@ -16,6 +17,16 @@ from .text import TextTable
 log = logging.getLogger(__name__)
 
 
+class MapTest:
+    def __init__(self, table, item, attribute, value):
+        self.table = table
+        self.item = int(item, 0)
+        self.attribute = attribute
+        try:
+            self.value = int(value, 0)
+        except ValueError:
+            self.value = value
+
 @dataclass
 class RomMap:
     """ A ROM map
@@ -29,6 +40,8 @@ class RomMap:
     structs: Mapping[str, Structure] = _adctfld()
     tables: Mapping[str, Table] = _adctfld()
     ttables: Mapping[str, TextTable] = _adctfld()
+    tests: Sequence = list
+
 
     @classmethod
     def load(cls, root):
@@ -87,4 +100,10 @@ class RomMap:
         path = root + "/arrays.tsv"
         log.info("Loading array specs from %s", path)
         kwargs.tables = {record['id']: record for record in util.readtsv(path)}
+
+        path = root + "/tests.tsv"
+        if os.path.exists(path):
+            log.info("Loading test specs from %s", path)
+            kwargs.tests = [MapTest(**row) for row in util.readtsv(path)]
+
         return cls(**kwargs)

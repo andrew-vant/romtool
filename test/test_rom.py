@@ -102,24 +102,21 @@ class TestMappedRom(unittest.TestCase):
                            if h.view.offset == self.rom.header.view.offset)
         self.assertEqual(real_header.csum + real_header.csum2, 0xFFFF)
 
-
 @unittest.skipUnless(rommap, f'{mapenv} not set, skipping')
-class TestMapLoading(unittest.TestCase):
+@unittest.skipUnless(romfile, f'{romenv} not set, skipping')
+class TestMapDefinition(unittest.TestCase):
     def setUp(self):
-        self.rmap = RomMap.load(rommap)
+        self.map = RomMap.load(rommap)
+        with open(romfile, 'rb') as f:
+            self.rom = Rom.make(f, self.map)
 
     def test_load(self):
+        # Forces setUp to run, and nothing else
         pass
 
-    def test_use(self):
-        with open(romfile, 'rb') as f:
-            rom = Rom.make(f, self.rmap)
-
-    def test_check(self):
-        with open(romfile, 'rb') as f:
-            rom = Rom.make(f, self.rmap)
-        self.assertIsInstance(rom.monsters, Table)
-        self.assertIsInstance(rom.monsters[0], Structure.registry['monster'])
-        self.assertEqual(rom.monsters[2].hp, 30)
-        hermit = next(m for m in rom.monsters if m.name.startswith('Hermit'))
-        self.assertEqual(hermit.lvl, 1)
+    def test_known(self):
+        for d in self.map.tests:
+            with self.subTest(f'{d.table}[{d.item}].{d.attribute}={d.value}'):
+                expected = d.value
+                actual = getattr(self.rom, d.table)[d.item][d.attribute]
+                self.assertEqual(actual, expected)
