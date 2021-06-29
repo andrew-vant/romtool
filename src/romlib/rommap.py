@@ -21,7 +21,7 @@ class MapTest:
     def __init__(self, table, item, attribute, value):
         self.table = table
         self.item = int(item, 0)
-        self.attribute = attribute
+        self.attribute = attribute or None
         try:
             self.value = int(value, 0)
         except ValueError:

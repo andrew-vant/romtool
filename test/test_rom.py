@@ -118,5 +118,7 @@ class TestMapDefinition(unittest.TestCase):
         for d in self.map.tests:
             with self.subTest(f'{d.table}[{d.item}].{d.attribute}={d.value}'):
                 expected = d.value
-                actual = getattr(self.rom, d.table)[d.item][d.attribute]
-                self.assertEqual(actual, expected)
+                table = getattr(self.rom, d.table)
+                item = table[d.item]
+                value = item if not d.attribute else item[d.attribute]
+                self.assertEqual(value, expected)

@@ -221,7 +221,8 @@ class Table(Sequence, NodeMixin):
     # object has to maintain tables and their names, connect indexes, etc.
 
     def __init__(self, view, typename, index,
-                 offset=0, size=None, units=Unit.bytes, parent=None):
+                 offset=0, size=None, units=Unit.bytes, display=None,
+                 parent=None):
         """ Create a Table
 
         view:   The underlying bitarray view
@@ -236,6 +237,7 @@ class Table(Sequence, NodeMixin):
         self.typename = typename
         self.offset = offset
         self.size = size
+        self.display = display
 
     @property
     def _struct(self):
@@ -269,6 +271,8 @@ class Table(Sequence, NodeMixin):
             raise IndexError("Table index out of range")
         elif self._struct:
             return self._struct(self._subview(i), self)
+        elif  self.typename == 'str':
+            return self._subview(i).bytes.decode(self.display)
         else:
             return getattr(self._subview(i), self.typename)
 
@@ -284,6 +288,8 @@ class Table(Sequence, NodeMixin):
         cls = self._struct
         if self._struct:
             self[i].copy(v)
+        elif  self.typename == 'str':
+            self._subview(i).bytes = v.encode(self.display)
         else:
             setattr(self._subview(i), self.typename, v)
 
@@ -302,13 +308,14 @@ class Table(Sequence, NodeMixin):
         offset = int(row.get('offset', '0'), 0)
         units = Unit[row.get('unit', 'bytes')]
         size = int(row['size'], 0) if 'size' in row else None
+        display = row.get('display', None)
         if 'index' in row:
             index = getattr(parent, row['index'])
         else:
             count = int(row['count'], 0)
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
-        return Table(view, typename, index, offset, size, units, parent)
+        return Table(view, typename, index, offset, size, units, display, parent)
 
 
 class Index(Sequence):
