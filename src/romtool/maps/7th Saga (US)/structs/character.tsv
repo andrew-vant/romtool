@@ -1,17 +1,17 @@
-id	name	size	type	mod	display	order	info	comment
-hp	HP	2	uintle				base	
-mp	MP	2	uintle				base	
-pow	Power	1	uint				base	
-grd	Guard	1	uint				base	
-mag	Magic	1	uint				base	
-spd	Speed	1	uint				base	
-hpg	HP Growth	1	uint				growth	
-mpg	MP Growth	1	uint				growth	
-powg	Power Growth	1	uint				growth	
-grdg	Guard Growth	1	uint				growth	
-magg	Magic Growth	1	uint				growth	
-spdg	Speed Growth	1	uint				growth	
-wpn	Weapon	1	uint	-100			equip	
-amr	Armor	1	uint	-151			equip	
-acc	Accessory	1	uint	-151			equip	
-xp	Exp	1	uint				base	
+id	name	offset	size	type	mod	display	order	info	comment
+hp	HP	0	2	uintle				base	
+mp	MP	2	2	uintle				base	
+pow	Power	4	1	uint				base	
+grd	Guard	5	1	uint				base	
+mag	Magic	6	1	uint				base	
+spd	Speed	7	1	uint				base	
+hpg	HP Growth	8	1	uint				growth	
+mpg	MP Growth	9	1	uint				growth	
+powg	Power Growth	10	1	uint				growth	
+grdg	Guard Growth	11	1	uint				growth	
+magg	Magic Growth	12	1	uint				growth	
+spdg	Speed Growth	13	1	uint				growth	
+wpn	Weapon	14	1	uint	-100			equip	
+amr	Armor	15	1	uint	-151			equip	
+acc	Accessory	16	1	uint	-151			equip	
+xp	Exp	17	1	uint				base	

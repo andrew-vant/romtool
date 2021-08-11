@@ -174,7 +174,7 @@ class BitArrayView(NodeMixin):
         self.ba[self.abs_slice] = ba
         new = self.bits
         if new != old:
-            log.debug("change detected")
+            log.debug("change detected: %s -> %s", old, new)
 
     @property
     def bin(self):
@@ -200,7 +200,10 @@ class BitArrayView(NodeMixin):
     def uint(self, i):
         if isinstance(i, str):
             i = int(i, 0)
+        old = self.uint
         self.bits = int2ba(i, length=len(self), endian=self.ba.endian())
+        if old != self.uint:
+            log.debug("change detected: %s -> %s", old, self.uint)
 
     @property
     def uintbe(self):

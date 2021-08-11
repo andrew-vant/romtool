@@ -197,7 +197,11 @@ class Structure(Mapping, NodeMixin):
 
     def load(self, tsv_row):
         for field in self.fields:
-            self[field.name] = field.parse(tsv_row[field.name])
+            key = field.name
+            value = field.parse(tsv_row[field.name])
+            log.debug("setting: %s:%s (%s -> %s)",
+                      type(self), key, self[key], value)
+            self[key] = value
 
 
 class BitField(Structure):

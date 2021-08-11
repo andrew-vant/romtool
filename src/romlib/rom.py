@@ -43,7 +43,7 @@ class Rom(NodeMixin):
         ba.fromfile(romfile)
 
         self.file = Stream(ba)
-        self.orig = Stream(bitarray(ba))
+        self.orig = Stream(ba.copy())
 
         self.map = rommap
         byidx = lambda row: row.get('index', '')
