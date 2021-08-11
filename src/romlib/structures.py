@@ -195,6 +195,10 @@ class Structure(Mapping, NodeMixin):
             else:
                 other[k] = v
 
+    def load(self, tsv_row):
+        for field in self.fields:
+            self[field.name] = field.parse(tsv_row[field.name])
+
 
 class BitField(Structure):
     def __str__(self):
@@ -277,6 +281,8 @@ class Table(Sequence, NodeMixin):
             return getattr(self._subview(i), self.typename)
 
     def __setitem__(self, i, v):
+        if str(v) != str(self[i]):
+            log.debug("difference detected: %r != %r", v, self[i])
         if isinstance(i, slice):
             indices = list(range(i.start, i.stop, i.step))
             if len(indices) != len(v):
@@ -289,7 +295,17 @@ class Table(Sequence, NodeMixin):
         if self._struct:
             self[i].copy(v)
         elif  self.typename == 'str':
-            self._subview(i).bytes = v.encode(self.display)
+            bv = self._subview(i)
+            # Avoid spurious patch changes when there's more than one way
+            # to encode the same string
+            old = bv.bytes.decode(self.display or 'ascii')
+            if v == old:
+                return
+            # This smells. Duplicates the process in Field._set_str.
+            content = BytesIO(bitview.bytes)
+            content.write(v.encode(self.display or 'ascii'))
+            content.seek(0)
+            bv.bytes = content.read()
         else:
             setattr(self._subview(i), self.typename, v)
 

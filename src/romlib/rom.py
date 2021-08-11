@@ -1,7 +1,9 @@
 import string
 import logging
 import math
+import io
 import operator
+from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
 from itertools import groupby, chain
@@ -10,6 +12,7 @@ from bitarray import bitarray
 from anytree import NodeMixin
 
 from . import util
+from .patch import Patch
 from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Table, Index
 from .rommap import RomMap
@@ -72,7 +75,8 @@ class Rom(NodeMixin):
 
             records = []
             for i in range(ct_items):
-                record = {}
+                log.debug("Dumping %s #%s", tset, i)
+                record = {'_idx': i}
                 for tspec in tspecs:
                     tid = tspec['id']
                     item = getattr(self, tid)[i]
@@ -85,6 +89,37 @@ class Rom(NodeMixin):
             for r in records:
                 assert not (set(r.keys()) - keys)
             util.writetsv(path, records, force)
+
+    def load(self, folder):
+        data = {}
+        for _set in self.map.sets:
+            path = pathjoin(folder, f'{_set}.tsv')
+            log.debug("loading mod set '%s' from %s", _set, path)
+            contents = util.readtsv(path)
+            byidx = lambda row: int(row['_idx'], 0)
+            try:
+                contents = sorted(contents, key=byidx)
+            except KeyError:
+                log.warning('_idx field not present; assuming input order is correct')
+            data[_set] = contents
+
+        for tspec in self.map.tables.values():
+            log.info("Loading table '%s' from set '%s'",
+                     tspec['id'], tspec['set'])
+            table = getattr(self, tspec['id'])
+            for i, (orig, new) in enumerate(zip(table, data[tspec['set']])):
+                log.debug("Loading %s #%s (%s)",
+                          tspec['id'], i, new.get('Name', 'nameless'))
+                if isinstance(orig, Structure):
+                    orig.load(new)
+                else:
+                    table[i] = new[tspec['name']]
+
+    @property
+    def patch(self):
+        old = io.BytesIO(self.orig.bytes)
+        new = io.BytesIO(self.data.bytes)
+        return Patch.from_diff(old, new)
 
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")

@@ -125,7 +125,7 @@ def main(argv=None):
     # Do this here so it doesn't happen implicitly later
     # FIXME: replace with dictConfig. Set root in dictconfig, log
     # individual files with module name as logger name.
-    logging.basicConfig()
+    logging.basicConfig(format="%(levelname)s\t%(filename)s:%(lineno)s\t%(message)s")
 
     with open(pkgfile("args.yaml")) as argfile:
         argspecs = yaml.load(argfile, Loader=yaml.SafeLoader)

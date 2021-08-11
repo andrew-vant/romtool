@@ -3,6 +3,7 @@ import sys
 import hashlib
 import logging
 import os
+import io
 import shutil
 import textwrap
 import itertools
@@ -128,14 +129,14 @@ def build(args):
             e.log()
             sys.exit(2)
 
-    rmap = romlib.RomMap(args.map)
-    msg = "Loading mod dir %s using map %s."
-    logging.info(msg, args.moddir, args.map)
-    data = rmap.load(args.moddir)
-    source = "save" if args.save else "rom"
-    patch = romlib.Patch(rmap.bytemap(data, source))
-    _filterpatch(patch, args.rom)
-    _writepatch(patch, args.patch)
+    logging.info("Loading ROM map at: %s", args.map)
+    rmap = RomMap.load(args.map)
+    logging.info("Opening ROM file at: %s", args.rom)
+    with open(args.rom, "rb") as f:
+        rom = Rom.make(f, rmap)
+    logging.info("Reading modification data from: %s", args.moddir)
+    rom.load(args.moddir)
+    _writepatch(rom.patch, args.patch)
 
 
 def merge(args):

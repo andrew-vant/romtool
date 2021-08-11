@@ -43,6 +43,10 @@ class RomMap:
     tests: Sequence = list
 
 
+    @property
+    def sets(self):
+        return set(t['set'] for t in self.tables.values())
+
     @classmethod
     def load(cls, root):
         """ Create a ROM map from a directory tree
