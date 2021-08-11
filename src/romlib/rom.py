@@ -3,6 +3,8 @@ import logging
 import math
 import operator
 from os.path import splitext, basename
+from os.path import join as pathjoin
+from itertools import groupby, chain
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -49,6 +51,40 @@ class Rom(NodeMixin):
     @property
     def data(self):
         return self.file
+
+    @property
+    def tables(self):
+        return {table['id']: getattr(self, table.id)
+                for table in self.map.tables.values()}
+
+    def dump(self, folder, force=False):
+        """ Dump all rom data to `folder` in tsv format"""
+
+        byset = lambda row: row.get('set', None) or row['id']
+        tablespecs = sorted(self.map.tables.values(), key=byset)
+
+        for tset, tspecs in groupby(tablespecs, byset):
+            tspecs = list(tspecs)
+            ct_tables = len(tspecs)
+            ct_items = int(tspecs[0]['count'], 0)
+            log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
+            path = pathjoin(folder, f'{tset}.tsv')
+
+            records = []
+            for i in range(ct_items):
+                record = {}
+                for tspec in tspecs:
+                    tid = tspec['id']
+                    item = getattr(self, tid)[i]
+                    if isinstance(item, Structure):
+                        record.update(item.items())
+                    else:
+                        record[tspec['name']] = item
+                records.append(record)
+            keys = set(records[0].keys())
+            for r in records:
+                assert not (set(r.keys()) - keys)
+            util.writetsv(path, records, force)
 
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")

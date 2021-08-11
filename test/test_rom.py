@@ -120,5 +120,5 @@ class TestMapDefinition(unittest.TestCase):
                 expected = d.value
                 table = getattr(self.rom, d.table)
                 item = table[d.item]
-                value = item if not d.attribute else item[d.attribute]
+                value = item if not d.attribute else getattr(item, d.attribute)
                 self.assertEqual(value, expected)

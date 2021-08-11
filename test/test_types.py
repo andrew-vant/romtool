@@ -130,6 +130,11 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data))
         self.assertEqual(repr(struct), "<scratch@0x00 (abcdef)>")
 
+    def test_iteration_keys(self):
+        struct = self.scratch(Stream(self.data))
+        self.assertEqual(set(struct.keys()),
+                         set(f['name'] for f in self.specs))
+
     @unittest.skip("Test not implemented yet")
     def test_copy(self):
         raise NotImplementedError

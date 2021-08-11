@@ -15,6 +15,8 @@ import yaml
 
 import romlib
 import romlib.charset
+from romlib.rommap import RomMap
+from romlib.rom import Rom
 from romtool import util
 from romtool.util import pkgfile
 
@@ -85,38 +87,26 @@ def dump(args):
         # FIXME: Patch rom in-memory with an ips so you can dump a mod without
         # applying it.
 
-    rmap = romlib.RomMap(args.map)
 
     # This gets awkward since we want to open ROM always but open SAVE
     # only sometimes. I suspect this means the design needs some work.
     # Can't they be loaded separately? (maybe not, saves may have
     # pointers to stuff in the rom that need dereferencing?)
+    rmap = RomMap.load(args.map)
     logging.info("Opening ROM file: %s", args.rom)
-    with open(args.rom, "rb") as rom:
-        if args.save:
-            logging.info("Opening SAVE file: %s", args.save)
-            with open(args.save, "rb") as save:
-                data = rmap.read(rom, save)
-        else:
-            logging.debug("No save file specified, skipping")
-            data = rmap.read(rom, None)
+    with open(args.rom, "rb") as f:
+        rom = Rom.make(f, rmap)
 
     logging.info("Dumping ROM data to: %s", args.moddir)
-    output = rmap.dump(data)
     os.makedirs(args.moddir, exist_ok=True)
-    for entity, dicts in output.items():
-        filename = "{}/{}.tsv".format(args.moddir, entity)
-        logging.info("Writing output file: %s", filename)
-        try:
-            romlib.util.writetsv(filename, dicts, args.force)
-        except FileExistsError as err:
-            logging.error(err)
-            dest = os.path.abspath(args.moddir)
-            logging.error("Aborting, dump would overwrite files in " + dest)
-            advice = "(you can use --force if you really mean it)"
-            logging.error(advice)
-            sys.exit(2)
-
+    try:
+        rom.dump(args.moddir, args.force)
+    except FileExistsError as err:
+        logging.error(err)
+        dest = os.path.abspath(args.moddir)
+        logging.error("Aborting, dump would overwrite files in {dest}")
+        logging.error("you can use --force if you really mean it")
+        sys.exit(2)
     logging.info("Dump finished")
 
 

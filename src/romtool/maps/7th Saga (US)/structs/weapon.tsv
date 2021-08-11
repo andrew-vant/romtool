@@ -1,4 +1,4 @@
-id	label	offset	origin	size	type	arg	display	order	info	comment
+id	name	offset	origin	size	type	arg	display	order	info	comment
 pow	Power	0		2	uintle				stat	
 cst	Cost	2		2	uintle				stat	
 usr	Users	4		1	bin		koewxvjn		bitfield	Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil

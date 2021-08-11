@@ -100,6 +100,7 @@ class RomMap:
         path = root + "/arrays.tsv"
         log.info("Loading array specs from %s", path)
         kwargs.tables = {record['id']: record for record in util.readtsv(path)}
+        # we should check that tables in the same set are the same length
 
         path = root + "/tests.tsv"
         if os.path.exists(path):

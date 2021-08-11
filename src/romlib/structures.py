@@ -37,7 +37,7 @@ class Structure(Mapping, NodeMixin):
                    else self.view.root if field.origin == 'root'
                    else self.view.root.find(field.origin))
 
-        mapper = {str: lambda v: self[v] * field.unit,
+        mapper = {str: lambda v: getattr(self, v) * field.unit,
                   int: lambda v: v * field.unit,
                   type(None): lambda v: v}
 

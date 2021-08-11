@@ -1,8 +1,8 @@
-id	label	size	type	mod	display	order	pointer	comment	
+id	name	size	type	mod	display	order	pointer	comment	
 tgt	Target	1	uint					0: Single Enemy | 1: All Enemies | 2: Single Ally | 3: Unknown | 4: Map	
 con	Consumable	1	uint					0: No | 1: Yes	
 cost	Cost	2	uintle						
-usr	Users	1	lbin		koewxvjn			Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil	
+usr	Users	1	bin		koewxvjn			Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil	
 gem	Gem	1	uint					Gems sell for 100% of their value	 non-gems 50%
 nmp	Name Pointer	3	uintle	-0xC00000	pointer				
 name	Name	10	strz		main		nmp		

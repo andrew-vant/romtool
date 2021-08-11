@@ -290,3 +290,12 @@ def subregistry(cls):
     cls.__init_subclass__ = initsub
     return cls
 
+class TSVLoader:
+    """ Helper class for turning tsv rows into constructor arguments """
+    def __init__(self, convmap):
+        self.convmap = convmap
+        # convmap should provide column names, a default value if the column
+        # isn't set, and a conversion function if the column is set
+
+    def parse(self, row):
+        pass
