@@ -129,8 +129,7 @@ class Field:
         old = string
         if isinstance(self.size, int):
             string = string.zfill(self.size * self.unit)
-        logging.debug("%s -> %s", old, string)
-        return bitarray(string, endian='little')
+        return string
 
     def _parse_bytes(self, string):
         return bytes.fromhex(string)

@@ -198,13 +198,25 @@ class Structure(Mapping, NodeMixin):
     def load(self, tsv_row):
         for field in self.fields:
             key = field.name
-            value = field.parse(tsv_row[field.name])
-            log.debug("setting: %s:%s (%s -> %s)",
-                      type(self), key, self[key], value)
-            self[key] = value
+            if isinstance(self[key], BitField):
+                old = str(self[key])
+                self[key].parse(tsv_row[key])
+                new = str(self[key])
+                if old != new:
+                    log.debug("changed: %s:%s (%s -> %s)",
+                              type(self).__name__, key, old, new)
+            else:
+                value = field.parse(tsv_row[field.name])
+                old = str(self[key])
+                new = str(value)
+                if old != new:
+                    log.debug("changed: %s:%s (%s -> %s)",
+                              type(self).__name__, key, old, new)
+                self[key] = value
 
 
 class BitField(Structure):
+    # FIXME: this is the next thing that needs doing, I think.
     def __str__(self):
         return ''.join(field.display.upper() if self[field.name]
                        else field.display.lower()

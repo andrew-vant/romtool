@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+kamil	Kamil	bits	0	1	uint	K
+olvan	Olvan	bits	1	1	uint	O
+esuna	Esuna	bits	2	1	uint	E
+wilme	Wilme	bits	3	1	uint	W
+lux	Lux	bits	4	1	uint	X
+valsu	Valsu	bits	5	1	uint	V
+lejes	Lejes	bits	6	1	uint	J
+nobody	Nobody	bits	7	1	uint	N
