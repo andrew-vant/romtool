@@ -73,6 +73,29 @@ class Rom(NodeMixin):
             log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
             path = pathjoin(folder, f'{tset}.tsv')
 
+            # Get headers sorted by field explicit order, then whether it's a
+            # name, then whether it's a structural value (non-struct values are
+            # usually pointers and belong at the end).
+            header_ordering = {}
+            for tspec in tspecs:
+                table = getattr(self, tspec['id'])
+                if table.typename in Structure.registry:
+                    fields = Structure.registry[table.typename].fields
+                    for i, field in enumerate(fields):
+                        isname = any(s.lower() == 'name'
+                                     for s in (field.id, field.name))
+                        order = (field.order, not isname, 0)
+                        header_ordering[field.name] = order
+                else:
+                    isname = any(s.lower() == 'name'
+                                 for s in (tspec['id'], tspec['name']))
+                    order = (tspec.get('order', 0), not isname, 0)
+                    header_ordering[tspec['name']] = order
+            headers = [k for k, v
+                       in sorted(header_ordering.items(), key=itemgetter(1))]
+            headers.append('_idx')
+
+            # Now turn the records themselves into dicts.
             records = []
             for i in range(ct_items):
                 log.debug("Dumping %s #%s", tset, i)
@@ -85,10 +108,12 @@ class Rom(NodeMixin):
                     else:
                         record[tspec['name']] = item
                 records.append(record)
+
             keys = set(records[0].keys())
             for r in records:
                 assert not (set(r.keys()) - keys)
-            util.writetsv(path, records, force)
+                assert not (set(keys - r.keys()))
+            util.writetsv(path, records, force, headers)
 
     def load(self, folder):
         data = {}
