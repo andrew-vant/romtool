@@ -132,16 +132,17 @@ class Rom(NodeMixin):
             data[_set] = contents
 
         for tspec in self.map.tables.values():
-            log.info("Loading table '%s' from set '%s'",
-                     tspec['id'], tspec['set'])
-            table = getattr(self, tspec['id'])
-            for i, (orig, new) in enumerate(zip(table, data[tspec['set']])):
-                log.debug("Loading %s #%s (%s)",
-                          tspec['id'], i, new.get('Name', 'nameless'))
-                if isinstance(orig, Structure):
-                    orig.load(new)
-                else:
-                    table[i] = new[tspec['name']]
+            tspec = Dict(tspec)
+            log.info("Loading table '%s' from set '%s'", tspec.id, tspec.set)
+            table = getattr(self, tspec.id)
+            for i, (orig, new) in enumerate(zip(table, data[tspec.set])):
+                name = new.get('Name', 'nameless')
+                log.debug("Loading %s #%s (%s)", tspec.id, i, name)
+                with util.loading_context(tspec.id, name, i):
+                    if isinstance(orig, Structure):
+                        orig.load(new)
+                    else:
+                        table[i] = new[tspec['name']]
 
     @property
     def patch(self):
