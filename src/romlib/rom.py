@@ -145,9 +145,18 @@ class Rom(NodeMixin):
 
     @property
     def patch(self):
+        return self.make_patch()
+
+    def make_patch(self):
         old = io.BytesIO(self.orig.bytes)
-        new = io.BytesIO(self.data.bytes)
+        new = io.BytesIO(self.file.bytes)
         return Patch.from_diff(old, new)
+
+    def apply_patch(self, patch):
+        contents = io.BytesIO(self.file.bytes)
+        patch.apply(contents)
+        contents.seek(0)
+        self.file.bytes = contents.read()
 
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")

@@ -38,6 +38,9 @@ class Patch(object):
         if rom:
             self.filter(rom)
 
+    def __eq__(self, other):
+        return self.changes == other.changes
+
     @classmethod
     def _blockify(cls, changes):
         """ Convert canonical changes to bytes object changes.

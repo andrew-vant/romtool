@@ -19,17 +19,25 @@ log = logging.getLogger(__name__)
 @unittest.skipUnless(romfile, f'{romenv} not set, skipping')
 class TestRom(unittest.TestCase):
     def setUp(self):
-        self.rom = romfile
+        self.file = open(romfile, 'rb')
+
+    def tearDown(self):
+        self.file.close()
 
     def test_make_rom(self):
-        with open(self.rom, 'rb') as f:
-            rom = Rom.make(f)
+        rom = Rom.make(self.file)
         self.assertIsInstance(rom, Rom)
 
     def test_make_rom_validation(self):
-        with open(self.rom, 'rb') as f:
-            rom = Rom.make(f, ignore_extension=True)
+        rom = Rom.make(self.file, ignore_extension=True)
         self.assertIsInstance(rom, Rom)
+
+    def test_noop_patch(self):
+        rom = Rom.make(self.file, ignore_extension=True)
+        patch = rom.patch
+        self.assertFalse(patch.changes)
+        rom.apply_patch(patch)
+        self.assertEqual(rom.file, rom.orig)
 
     @unittest.skip
     def test_print_rom_header(self):

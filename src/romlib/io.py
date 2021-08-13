@@ -56,6 +56,9 @@ class BitArrayView(NodeMixin):
     def __len__(self):
         return self.length
 
+    def __eq__(self, other):
+        return self.bits == other.bits
+
     @property
     def sha1(self):
         """ Get sha1 hash of contents """
