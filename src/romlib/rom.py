@@ -10,6 +10,7 @@ from itertools import groupby, chain
 
 from bitarray import bitarray
 from anytree import NodeMixin
+from addict import Dict
 
 from . import util
 from .patch import Patch
@@ -67,7 +68,7 @@ class Rom(NodeMixin):
         tablespecs = sorted(self.map.tables.values(), key=byset)
 
         for tset, tspecs in groupby(tablespecs, byset):
-            tspecs = list(tspecs)
+            tspecs = [Dict(ts) for ts in tspecs]
             ct_tables = len(tspecs)
             ct_items = int(tspecs[0]['count'], 0)
             log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
@@ -77,22 +78,25 @@ class Rom(NodeMixin):
             # name, then whether it's a structural value (non-struct values are
             # usually pointers and belong at the end).
             header_ordering = {}
-            for tspec in tspecs:
-                table = getattr(self, tspec['id'])
-                if table.typename in Structure.registry:
-                    fields = Structure.registry[table.typename].fields
-                    for i, field in enumerate(fields):
-                        isname = any(s.lower() == 'name'
-                                     for s in (field.id, field.name))
-                        order = (field.order, not isname, 0)
-                        header_ordering[field.name] = order
+            def ordering(field):
+                if any(s.lower() == 'name' for s in (field.id, field.name)):
+                    return -1
+                elif field.display == 'pointer':
+                    return 1
                 else:
-                    isname = any(s.lower() == 'name'
-                                 for s in (tspec['id'], tspec['name']))
-                    order = (tspec.get('order', 0), not isname, 0)
-                    header_ordering[tspec['name']] = order
+                    return 0
+
+            for tspec in tspecs:
+                table = getattr(self, tspec.id)
+                fields = (Structure.registry[table.typename].fields
+                          if table.typename in Structure.registry
+                          else [tspec])
+                for field in fields:
+                    order = (field.order or 0, ordering(field))
+                    header_ordering[field.name] = order
             headers = [k for k, v
-                       in sorted(header_ordering.items(), key=itemgetter(1))]
+                       in sorted(header_ordering.items(),
+                                 key=itemgetter(1))]
             headers.append('_idx')
 
             # Now turn the records themselves into dicts.
@@ -101,12 +105,11 @@ class Rom(NodeMixin):
                 log.debug("Dumping %s #%s", tset, i)
                 record = {'_idx': i}
                 for tspec in tspecs:
-                    tid = tspec['id']
-                    item = getattr(self, tid)[i]
+                    item = getattr(self, tspec.id)[i]
                     if isinstance(item, Structure):
                         record.update(item.items())
                     else:
-                        record[tspec['name']] = item
+                        record[tspec.name] = item
                 records.append(record)
 
             keys = set(records[0].keys())

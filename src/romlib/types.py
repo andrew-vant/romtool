@@ -8,7 +8,7 @@ from anytree import NodeMixin
 from bitarray import bitarray
 
 from .io import BitArrayView, Unit
-from .util import intify
+from .util import intify, HexInt
 
 @dataclass
 class Field:
@@ -114,7 +114,12 @@ class Field:
         bitview.bytes = content.read()
 
     def _get_int(self, bitview):
-        return getattr(bitview, self.type) + (self.arg or 0)
+        i = getattr(bitview, self.type) + (self.arg or 0)
+        if self.display in ('hex', 'pointer'):
+            return HexInt(i, len(bitview))
+        else:
+            return i
+
 
     def _set_int(self, bitview, value):
         value -= (self.arg or 0)

@@ -291,8 +291,10 @@ class Table(Sequence, NodeMixin):
             raise IndexError("Table index out of range")
         elif self._struct:
             return self._struct(self._subview(i), self)
-        elif  self.typename == 'str':
+        elif self.typename == 'str':
             return self._subview(i).bytes.decode(self.display)
+        elif self.display in ('hex', 'pointer'):
+            return util.HexInt(getattr(self._subview(i), self.typename))
         else:
             return getattr(self._subview(i), self.typename)
 
