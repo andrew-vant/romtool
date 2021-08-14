@@ -51,10 +51,10 @@ import logging
 import argparse
 import textwrap
 from itertools import chain
-from addict import Dict
 
 import yaml
 from docopt import docopt
+from addict import Dict
 
 import romtool.commands
 from romtool import util
@@ -65,6 +65,11 @@ from . import commands
 log = logging.getLogger(__name__)
 
 class Args(Dict):
+    """ Convenience wrapper for the docopt dict
+
+    This exists so I can do args.whatever and get the Right Thing out of it.
+    """
+
     keyfmts = ['{key}',
                '-{key}',
                '--{key}',
@@ -88,71 +93,49 @@ class Args(Dict):
         super().__setitem__(key, value)
 
     @property
-    def flags(self):
-        return [k for k, v in self.items()
-                if k.startswith('-') and isinstance(v, bool)]
-
-    @property
-    def options(self):
-        return [k for k, v in self.items()
-                if k.startswith('-') and not isinstance(v, bool)]
-
-    @property
-    def commands(self):
-        return [k for k in self if k.isalnum()]
-
-    @property
-    def arguments(self):
-        return [k for k in self if k.startswith('<')]
-
-    @property
     def command(self):
         return next(k for k, v in self.items()
-                    if k in self.commands
-                    and v)
+                    if k.isalnum() and v)
+
+
+def initlog(args):
+    fmt = '\t'.join(['%(levelname)s',
+                     '%(filename)s:%(lineno)s',
+                     '%(message)s'])
+    level = (logging.DEBUG if args.debug
+             else logging.INFO if args.verbose
+             else logging.WARN)
+
+    logging.basicConfig(format=fmt, level=level)
 
 
 def main(argv=None):
     """ Entry point for romtool."""
+
     args = Args(docopt(__doc__, argv, version=version))
-
-    if args.version:
-        print(version)
-        sys.exit(0)
-
-    # Set up logging
-    logging.basicConfig(format="%(levelname)s\t%(filename)s:%(lineno)s\t%(message)s")
-    if args.verbose:
-        logging.getLogger().setLevel(logging.INFO)
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-
+    initlog(args)
     util.debug_structure(args)
 
-    # If no subcommand supplied, print help.
-    if not hasattr(args, 'func'):
-        topparser.print_help()
-        sys.exit(1)
-
-    # Probable crash behavior: Normally, log exception message as CRITICAL. If
-    # --debug is enabled, also print the full trace. If --pdb is enabled, print
-    # the trace and also break into the debugger.
     try:
         getattr(commands, args.command)(args)
-    except FileNotFoundError as e:
-        logging.critical(str(e))
+    except FileNotFoundError as ex:
+        # I'd rather not separately handle this in every command that uses it.
+        logging.error(ex)
         sys.exit(2)
-    except Exception as e:
-        # logging.critical("Unhandled exception: '{}'".format(str(e)))
-        logging.exception(e)
-        if args.pdb:
-            import pdb, traceback
-            print("\n\nCRASH -- UNHANDLED EXCEPTION")
-            msg = ("Starting debugger post-mortem. If you got here by "
-                   "accident (perhaps by trying to see what --pdb does), "
-                   "you can get out with 'quit'.\n\n")
-            print("\n{}\n\n".format("\n".join(textwrap.wrap(msg))))
-            pdb.post_mortem()
+    except Exception as ex:
+        # I want to break this into a function but every time I try it doesn't
+        # work.
+        logging.exception(ex)
+        if not args.pdb:
+            sys.exit(2)
+        import pdb, traceback
+        print("\n\nCRASH -- UNHANDLED EXCEPTION")
+        msg = ("Starting debugger post-mortem. If you got here by "
+               "accident (perhaps by trying to see what --pdb does), "
+               "you can get out with 'quit'.\n\n")
+        print("\n{}\n\n".format("\n".join(textwrap.wrap(msg))))
+        pdb.post_mortem()
+        sys.exit(2)
 
 
 if __name__ == "__main__":
