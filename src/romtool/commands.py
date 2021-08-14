@@ -76,18 +76,12 @@ def detect(romfile, maproot=None):
 
 def dump(args):
     """ Dump all known data from a ROM."""
-    if args.map is None:
+    if not args.map:
         try:
             args.map = detect(args.rom)
         except RomDetectionError as e:
             e.log()
             sys.exit(2)
-
-    if args.include is not None:
-        raise NotImplementedError("Autopatched dumps not implemented")
-        # FIXME: Patch rom in-memory with an ips so you can dump a mod without
-        # applying it.
-
 
     # This gets awkward since we want to open ROM always but open SAVE
     # only sometimes. I suspect this means the design needs some work.
@@ -116,13 +110,28 @@ def build(args):
 
     Intended to be applied to a directory created by the dump subcommand.
     """
+    # FIXME 2!: Don't require users to edit the dumps in-place; let them
+    # provide one or more yaml files specifying only the changes to make.
+    # Optionally, generate a changelog along with the patch. Changes should
+    # specify a table, name, key, and value, in most cases. Changelog should be
+    # something like "esuna's HP increased from 16 to 100" or similar. If this
+    # is the mode encouraged for novices, it gets around the stupid shit with
+    # spreadsheet programs, too. Also makes patch testing easier. Might also
+    # make it eaiser to migrate mods from one version of the map to another.
+    #
+    # FIXME 3: Why stop with yaml? Allow json for the crazies.
+
     # FIXME: Really ought to support --include for auto-merging other patches.
     # Have it do the equivalent of build and then merge.
+    #
+    # FIXME: accept any number of positional args indicating input files or
+    # directories. It should accept moddirs, json or yaml changesets, or
+    # existing patches, apply them sequentially in command-line order, and
+    # print the resulting patch.
+    #
+    # FIXME: This stuff should probably be next.
 
-    if args.map is None and args.rom is None:
-        logging.error("At least one of -s or -m must be provided.")
-        sys.exit(1)
-    if args.map is None:
+    if not args.map:
         try:
             args.map = detect(args.rom)
         except RomDetectionError as e:
@@ -134,8 +143,9 @@ def build(args):
     logging.info("Opening ROM file at: %s", args.rom)
     with open(args.rom, "rb") as f:
         rom = Rom.make(f, rmap)
-    logging.info("Reading modification data from: %s", args.moddir)
-    rom.load(args.moddir)
+    for path in args.input:
+        logging.info("Reading modification data from: %s", args.input[0])
+        rom.load(path)
     _writepatch(rom.patch, args.patch)
 
 
