@@ -18,6 +18,10 @@ from .io import Unit
 
 log = logging.getLogger(__name__)
 
+# I think I need one more layer of mappings here; an "entity" class that
+# corresponds to array sets in the array spec, and forwards lookups to the
+# underlying structures. The current design makes it hard to e.g. set the hp on
+# an entity with name N if the name and hp are in different, parallel tables.
 
 class Structure(Mapping, NodeMixin):
     """ A structure in the ROM."""
@@ -297,6 +301,15 @@ class Table(Sequence, NodeMixin):
             return util.HexInt(getattr(self._subview(i), self.typename))
         else:
             return getattr(self._subview(i), self.typename)
+
+    def lookup(self, name):
+        try:
+            return next(item for item in self if item.name == name)
+        except AttributeError:
+            raise LookupError(f"Tried to look up {self.typename} by name, "
+                               "but they are nameless")
+        except StopIteration:
+            raise KeyError(f"No object with name: {name}")
 
     def __setitem__(self, i, v):
         if str(v) != str(self[i]):

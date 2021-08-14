@@ -22,6 +22,10 @@ def loadyaml(data):
     # Should take anything yaml.load will take.
     return yaml.load(data, Loader=yaml.SafeLoader)
 
+def slurp(path):
+    with open(path) as f:
+        return f.read()
+
 def debug_structure(data, loglevel=logging.DEBUG):
     """ yamlize a data structure and log it as debug """
     for line in yaml.dump(data).splitlines():

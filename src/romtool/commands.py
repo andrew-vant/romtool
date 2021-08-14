@@ -8,6 +8,7 @@ import shutil
 import textwrap
 import itertools
 import csv
+import json
 from pprint import pprint
 from itertools import chain
 from importlib.machinery import SourceFileLoader
@@ -19,7 +20,7 @@ import romlib.charset
 from romlib.rommap import RomMap
 from romlib.rom import Rom
 from romtool import util
-from romtool.util import pkgfile
+from romtool.util import pkgfile, slurp, loadyaml
 
 try:
     # Try to do the right thing when piping to head, etc.
@@ -144,9 +145,16 @@ def build(args):
     with open(args.rom, "rb") as f:
         rom = Rom.make(f, rmap)
     for path in args.input:
-        logging.info("Reading modification data from: %s", args.input[0])
-        rom.load(path)
-    _writepatch(rom.patch, args.patch)
+        if os.path.isdir(path):
+            logging.info("Reading modification data from: %s", path)
+            rom.load(path)
+        elif path.endswith('.yaml'):
+            logging.info("Reading yaml changeset from: %s", path)
+            rom.apply(loadyaml(slurp(path)))
+        elif path.endswith('.json'):
+            logging.info("Reading json changeset from: %s", path)
+            rom.apply(json.loads(slurp(path)))
+    _writepatch(rom.patch, args.out)
 
 
 def merge(args):

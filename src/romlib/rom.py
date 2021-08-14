@@ -144,6 +144,36 @@ class Rom(NodeMixin):
                     else:
                         table[i] = new[tspec['name']]
 
+    def apply(self, changeset):
+        """ Apply a dictionary of changes to a ROM
+
+        Top-level keys are the array target; second-level keys are the index or
+        name of the entry; third level is the field to set; fourth is the
+        value.
+        """
+        # This should be improved. Name lookups fail if the name is stored in a
+        # separate table (in the same set) from the data we're trying to
+        # modify.
+        #
+        # I need some way to iterate over table sets. Also dot-syntax for
+        # substructs (e.g. bitfields)
+
+        for table, items in changeset.items():
+            table = getattr(self, table)
+            for ident, changes in items.items():  # ew
+                # I don't think json allows integer mapping keys, so check for
+                # strings that are meant to be ints.
+                try:
+                    ident = int(ident, 0)
+                except ValueError:
+                    pass
+                if isinstance(ident, int):
+                    struct = table[ident]
+                else:
+                    struct = table.lookup(ident)
+                for fid, value in changes.items():
+                    setattr(struct, fid, value)
+
     @property
     def patch(self):
         return self.make_patch()
