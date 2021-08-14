@@ -1,27 +1,48 @@
 """romtool
 
+A tool for examining and modifying ROMs
+
 Usage:
+    romtool --help
     romtool dump [options] <rom> <moddir> [<patches>...]
     romtool build [options] <rom> <input>...
+    romtool apply <rom> <patches>...
+    romtool diff <original> <modified>
+    romtool fix <rom>
+    romtool info <rom>
+    romtool charmap <rom> <strings>...
 
 Commmands:
-    dump                Dump all known data from a ROM to tsv files
+    dump                Dump all known data from a ROM to `moddir`
     build               Construct a patch from input files
+    apply               Apply patches to a ROM
+    diff                Construct a patch by diffing two ROMs
+    fix                 Fix bogus headers and checksums
+    info                Print rom type information and metadata
+    charmap             Generate a texttable from known strings
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations
     -n, --dryrun        Show what would be done, but don't do it
     -f, --force         Never ask for confirmation
-    -o, --out PATH      Output file or directory. Detects type by extension
 
-    -m, --map           Manually specify rom map
+    -o, --out PATH      Output file or directory. Detects type by extension
+    -m, --map PATH      Manually specify rom map
     -S, --sanitize      Include internal checksum updates in patches
+    -N, --nobackup      Don't create backup when patching files
 
     -h, --help          Print this help
     -V, --version       Print version and exit
     -v, --verbose       Verbose output
     -D, --debug         Even more verbose output
     --pdb               Start interactive debugger on crash
+
+Examples:
+    A simple modding session looks like this:
+
+    $ romtool dump game.rom projectdir
+    # <edit the files in projectdir with a spreadsheet program>
+    $ romtool build game.rom projectdir -o game.ips
 """
 
 import os
@@ -132,6 +153,7 @@ def main(argv=None):
                    "you can get out with 'quit'.\n\n")
             print("\n{}\n\n".format("\n".join(textwrap.wrap(msg))))
             pdb.post_mortem()
+
 
 if __name__ == "__main__":
     main()

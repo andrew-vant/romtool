@@ -212,6 +212,8 @@ def sanitize(args):
 
     This uses map-specific hooks to correct any checksum errors or similar
     file-level issues in a rom or savegame.
+
+    FIXME: pretty sure the savegame part doesn't work anymore...
     """
     if args.map is None:
         try:
