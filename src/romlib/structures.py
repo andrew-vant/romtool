@@ -23,6 +23,41 @@ log = logging.getLogger(__name__)
 # underlying structures. The current design makes it hard to e.g. set the hp on
 # an entity with name N if the name and hp are in different, parallel tables.
 
+class Entity:
+    structs = []  # so setattr has something to iterate over
+
+    def __init__(self, structs):
+        super().__setattr__('structs', list(structs))
+
+    def __getitem__(self, key):
+        for struct in self.structs:
+            if key in struct:
+                return struct[key]
+        raise KeyError(f"no field with name '{key}'")
+
+    def __setitem__(self, key, value):
+        for struct in self.structs:
+            if key in struct:
+                struct[key] = value
+        raise KeyError(f"no field with name '{key}'")
+
+    def __getattr__(self, attr):
+        for struct in self.structs:
+            if hasattr(struct, attr):
+                return struct.attr
+        raise AttributeError(f"no field with id: '{attr}'")
+
+    def __setattr__(self, attr, value):
+        for struct in self.structs:
+            if hasattr(struct, attr):
+                setattr(struct, attr, value)
+                return
+        raise AttributeError(f"no field with id: '{attr}'")
+
+    # TODO: add equivalent of Structure.__iter__, keys(), etc...so we can
+    # get output headers in the right order more easily.
+
+
 class Structure(Mapping, NodeMixin):
     """ A structure in the ROM."""
 
@@ -309,7 +344,18 @@ class Table(Sequence, NodeMixin):
             raise LookupError(f"Tried to look up {self.typename} by name, "
                                "but they are nameless")
         except StopIteration:
-            raise KeyError(f"No object with name: {name}")
+            raise ValueError(f"No object with name: {name}")
+
+    def locate(self, name):
+        """ Get the index of a structure with the given name """
+        try:
+            return next(i for i, item in enumerate(self)
+                        if item == name or item.name == name)
+        except AttributeError:
+            raise LookupError(f"Tried to look up {self.typename} by name, "
+                               "but they are nameless")
+        except StopIteration:
+            raise ValueError(f"No object with name: {name}")
 
     def __setitem__(self, i, v):
         if str(v) != str(self[i]):

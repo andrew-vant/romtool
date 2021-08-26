@@ -111,10 +111,11 @@ class RomMap:
         # Now load the array definitions. Note that this doesn't instantiate
         # them, just stores the appropriate kwargs for use by the program.
 
-        kwargs.tables = Dict()
         path = root + "/arrays.tsv"
         log.info("Loading array specs from %s", path)
-        kwargs.tables = {record['id']: record for record in util.readtsv(path)}
+        kwargs.tables = Dict()
+        for record in util.readtsv(path):
+            kwargs.tables[record['id']] = Dict(record)
         # we should check that tables in the same set are the same length
 
         path = root + "/tests.tsv"

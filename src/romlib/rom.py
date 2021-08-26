@@ -15,7 +15,7 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, Index
+from .structures import Structure, Table, Index, Entity
 from .rommap import RomMap
 
 
@@ -60,6 +60,13 @@ class Rom(NodeMixin):
     def tables(self):
         return {table['id']: getattr(self, table.id)
                 for table in self.map.tables.values()}
+
+    def entities(self, tset):
+        components = [getattr(self, tspec['id'])
+                      for tspec in self.map.tables.values()
+                      if tset in (tspec['id'], tspec['set'])]
+        for structs in zip(*components):
+            yield Entity(structs)
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
@@ -118,6 +125,29 @@ class Rom(NodeMixin):
                 assert not (set(keys - r.keys()))
             util.writetsv(path, records, force, headers)
 
+    def lookup(self, entity_type, entity_name):
+        tables = [(spec, getattr(self, spec.id))
+                  for spec in self.map.tables.values()
+                  if spec.set == entity_type]
+
+        def ismatch(tspec, name, item):
+            direct = tspec.name.lower() == 'name'
+            return name == (item if direct else item.name)
+
+        for ts, table in tables:
+            try:
+                log.debug("looking for %s in %s", entity_name, ts.id)
+                idx = next(i for i, item in enumerate(table)
+                           if ismatch(ts, entity_name, item))
+                log.debug("found %s in %s", entity_name, ts.id)
+                break
+            except (StopIteration, AttributeError):
+                pass
+        else:
+            raise LookupError(f"no {entity_type} with name: {entity_name}")
+
+        return Entity([table[idx] for ts, table in tables])
+
     def load(self, folder):
         data = {}
         for _set in self.map.sets:
@@ -158,21 +188,24 @@ class Rom(NodeMixin):
         # I need some way to iterate over table sets. Also dot-syntax for
         # substructs (e.g. bitfields)
 
-        for table, items in changeset.items():
-            table = getattr(self, table)
+        for tset, items in changeset.items():
+            entities = list(self.entities(tset))
             for ident, changes in items.items():  # ew
                 # I don't think json allows integer mapping keys, so check for
                 # strings that are meant to be ints.
+                log.debug("looking for '%s' in '%s'", ident, tset)
                 try:
                     ident = int(ident, 0)
                 except ValueError:
                     pass
+
                 if isinstance(ident, int):
-                    struct = table[ident]
+                    entity = entities[ident]
                 else:
-                    struct = table.lookup(ident)
+                    entity = self.lookup(tset, ident)
+
                 for fid, value in changes.items():
-                    setattr(struct, fid, value)
+                    setattr(entity, fid, value)
 
     @property
     def patch(self):
