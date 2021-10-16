@@ -97,28 +97,16 @@ def build(args):
 
     Intended to be applied to a directory created by the dump subcommand.
     """
-    # FIXME 2!: Don't require users to edit the dumps in-place; let them
-    # provide one or more yaml files specifying only the changes to make.
-    # Optionally, generate a changelog along with the patch. Changes should
-    # specify a table, name, key, and value, in most cases. Changelog should be
-    # something like "esuna's HP increased from 16 to 100" or similar. If this
-    # is the mode encouraged for novices, it gets around the stupid shit with
-    # spreadsheet programs, too. Also makes patch testing easier. Might also
-    # make it eaiser to migrate mods from one version of the map to another.
-    #
-    # FIXME 3: Why stop with yaml? Allow json for the crazies.
+    # FIXME: Optionally, generate a changelog along with the patch. Changes
+    # should specify a table, name, key, and value, in most cases. Changelog
+    # should be something like "esuna's HP increased from 16 to 100" or
+    # similar. If this is the mode encouraged for novices, it gets around the
+    # stupid shit with spreadsheet programs, too. Also makes patch testing
+    # easier. Might also make it eaiser to migrate mods from one version of
+    # the map to another.
 
-    # FIXME: Really ought to support --include for auto-merging other patches.
-    # Have it do the equivalent of build and then merge.
-    #
-    # FIXME: accept any number of positional args indicating input files or
-    # directories. It should accept moddirs, json or yaml changesets, or
-    # existing patches, apply them sequentially in command-line order, and
-    # print the resulting patch.
-    #
-    # FIXME: It should probably have a warning if overlapping changes occur.
-    #
-    # FIXME: This stuff should probably be next.
+    # FIXME: I'd like to print a warning if overlapping changes occur, but
+    # I'm not sure how to detect that
 
     if not args.map:
         try:
@@ -142,6 +130,12 @@ def build(args):
         elif path.endswith('.json'):
             logging.info("Reading json changeset from: %s", path)
             rom.apply(json.loads(slurp(path)))
+        elif path.endswith('.ips') or path.endswith('.ipst'):
+            logging.info("Reading ips patch from: %s", path)
+            rom.apply_patch(Patch.load(path))
+        else:
+            raise ValueError(f"Don't know what to do with input file: {path}")
+
     _writepatch(rom.patch, args.out)
 
 
