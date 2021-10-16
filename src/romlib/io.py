@@ -1,5 +1,7 @@
 import logging
 import enum
+import hashlib
+import zlib
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
@@ -38,6 +40,7 @@ class BitArrayView(NodeMixin):
     underlying bitarray. The underlying bitarray is available as BitArrayView.bits.
     """
     def __init__(self, auto, offset=None, length=None, name=None):
+        self._ba = None
         if isinstance(auto, BitArrayView):
             self.parent = auto
         elif isinstance(auto, bitarray):
@@ -72,7 +75,6 @@ class BitArrayView(NodeMixin):
     def crc32(self):
         checksum = zlib.crc32(self.bytes)
         return f"{checksum:08X}"
-        return zlib.crc32(self.bytes)
 
     @property
     def ct_bytes(self):
@@ -137,7 +139,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def ba(self):
-        return self.root._ba
+        return self._ba or self.root.ba
 
     @property
     def abs_start(self):

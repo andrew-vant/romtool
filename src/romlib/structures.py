@@ -7,6 +7,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from itertools import chain, combinations
 from os.path import basename, splitext
+from io import BytesIO
 
 import yaml
 from anytree import NodeMixin
@@ -368,7 +369,6 @@ class Table(Sequence, NodeMixin):
             for i, v in zip(range(i.start, i.stop, i.step), v):
                 self[i] = v
 
-        cls = self._struct
         if self._struct:
             self[i].copy(v)
         elif  self.typename == 'str':
@@ -379,7 +379,7 @@ class Table(Sequence, NodeMixin):
             if v == old:
                 return
             # This smells. Duplicates the process in Field._set_str.
-            content = BytesIO(bitview.bytes)
+            content = BytesIO(bv.bytes)
             content.write(v.encode(self.display or 'ascii'))
             content.seek(0)
             bv.bytes = content.read()
@@ -396,7 +396,6 @@ class Table(Sequence, NodeMixin):
 
         # Filter out empty strings
         row = {k: v for k, v in row.items() if v}
-        aid = row['id']
         typename = row['type']
         offset = int(row.get('offset', '0'), 0)
         units = Unit[row.get('unit', 'bytes')]

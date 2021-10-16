@@ -2,11 +2,10 @@ import string
 import logging
 import math
 import io
-import operator
 from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
-from itertools import groupby, chain
+from itertools import groupby
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -15,7 +14,7 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, Index, Entity
+from .structures import Structure, Table, Entity
 from .rommap import RomMap
 
 
@@ -79,6 +78,8 @@ class Rom(NodeMixin):
             ct_tables = len(tspecs)
             ct_items = int(tspecs[0]['count'], 0)
             log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
+            log.info(f"Dumping dataset: %s (%s tables, %s items)",
+                     tset, ct_tables, ct_items)
             path = pathjoin(folder, f'{tset}.tsv')
 
             # Get headers sorted by field explicit order, then whether it's a
@@ -101,10 +102,10 @@ class Rom(NodeMixin):
                 for field in fields:
                     order = (field.order or 0, ordering(field))
                     header_ordering[field.name] = order
-            headers = [k for k, v
+            columns = [k for k, v
                        in sorted(header_ordering.items(),
                                  key=itemgetter(1))]
-            headers.append('_idx')
+            columns.append('_idx')
 
             # Now turn the records themselves into dicts.
             records = []
@@ -123,7 +124,7 @@ class Rom(NodeMixin):
             for r in records:
                 assert not (set(r.keys()) - keys)
                 assert not (set(keys - r.keys()))
-            util.writetsv(path, records, force, headers)
+            util.writetsv(path, records, force, columns)
 
     def lookup(self, entity_type, entity_name):
         tables = [(spec, getattr(self, spec.id))
@@ -260,6 +261,24 @@ class Rom(NodeMixin):
                 log.debug("Couldn't validate: %s", ex)
         raise RomFormatError("Can't figure out what type of ROM this is")
 
+    def sanitize(self):
+        """ Fix checksums, headers, etc as needed """
+        self.map.sanitize(self)
+
+    def lint(self):
+        """ Run lint checks on the rom
+
+        This prints messages for things like hp > maxhp or the like. Actual
+        implementation must be punted to the map.
+        """
+        self.map.lint(self)
+
+    def write(self, path, force=True):
+        """ Write a rom to a file """
+        mode = 'wb' if force else 'xb'
+        with open(path, mode) as f:
+            f.write(self.file.bytes)
+
 
 class INESRom(Rom):
     romtype = 'ines'
@@ -341,8 +360,7 @@ class SNESRom(Rom):
 
             log.debug("0x%X: all header checks passed, using this header", offset)
             return hdr
-        else:
-            raise HeaderError("No valid SNES header found")
+        raise HeaderError("No valid SNES header found")
 
     @property
     def registration(self):

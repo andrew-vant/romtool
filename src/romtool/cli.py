@@ -45,24 +45,29 @@ Examples:
     $ romtool build game.rom projectdir -o game.ips
 """
 
-import os
 import sys
 import logging
-import argparse
 import textwrap
-from itertools import chain
 
-import yaml
 from docopt import docopt
 from addict import Dict
 
-import romtool.commands
 from romtool import util
-from romtool.util import pkgfile
 from romtool.version import version
 from . import commands
 
 log = logging.getLogger(__name__)
+
+try:
+    # Try to do the right thing when piping to head, etc.
+    from signal import signal, SIGPIPE, SIG_DFL
+    signal(SIGPIPE, SIG_DFL)
+except ImportError:
+    # SIGPIPE isn't available on Windows, at least not on my machine. For now
+    # just ignore it, but I should probably test piping on windows at some
+    # point.
+    pass
+
 
 class Args(Dict):
     """ Convenience wrapper for the docopt dict
@@ -122,13 +127,13 @@ def main(argv=None):
         # I'd rather not separately handle this in every command that uses it.
         logging.error(ex)
         sys.exit(2)
-    except Exception as ex:
-        # I want to break this into a function but every time I try it doesn't
-        # work.
+    except Exception as ex:  # pylint: disable=broad-except
+        # I want to break this into a function and use it as excepthook, but
+        # every time I try it doesn't work.
         logging.exception(ex)
         if not args.pdb:
             sys.exit(2)
-        import pdb, traceback
+        import pdb
         print("\n\nCRASH -- UNHANDLED EXCEPTION")
         msg = ("Starting debugger post-mortem. If you got here by "
                "accident (perhaps by trying to see what --pdb does), "

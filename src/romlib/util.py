@@ -4,10 +4,11 @@ import csv
 import contextlib
 import logging
 import os
-from collections import OrderedDict
+from collections import OrderedDict, Counter
+from collections.abc import Mapping, Sequence
+from itertools import chain
 from os.path import dirname, realpath
 from os.path import join as pathjoin
-from math import ceil
 
 import yaml
 import asteval
@@ -55,6 +56,8 @@ class HexInt(int):
 
     Suitable for printing offsets.
     """
+    sz_bits: int  # for pylint
+
     def __new__(cls, value, sz_bits=None):
         if isinstance(value, str):
             value = int(value, 0)
@@ -192,16 +195,16 @@ def get_subfiles(root, folder, extension):
                  for filename in filenames]
         return zip(names, paths)
     except FileNotFoundError:
-        log.warn(f"{root}/{folder} not found, treating as empty")
+        log.warning(f"{root}/{folder} not found, treating as empty")
         return []
 
 def libpath(path):
     return pathjoin(libroot, path)
 
 def libwalk(path):
-    for dirname, dirs, files in os.walk(libpath(path)):
+    for root, dirs, files in os.walk(libpath(path)):
         for filename in (dirs + files):
-            yield pathjoin(dirname, filename)
+            yield pathjoin(root, filename)
 
 def load_builtins(path, extension, loader):
     path = libpath(path)
@@ -271,11 +274,12 @@ def bytes2ba(_bytes, *args, **kwargs):
     return ba
 
 def convert(dct, mapper):
-    return {k: conv_map[k](v) if k in mapper else v}
+    return {k: mapper[k](v) if k in mapper else v
+            for k, v in dct.items()}
 
 def duplicates(iterable):
     return [k for k, v
-            in Counter(chain(*iterables)).items()
+            in Counter(chain(*iterable)).items()
             if v > 1]
 
 def subregistry(cls):

@@ -4,8 +4,6 @@ import os
 import codecs
 import itertools
 
-from . import util
-
 _IPS_HEADER = "PATCH"
 _IPS_FOOTER = "EOF"
 _IPS_BOGO_ADDRESS = 0x454f46
@@ -14,12 +12,10 @@ _IPS_RLE_THRESHOLD = 10  # How many repeats before trying to use RLE?
 
 class PatchFormatError(Exception):
     """ A patch is 'broken' somehow."""
-    pass
 
 
 class PatchValueError(Exception):
     """ A patch's format is correct but it contains contradictory data."""
-    pass
 
 
 class Patch(object):

@@ -59,21 +59,20 @@ class RomMap:
 
         # This doesn't work right now since the field rework, but I want to
         # preserve the technique for future use.
-        """
+        #
         # Import fields.py and register any field types therein
-        try:
-            path = root + "fields.py"
-            log.info("Loading primitive types from %s", path)
-            modulepath = "{}/fields.py".format(root)
-            module = SourceFileLoader("fields", modulepath).load_module()
-        except FileNotFoundError:
-            log.info("%s not present", path)
-        else:
-            for name, cls in inspect.getmembers(module):
-                if isinstance(cls, field.Field):
-                    log.info("Registering data type '%s'", name)
-                    field.register(cls)
-        """
+        # try:
+        #     path = root + "fields.py"
+        #     log.info("Loading primitive types from %s", path)
+        #     modulepath = "{}/fields.py".format(root)
+        #     module = SourceFileLoader("fields", modulepath).load_module()
+        # except FileNotFoundError:
+        #     log.info("%s not present", path)
+        # else:
+        #     for name, cls in inspect.getmembers(module):
+        #         if isinstance(cls, field.Field):
+        #             log.info("Registering data type '%s'", name)
+        #             field.register(cls)
 
         # Find all tbl files in the texttables directory and register them.
         # TODO: It should be possible to hook codecs in just like structs or

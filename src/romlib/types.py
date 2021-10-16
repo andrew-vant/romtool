@@ -1,14 +1,9 @@
-import logging
-from functools import lru_cache, partial
+from functools import partial
 from dataclasses import dataclass, fields
-from collections import UserList
 from io import BytesIO
 
-from anytree import NodeMixin
-from bitarray import bitarray
-
-from .io import BitArrayView, Unit
-from .util import intify, HexInt
+from .io import Unit
+from .util import HexInt
 
 @dataclass
 class Field:
@@ -131,7 +126,6 @@ class Field:
     def _parse_bin(self, string):
         # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
         # necessary if possible.
-        old = string
         if isinstance(self.size, int):
             string = string.zfill(self.size * self.unit)
         return string

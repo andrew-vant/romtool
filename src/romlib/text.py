@@ -11,8 +11,6 @@ import codecs
 import logging
 import functools
 
-from pprint import pprint
-
 from patricia import trie
 
 log = logging.getLogger(__name__)
@@ -107,13 +105,14 @@ def add_tt(name, f):
         decoder = functools.partial(tt.decode,
                                     include_eos=include_eos,
                                     stop_on_eos=stop_on_eos)
+        fullname = name + subcodec
         codec = codecs.CodecInfo(
-                name=name+subcodec,
+                name=fullname,
                 encode=tt.encode,
                 decode=decoder
                 )
-        log.debug("Adding text codec: %s", codec.name)
-        tt_codecs[codec.name] = codec
+        log.debug("Adding text codec: %s", fullname)
+        tt_codecs[fullname] = codec
     return tt
 
 def get_tt_codec(name):
