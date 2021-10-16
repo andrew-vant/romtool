@@ -212,6 +212,12 @@ class Rom(NodeMixin):
     def patch(self):
         return self.make_patch()
 
+    def changes(self):
+        """ Generate changeset dictionary """
+        # This might be hard. Loop over each table, look for items that differ
+        # between orig and self, emit table:name:key:value dict tree
+        raise Exception("Changeset generator not implemented yet")
+
     def make_patch(self):
         old = io.BytesIO(self.orig.bytes)
         new = io.BytesIO(self.file.bytes)

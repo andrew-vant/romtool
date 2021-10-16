@@ -12,6 +12,7 @@ Usage:
     romtool info <rom>
     romtool charmap <rom> <strings>...
     romtool convert <infile> <outfile>
+    romtool initchg <rom> <filename>
 
 Commmands:
     dump                Dump all known data from a ROM to `moddir`
@@ -22,6 +23,7 @@ Commmands:
     info                Print rom type information and metadata
     charmap             Generate a texttable from known strings
     convert             Convert a patch from one format to another
+    initchg             Generate a starter changeset file.
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations

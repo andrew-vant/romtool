@@ -91,6 +91,15 @@ def dump(args):
         sys.exit(2)
     logging.info("Dump finished")
 
+def initchg(args):
+    """ Generate a starter changeset file
+
+    The generated file should indicate what tables are available for
+    modification, what fields exist for the objects in those tables, and
+    if possible provide minimal commented examples.
+    """
+    raise NotImplementedError
+
 
 def build(args):
     """ Build patches from a data set containing changes.
