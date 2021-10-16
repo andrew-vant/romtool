@@ -140,16 +140,9 @@ def build(args):
 
 
 def convert(args):
-    """ Convert one patch format to another.
-
-    This is just syntactic sugar over build.
-    """
-    raise NotImplementedError("needs rewrite")
-    # args.patches = [args.infile]
-    # args.out = args.outfile
-    # args.rom = None
-    # merge(args)
-
+    """ Convert one patch format to another. """
+    patch = Patch.load(args.infile)
+    patch.save(args.outfile)
 
 def diff(args):
     """ Build a patch by diffing two roms.

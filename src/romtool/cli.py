@@ -11,6 +11,7 @@ Usage:
     romtool fix <rom>
     romtool info <rom>
     romtool charmap <rom> <strings>...
+    romtool convert <infile> <outfile>
 
 Commmands:
     dump                Dump all known data from a ROM to `moddir`
@@ -20,6 +21,7 @@ Commmands:
     fix                 Fix bogus headers and checksums
     info                Print rom type information and metadata
     charmap             Generate a texttable from known strings
+    convert             Convert a patch from one format to another
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations
