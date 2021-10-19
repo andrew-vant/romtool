@@ -47,13 +47,14 @@ class TextTable(object):
             if prefix == "/":
                 self.eos.append(codeseq)
 
-    def encode(self, string):
+    def encode(self, string, enforce_eos=True):
         """ Encode a string into a series of bytes."""
 
         # FIXME: Needs to append EOS if called for.
         codeseq = []
         i = 0
         raw = r"^\[\$[a-fA-F0-9]{2}\]"
+        last = None
         while i < len(string):
             if re.match(raw, string[i:]):
                 # Oops, raw byte listing.
@@ -64,6 +65,10 @@ class TextTable(object):
                 match, code = self.enc.item(string[i:])
                 codeseq.extend(code)
                 i += len(match)
+            last = code
+        if enforce_eos and last not in self.eos:
+            codeseq.extend(self.eos[0])
+
         return bytes(codeseq), len(string)
 
     def decode(self, data, include_eos=True, stop_on_eos=True):
@@ -95,20 +100,22 @@ tt_codecs = {}
 def add_tt(name, f):
     tt = TextTable(name, f)
     # Arguments to pass to tt.decode for each codec.
-    args = {"":       (True, True),
-            "-std":   (True, True),
-            "-clean": (False, True),
-            "-raw":   (True, False)}
+    args = {"":       (True, True, False),
+            "-std":   (True, True, False),
+            "-clean": (False, True, True),
+            "-raw":   (True, False, False)}
 
-    for subcodec, (include_eos, stop_on_eos) in args.items():
+    for subcodec, (include_eos, stop_on_eos, enforce_eos) in args.items():
         # There has got to be a cleaner way to do this...
         decoder = functools.partial(tt.decode,
                                     include_eos=include_eos,
                                     stop_on_eos=stop_on_eos)
+        encoder = functools.partial(tt.encode,
+                                    enforce_eos=enforce_eos)
         fullname = name + subcodec
         codec = codecs.CodecInfo(
                 name=fullname,
-                encode=tt.encode,
+                encode=encoder,
                 decode=decoder
                 )
         log.debug("Adding text codec: %s", fullname)

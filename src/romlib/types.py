@@ -93,8 +93,14 @@ class Field:
                     kwargs[k] = v
         return cls(**kwargs)
 
+    @property
+    def _encoding(self):
+        return ('ascii' if not self.display
+                else self.display + '-clean' if self.type == 'strz'
+                else self.display)
+
     def _get_str(self, bitview):
-        return bitview.bytes.decode(self.display or 'ascii')
+        return bitview.bytes.decode(self._encoding)
 
     def _set_str(self, bitview, value):
         # This check avoids spurious changes in patches when there's more than
@@ -104,7 +110,7 @@ class Field:
         # I haven't come up with a good way to give views a .str property (no
         # way to feed it a codec), so this is a bit circuitous.
         content = BytesIO(bitview.bytes)
-        content.write(value.encode(self.display or 'ascii'))
+        content.write(value.encode(self._encoding))
         content.seek(0)
         bitview.bytes = content.read()
 
