@@ -49,6 +49,7 @@ class TestStructure(unittest.TestCase):
 
     def tearDown(self):
         del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_define_struct(self):
         self.assertTrue(issubclass(self.scratch, Structure))
@@ -166,19 +167,19 @@ class TestSubstructures(unittest.TestCase):
                    'unit': 'bits',
                    'display': None,
                    'arg': None,}]
-        structfields = [Field.from_tsv_row(row) for row in fields]
-        flagfields = [Field.from_tsv_row(row) for row in subfields]
-        self.cls_flags = BitField.define('flags', flagfields)
-        self.cls_struct = Structure.define('scratch', structfields)
+        self.cls_flags = BitField.define_from_rows('flags', subfields)
+        self.cls_struct = Structure.define_from_rows('scratch', fields)
         self.data = bytes2ba(bytes([0b10000000]))
+
+    def tearDown(self):
+        for name in ['scratch', 'flags']:
+            del Structure.registry[name]
+            del Field.handlers[name]
 
     def test_substruct(self):
         struct = self.cls_struct(Stream(self.data))
         self.assertTrue(struct.sub.one)
 
-    def tearDown(self):
-        del Structure.registry['scratch']
-        del Structure.registry['flags']
 
 
 class TestBitField(unittest.TestCase):
@@ -202,6 +203,10 @@ class TestBitField(unittest.TestCase):
                         'arg': '0'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = BitField.define('scratch', self.fields)
+
+    def tearDown(self):
+        del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_define(self):
         self.assertTrue(issubclass(self.scratch, BitField))
@@ -227,9 +232,6 @@ class TestBitField(unittest.TestCase):
         self.assertTrue(bf.two)
         self.assertEqual(str(bf), "jQ")
 
-    def tearDown(self):
-        del Structure.registry['scratch']
-
 
 class TestIndex(unittest.TestCase):
     def test_make_index(self):
@@ -252,6 +254,7 @@ class TestTable(unittest.TestCase):
 
     def tearDown(self):
         del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
         array = Table(self.stream, 'uint', Index(0, 4, 1))

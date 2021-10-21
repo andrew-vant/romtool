@@ -1,12 +1,17 @@
+import logging
 from functools import partial
 from dataclasses import dataclass, fields
 from io import BytesIO
+from abc import ABC, abstractmethod
 
 from .io import Unit
 from .util import HexInt
 
+log = logging.getLogger(__name__)
+
+
 @dataclass
-class Field:
+class Field(ABC):
     """ Define a ROM object's type and location
 
     There's a lot of things needed to fully characterize "what something is,
@@ -36,45 +41,47 @@ class Field:
     order: int = 0
     comment: str = ''
 
+    handlers = {}
+    handles = []
+
     def __post_init__(self):
         self.name = self.name or self.id
-
-    @property
-    def is_int(self):
-        return self.type in ['int', 'uint', 'uintbe', 'uintle']
-
-    @property
-    def is_str(self):
-        return self.type in ['str', 'strz']
 
     @property
     def identifiers(self):
         return [self.id, self.name]
 
     def read(self, bitview):
-        """ Plumbing behind getitem/getattr """
+        """ Read a value from a bitview
+
+        The default implementation assumes the field's `type` is a readable
+        attribute of a bitview.
+        """
         if self.size:
             expected = self.size * self.unit
             assert len(bitview) == expected, f'{len(bitview)} != {expected}'
-        return self.reader(bitview)
+        return getattr(bitview, self.type)
 
     def write(self, bitview, value):
-        self.writer(bitview, value)
+        """ Write a value to a bitview
 
-    def parse(self, string):
-        return self.parser(string)
+        The default implementation assigns to the bitview attribute named by
+        self.type.
+        """
+        setattr(bitview, self.type, value)
 
-    @property
-    def reader(self):
-        return partial(self.readers[self.type], self)
+    @abstractmethod
+    def parse(self, bitview, string):
+        """ Write a stringified value to a bitview
 
-    @property
-    def writer(self):
-        return partial(self.writers[self.type], self)
+        The resulting value is returned, for convenience.
+        """
+        pass
 
-    @property
-    def parser(self):
-        return partial(self.parsers[self.type], self)
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        for typename in cls.handles:
+            cls.handle(typename)
 
     @classmethod
     def from_tsv_row(cls, row):
@@ -82,7 +89,6 @@ class Field:
         convtbl = {int: partial(int, base=0),
                    Unit: Unit.__getitem__,
                    str: str}
-
         for field in fields(cls):
             k = field.name
             v = row.get(k, None) or None  # ignore missing or empty values
@@ -91,93 +97,93 @@ class Field:
                     kwargs[k] = convtbl[field.type](v)
                 except ValueError:
                     kwargs[k] = v
+        cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
 
+    @classmethod
+    def handle(cls, typename):
+        name = cls.__name__
+        if typename in cls.handlers:
+            other = cls.handlers[typename].__name__
+            msg = (f"{name} wants to handle type '{typename}', "
+                   f"but it is already handled by {other}")
+            raise ValueError(msg)
+        cls.handlers[typename] = cls
+        log.debug(f"{name} registered as handler for '{typename}'")
+
+
+class StringField(Field):
+    handles = ['str', 'strz']
+
     @property
-    def _encoding(self):
+    def encoding(self):
         return ('ascii' if not self.display
                 else self.display + '-clean' if self.type == 'strz'
                 else self.display)
 
-    def _get_str(self, bitview):
-        return bitview.bytes.decode(self._encoding)
+    def read(self, bitview):
+        return bitview.bytes.decode(self.encoding)
 
-    def _set_str(self, bitview, value):
+    def write(self, bitview, value):
         # This check avoids spurious changes in patches when there's more than
         # one way to encode the same string.
-        if value == self._get_str(bitview):
+        if value == self.read(bitview):
             return
         # I haven't come up with a good way to give views a .str property (no
         # way to feed it a codec), so this is a bit circuitous.
         content = BytesIO(bitview.bytes)
-        content.write(value.encode(self._encoding))
+        content.write(value.encode(self.encoding))
         content.seek(0)
         bitview.bytes = content.read()
 
-    def _get_int(self, bitview):
+    def parse(self, string):
+        return string
+
+
+class IntField(Field):
+    handles = ['int', 'uint', 'uintbe', 'uintle']
+
+    def read(self, bitview):
         i = getattr(bitview, self.type) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
             return HexInt(i, len(bitview))
         else:
             return i
 
-
-    def _set_int(self, bitview, value):
+    def write(self, bitview, value):
         value -= (self.arg or 0)
         setattr(bitview, self.type, value)
 
-    def _parse_int(self, string):
+    def parse(self, string):
         return int(string, 0)
 
-    def _parse_bin(self, string):
+
+class BytesField(Field):
+    handles = ['bytes']
+
+    def parse(self, string):
+        return bytes.fromhex(string)
+
+
+class StructField(Field):
+    handles = []
+
+    def read(self, bitview, parent):
+        return parent.registry[self.type](bitview, parent)
+
+    def write(self, bitview, value):
+        value.copy(self.read(bitview, parent))
+
+    def parse(self, string):
+        raise NotImplementedError
+
+
+class BinField(Field):
+    handles = ['bin']
+
+    def parse(self, string):
         # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
         # necessary if possible.
         if isinstance(self.size, int):
             string = string.zfill(self.size * self.unit)
         return string
-
-    def _parse_bytes(self, string):
-        return bytes.fromhex(string)
-
-    def _get_direct(self, bitview):
-        return getattr(bitview, self.type)
-
-    def _set_direct(self, bitview, value):
-        setattr(bitview, self.type, value)
-
-    def _noop(self, obj):
-        return obj
-
-
-    @classmethod
-    def register_type(cls, name, reader, writer):
-        cls.readers[name] = reader
-        cls.writers[name] = writer
-
-
-    readers = {'int':    _get_int,
-               'uint':   _get_int,
-               'uintbe': _get_int,
-               'uintle': _get_int,
-               'str':    _get_str,
-               'strz':   _get_str,
-               'bytes':  _get_direct,
-               'bin':    _get_direct}
-
-    writers = {'int':    _set_int,
-               'uint':   _set_int,
-               'uintbe': _set_int,
-               'uintle': _set_int,
-               'str':    _set_str,
-               'strz':   _set_str,
-               'bytes':  _set_direct,
-               'bin':    _set_direct}
-
-    parsers = {'int':    _parse_int,
-               'uint':   _parse_int,
-               'uintbe': _parse_int,
-               'uintle': _parse_int,
-               'str':    _noop,
-               'strz':   _noop,
-               'bytes':  _parse_bytes,
-               'bin':    _parse_bin}

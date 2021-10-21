@@ -12,7 +12,7 @@ from io import BytesIO
 import yaml
 from anytree import NodeMixin
 
-from .types import Field
+from .types import Field, StructField
 from . import util
 from .io import Unit
 
@@ -195,6 +195,7 @@ class Structure(Mapping, NodeMixin):
         if name in cls.registry:
             log.warning("duplicate definition of '%s'", name)
         cls.registry[name] = cls
+        StructField.handle(name)
 
     @classmethod
     def define(cls, name, fields):
@@ -223,8 +224,13 @@ class Structure(Mapping, NodeMixin):
     @classmethod
     def define_from_tsv(cls, path):
         name = splitext(basename(path))[0]
+        rows = util.readtsv(path)
+        return cls.define_from_rows(name, rows)
+
+    @classmethod
+    def define_from_rows(cls, name, rows):
         fields = [Field.from_tsv_row(row)
-                  for row in util.readtsv(path)]
+                  for row in rows]
         return cls.define(name, fields)
 
     def copy(self, other):
