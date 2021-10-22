@@ -14,26 +14,38 @@ from anytree import NodeMixin
 
 from .types import Field, StructField
 from . import util
+from .util import RomObject
 from .io import Unit
 
 
 log = logging.getLogger(__name__)
 
-# I think I need one more layer of mappings here; an "entity" class that
-# corresponds to array sets in the array spec, and forwards lookups to the
-# underlying structures. The current design makes it hard to e.g. set the hp on
-# an entity with name N if the name and hp are in different, parallel tables.
-
 class Entity:
     structs = []  # so setattr has something to iterate over
 
     def __init__(self, structs):
+        # FIXME: rather than a list of objects, this probably needs to accept a
+        # dict or kwargs or something. As is, if the name field is a primitive,
+        # there's no way for the entity to know that field should be its name.
         super().__setattr__('structs', list(structs))
+
+    @property
+    def name(self):
+        for struct in self.structs:
+            try:
+                return struct.name
+            except AttributeError:
+                pass
+            if isinstance(struct, str):
+                return struct
+        raise AttributeError(f"Tried to get name of {self}, but it is nameless")
 
     def __getitem__(self, key):
         for struct in self.structs:
-            if key in struct:
+            try:
                 return struct[key]
+            except (LookupError, TypeError):
+                pass
         raise KeyError(f"no field with name '{key}'")
 
     def __setitem__(self, key, value):
@@ -59,7 +71,7 @@ class Entity:
     # get output headers in the right order more easily.
 
 
-class Structure(Mapping, NodeMixin):
+class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
 
     registry = {}
@@ -118,6 +130,17 @@ class Structure(Mapping, NodeMixin):
             self._set(self._fbid(key), value)
         except AttributeError:
             super().__setattr__(key, value)
+
+    def lookup(self, key):
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            pass
+        try:
+            return self[key]
+        except KeyError:
+            pass
+        raise LookupError(f"Couldn't find {key} in {self}")
 
     @classmethod
     def _fbid(cls, fid):
@@ -281,7 +304,7 @@ class BitField(Structure):
             self[k] = letter.isupper()
 
 
-class Table(Sequence, NodeMixin):
+class Table(Sequence, NodeMixin, RomObject):
 
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
@@ -330,6 +353,13 @@ class Table(Sequence, NodeMixin):
         content = ', '.join(repr(item) for item in self)
         return f'Table({content})\n'
 
+    def __str__(self):
+        tp = self.typename
+        ct = len(self)
+        offset = util.HexInt(self.index.offset)
+        return f'Table({tp}*{ct}@{offset})'
+
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             return Table(self.view, self.typename, self.index[i])
@@ -350,10 +380,10 @@ class Table(Sequence, NodeMixin):
         try:
             return next(item for item in self if item.name == name)
         except AttributeError:
-            raise LookupError(f"Tried to look up {self.typename} by name, "
-                               "but they are nameless")
+            raise AttributeError(f"Tried to look up {self.typename} by name, "
+                                  "but they are nameless")
         except StopIteration:
-            raise ValueError(f"No object with name: {name}")
+            raise LookupError(f"No object with name: {name}")
 
     def locate(self, name):
         """ Get the index of a structure with the given name """

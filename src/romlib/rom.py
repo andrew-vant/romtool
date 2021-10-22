@@ -5,7 +5,10 @@ import io
 from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
-from itertools import groupby
+from itertools import groupby, chain
+from functools import reduce, partial
+from operator import itemgetter
+from collections.abc import Mapping
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -30,13 +33,14 @@ class HeaderError(RomFormatError):
     pass
 
 
-class Rom(NodeMixin):
+class Rom(NodeMixin, util.RomObject):
     registry = {}
     extensions = []
 
     def __init__(self, romfile, rommap=None):
         if rommap is None:
             rommap = RomMap()
+        self.name = romfile.name
 
         romfile.seek(0)
         ba = bitarray(endian='little')
@@ -51,6 +55,9 @@ class Rom(NodeMixin):
             log.debug("creating table: %s", spec['id'])
             setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
 
+    def __str__(self):
+        return f"Rom({self.name})"
+
     @property
     def data(self):
         return self.file
@@ -61,6 +68,11 @@ class Rom(NodeMixin):
                 for table in self.map.tables.values()}
 
     def entities(self, tset):
+        # FIXME: I think I probably need an EntityList class to zip tables
+        # together. I want lazy lookups and I need lookups of primitives to
+        # work the same as lookups of struct keys, and I don't see a way to
+        # accomplish that without a custom sequence type.
+
         components = [getattr(self, tspec['id'])
                       for tspec in self.map.tables.values()
                       if tset in (tspec['id'], tspec['set'])]
@@ -126,28 +138,14 @@ class Rom(NodeMixin):
                 assert not (set(keys - r.keys()))
             util.writetsv(path, records, force, columns)
 
-    def lookup(self, entity_type, entity_name):
-        tables = [(spec, getattr(self, spec.id))
-                  for spec in self.map.tables.values()
-                  if spec.set == entity_type]
-
-        def ismatch(tspec, name, item):
-            direct = tspec.name.lower() == 'name'
-            return name == (item if direct else item.name)
-
-        for ts, table in tables:
-            try:
-                log.debug("looking for %s in %s", entity_name, ts.id)
-                idx = next(i for i, item in enumerate(table)
-                           if ismatch(ts, entity_name, item))
-                log.debug("found %s in %s", entity_name, ts.id)
-                break
-            except (StopIteration, AttributeError):
-                pass
+    def lookup(self, key):
+        if key in self.map.sets:
+            log.debug(f"set found for {key}")
+            return util.Searchable(self.entities(key))
+        elif key in self.map.tables:
+            return getattr(self, key)
         else:
-            raise LookupError(f"no {entity_type} with name: {entity_name}")
-
-        return Entity([table[idx] for ts, table in tables])
+            raise LookupError(f"no table or set with id '{key}'")
 
     def load(self, folder):
         data = {}
@@ -178,35 +176,24 @@ class Rom(NodeMixin):
     def apply(self, changeset):
         """ Apply a dictionary of changes to a ROM
 
-        Top-level keys are the array target; second-level keys are the index or
-        name of the entry; third level is the field to set; fourth is the
-        value.
+        The changeset should be a nested dictionary describing key paths in the
+        ROM. Keys will be recursively looked up, starting with top-level tables
+        or table sets. Subkeys may have any type or value accepted by the
+        parent object's .lookup() method. Leaf keys should be attributes or
+        field ids of their parent.
         """
-        # This should be improved. Name lookups fail if the name is stored in a
-        # separate table (in the same set) from the data we're trying to
-        # modify.
-        #
-        # I need some way to iterate over table sets. Also dot-syntax for
-        # substructs (e.g. bitfields)
 
-        for tset, items in changeset.items():
-            entities = list(self.entities(tset))
-            for ident, changes in items.items():  # ew
-                # I don't think json allows integer mapping keys, so check for
-                # strings that are meant to be ints.
-                log.debug("looking for '%s' in '%s'", ident, tset)
-                try:
-                    ident = int(ident, 0)
-                except ValueError:
-                    pass
-
-                if isinstance(ident, int):
-                    entity = entities[ident]
+        def flatten(dct, prefix='', sep=':'):
+            for k, v in dct.items():
+                if isinstance(v, Mapping):
+                    yield from flatten(v, prefix+k+sep, sep=sep)
                 else:
-                    entity = self.lookup(tset, ident)
+                    yield (prefix + k).split(sep), v
 
-                for fid, value in changes.items():
-                    setattr(entity, fid, value)
+        for keys, value in flatten(changeset):
+            attr = keys.pop()
+            parent = reduce(lambda o, k: o.lookup(k), keys, self)
+            setattr(parent, attr, value)
 
     @property
     def patch(self):

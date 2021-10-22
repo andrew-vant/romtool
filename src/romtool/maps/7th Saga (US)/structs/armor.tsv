@@ -1,7 +1,7 @@
 id	name	offset	origin	size	type	arg	display	pointer	order	info	comment
 guard	Guard+	0		2	uintle					stat	
 cost	Cost	2		2	uintle					stat	
-users	Users	4		1	bin		koewxvjn			bitfield	Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil
+users	Users	4		1	users		koewxvjn			bitfield	Bitfield. Bits in order: nil Lejes Valsu Lux Wilme Esuna Olvan Kamil
 rthn	Thunder Resist	5		1	uint					stat	
 ru1	Unused Resist 1	6		1	uint					unknown	No spells carry this element. 
 ru2	Unused Resist 2	7		1	uint					unknown	No spells carry this element. 

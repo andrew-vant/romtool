@@ -4,6 +4,7 @@ import csv
 import contextlib
 import logging
 import os
+import abc
 from collections import OrderedDict, Counter
 from collections.abc import Mapping, Sequence
 from itertools import chain
@@ -74,6 +75,45 @@ class HexInt(int):
         digits = bits2bytes(self.sz_bits) * 2
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
+
+
+class RomObject(abc.ABC):
+    """ Base class for rom objects that act as collections
+
+    Defines a common interface intended to permit "do what I mean" operations
+    across different types.
+    """
+
+    @abc.abstractmethod
+    def lookup(self, key):
+        """ Look up a sub-object within this container
+
+        Subclass implementations should accept any sort of key that might make
+        sense. e.g. field ids, field names, table indices, names to search for,
+        etc. The aim is to allow nested lookups to proceed without having to
+        worry about the underlying types.
+
+        Implementations should raise LookupError if the key isn't present.
+        """
+
+class Searchable:
+    """ Generator wrapper that supports lookups by name """
+    def __init__(self, iterable, searcher=None):
+        self.iter = iter(iterable)
+        self.searcher = searcher or self._default_search
+
+    @staticmethod
+    def _default_search(obj, key):
+        return obj == key or obj.name == key
+
+    def __iter__(self):
+        yield from self.iter
+
+    def __str__(self):
+        return f"{type(self).__name__}({self.iter})"
+
+    def lookup(self, key):
+        return next(i for i in self if self.searcher(i, key))
 
 
 class PrettifierMixin:
