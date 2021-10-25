@@ -1,9 +1,9 @@
 id	name	set	type	offset	count	stride	size	index	priority	display	comment
-characters		characters	character	-0xC00000	7	18		char_ptr			
-cname_ptr	Name Pointer	characters	uintle	0x1ED25	7	3				pointer	Pointers to character names. This set is used for the default names during character creation, but there are other copies in ROM, not sure where or how they're used.
-charnames	Name	characters	strz	-0xC00000	7	12	12	cname_ptr	1	main	
-spellset		characters	spellset	-0xC00000	7	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
-splvls		characters	splvls	-0xC00000	7	32		splvls_ptr			
+characters		characters	character	-0xC00000	8	18		char_ptr			
+cname_ptr	Name Pointer	characters	uintle	0x1ED25	8	3				pointer	Pointers to character names. This set is used for the default names during character creation, but there are other copies in ROM, not sure where or how they're used.
+charnames	Name	characters	strz	-0xC00000	8	12	12	cname_ptr	1	main	
+spellset		characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
+splvls		characters	splvls	-0xC00000	8	32		splvls_ptr			
 spells		spells	spell	-0xC00000	61	12		spell_ptr			
 itemstats		items	item	-0xC00000	100	9		item_ptr			
 weapons		weapons	weapon	-0xC00000	51			weapon_ptr			

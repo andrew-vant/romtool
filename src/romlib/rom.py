@@ -73,11 +73,20 @@ class Rom(NodeMixin, util.RomObject):
         # work the same as lookups of struct keys, and I don't see a way to
         # accomplish that without a custom sequence type.
 
-        components = [getattr(self, tspec['id'])
-                      for tspec in self.map.tables.values()
-                      if tset in (tspec['id'], tspec['set'])]
-        for structs in zip(*components):
-            yield Entity(structs)
+        components = {}
+        nametable = None
+        for tspec in self.map.tables.values():
+            if tset in (tspec.id, tspec.set):
+                components[tspec.id] = getattr(self, tspec.id)
+                if tspec.name and tspec.name.lower() == 'name':
+                    nametable = tspec.id
+        if not components:
+            raise ValueError(f"No such entity: {tset}")
+        lengths = set(len(table) for table in components.values())
+        if len(lengths) != 1:
+            raise Exception(f"MAP BUG: mismatched table lengths in table set '{tset}'")
+        for i in range(lengths.pop()):
+            yield Entity(i, components, nametable)
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""

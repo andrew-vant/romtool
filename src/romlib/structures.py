@@ -21,49 +21,84 @@ from .io import Unit
 log = logging.getLogger(__name__)
 
 class Entity:
-    structs = []  # so setattr has something to iterate over
+    """ Wrapper for corresponding objects in parallel tables
 
-    def __init__(self, structs):
-        # FIXME: rather than a list of objects, this probably needs to accept a
-        # dict or kwargs or something. As is, if the name field is a primitive,
-        # there's no way for the entity to know that field should be its name.
-        super().__setattr__('structs', list(structs))
+    Attribute and key operations on an Entity will be forwarded to the `i`th
+    element of each underlying table until one returns successfully. For tables
+    that return a primitive value, the lookup will be checked against the
+    table's name.
 
-    @property
-    def name(self):
-        for struct in self.structs:
+    FIXME: can't have more than one table with an id of 'name'. Also intuitive
+    table names for primtives are things like 'charnames', which the check
+    below won't match. Need another way to identify name tables.
+    """
+
+    def __init__(self, _i, _dct=None, _nametable=None, **tables):
+        if _dct is None:
+            _dct = {}
+        else:
+            _dct = _dct.copy()
+        _dct.update()
+
+        sa = super().__setattr__
+        sa('index', _i)
+        sa('tables', _dct)
+        sa('nametable', self.tables.get(_nametable))
+
+    def __str__(self):
+        return f'Entity({list(self.tables)} #{self.index})'
+
+    def _name(self):
+        if self.nametable:
+            return self.nametable[self.index]
+        for key, table in self.tables.items():
+            v = table[self.index]
+            if key.lower() == 'name' and isinstance(v, str):
+                return v
             try:
-                return struct.name
+                return v.name
             except AttributeError:
                 pass
-            if isinstance(struct, str):
-                return struct
         raise AttributeError(f"Tried to get name of {self}, but it is nameless")
 
     def __getitem__(self, key):
-        for struct in self.structs:
+        for name, table in self.tables.items():
+            if key == name:
+                return table[self.index]
             try:
-                return struct[key]
-            except (LookupError, TypeError):
+                return table[self.index][key]
+            except (KeyError, TypeError):
                 pass
         raise KeyError(f"no field with name '{key}'")
 
     def __setitem__(self, key, value):
-        for struct in self.structs:
-            if key in struct:
-                struct[key] = value
+        for name, table in self.tables.items():
+            item = table[self.index]
+            if key == name:
+                table[self.index] = value
+            elif isinstance(item, Structure) and key in item:
+                item[key] = value
         raise KeyError(f"no field with name '{key}'")
 
     def __getattr__(self, attr):
-        for struct in self.structs:
-            if hasattr(struct, attr):
-                return struct.attr
+        if attr == 'name':
+            return self._name()
+        if attr in self.tables:
+            return self.tables[attr][self.index]
+        for table in self.tables.values():
+            item = table[self.index]
+            if hasattr(item, attr):
+                return getattr(item, attr)
         raise AttributeError(f"no field with id: '{attr}'")
 
     def __setattr__(self, attr, value):
-        for struct in self.structs:
-            if hasattr(struct, attr):
-                setattr(struct, attr, value)
+        if attr in self.tables:
+            self.tables[attr][self.index] = value
+            return
+        for table in self.tables.values():
+            item = table[self.index]
+            if hasattr(item, attr):
+                setattr(item, attr, value)
                 return
         raise AttributeError(f"no field with id: '{attr}'")
 
