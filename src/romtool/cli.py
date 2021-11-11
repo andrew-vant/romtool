@@ -58,6 +58,7 @@ from addict import Dict
 
 from romtool import util
 from romtool.version import version
+from romlib.exceptions import RomtoolError
 from . import commands
 
 log = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ def main(argv=None):
 
     try:
         getattr(commands, args.command)(args)
-    except FileNotFoundError as ex:
+    except (FileNotFoundError, RomtoolError) as ex:
         # I'd rather not separately handle this in every command that uses it.
         logging.error(ex)
         sys.exit(2)

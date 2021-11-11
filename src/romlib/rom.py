@@ -19,13 +19,14 @@ from .patch import Patch
 from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Table, Entity
 from .rommap import RomMap
+from .exceptions import RomError, ChangesetError
 
 
 log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
 
 
-class RomFormatError(Exception):
+class RomFormatError(RomError):
     pass
 
 
@@ -201,8 +202,23 @@ class Rom(NodeMixin, util.RomObject):
 
         for keys, value in flatten(changeset):
             attr = keys.pop()
-            parent = reduce(lambda o, k: o.lookup(k), keys, self)
-            setattr(parent, attr, value)
+            parent = self
+            path = []
+            for key in keys:
+                try:
+                    parent = parent.lookup(key)
+                except LookupError as ex:
+                    path = ':'.join(path + [str(ex)])
+                    msg = f"Couldn't find item from changeset: {path}"
+                    raise ChangesetError(msg)
+                path.append(key)
+            try:
+                setattr(parent, attr, value)
+            except AttributeError:
+                path = ':'.join(path)
+                msg = f"{attr} is not a valid attribute of {path}"
+                raise ChangesetError(msg)
+
 
     @property
     def patch(self):

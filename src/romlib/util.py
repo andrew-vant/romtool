@@ -113,7 +113,11 @@ class Searchable:
         return f"{type(self).__name__}({self.iter})"
 
     def lookup(self, key):
-        return next(i for i in self if self.searcher(i, key))
+        try:
+            return next(i for i in self if self.searcher(i, key))
+        except StopIteration:
+            typename = getattr(self, 'name', 'object')
+            raise LookupError(key)
 
 
 class PrettifierMixin:
@@ -158,6 +162,13 @@ def loading_context(listname, name, index=None):
         msg = msg.format(ex.args[0], listname, index, name)
         ex.args = (msg,) + ex.args[1:]
         raise
+
+
+def pipeline(first, *functions):
+    """ Apply several functions to an object in sequence """
+    for func in functions:
+        first = func(first)
+    return first
 
 
 def str_reverse(s):

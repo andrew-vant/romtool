@@ -6,6 +6,7 @@ import shutil
 import itertools
 import csv
 import json
+from os.path import splitext
 
 import romlib
 import romlib.charset
@@ -13,6 +14,8 @@ from romlib.rommap import RomMap
 from romlib.rom import Rom
 from romlib.patch import Patch
 from romtool.util import pkgfile, slurp, loadyaml
+from romlib.util import pipeline
+from romlib.exceptions import ChangesetError
 
 log = logging.getLogger(__name__)
 
@@ -129,22 +132,25 @@ def build(args):
     logging.info("Opening ROM file at: %s", args.rom)
     with open(args.rom, "rb") as f:
         rom = Rom.make(f, rmap)
+    # For each supported changeset type, specify a set of functions to apply in
+    # sequence to the filename to load it.
+    typeloaders = {'.ips': [Patch.load, rom.apply_patch],
+                   '.ipst': [Patch.load, rom.apply_patch],
+                   '.yaml': [slurp, loadyaml, rom.apply],
+                   '.json': [slurp, json.loads, rom.apply]}
     for path in args.input:
-        if os.path.isdir(path):
-            logging.info("Reading modification data from: %s", path)
+        logging.info("Loading changes from: %s", path)
+        ext = splitext(path)[1]
+        loaders = typeloaders.get(ext, None)
+        if loaders:
+            try:
+                pipeline(path, *loaders)
+            except ChangesetError as ex:
+                raise ChangesetError(f"Error in '{path}': {ex}")
+        elif os.path.isdir(path):
             rom.load(path)
-        elif path.endswith('.yaml'):
-            logging.info("Reading yaml changeset from: %s", path)
-            rom.apply(loadyaml(slurp(path)))
-        elif path.endswith('.json'):
-            logging.info("Reading json changeset from: %s", path)
-            rom.apply(json.loads(slurp(path)))
-        elif path.endswith('.ips') or path.endswith('.ipst'):
-            logging.info("Reading ips patch from: %s", path)
-            rom.apply_patch(Patch.load(path))
         else:
             raise ValueError(f"Don't know what to do with input file: {path}")
-
     _writepatch(rom.patch, args.out)
 
 
