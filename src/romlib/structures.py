@@ -135,34 +135,19 @@ class Structure(Mapping, NodeMixin, RomObject):
                else None)
         return context[offset:end]
 
-    def _get(self, field):
-        """ Plumbing behind getitem/getattr """
-        subview = self._subview(field)
-        if field.type in self.registry:
-            return Structure.registry[field.type](subview, self)
-        else:
-            return field.read(subview)
-
-    def _set(self, field, value):
-        if field.type in self.registry:
-            value.copy(self._get_struct(field))
-        else:
-            subview = self._subview(field)
-            field.write(subview, value)
-
     def __getitem__(self, key):
-        return self._get(self._fbnm(key))
+        return self._fbnm(key).read(self)
 
     def __setitem__(self, key, value):
-        self._set(self._fbnm(key), value)
+        self._fbnm(key).write(self, value)
 
     def __getattr__(self, key):
-        return self._get(self._fbid(key))
+        return self._fbid(key).read(self)
 
     def __setattr__(self, key, value):
         # TODO: don't allow setting new attributes after definition is done.
         try:
-            self._set(self._fbid(key), value)
+            self._fbid(key).write(self, value)
         except AttributeError:
             super().__setattr__(key, value)
 
@@ -200,8 +185,8 @@ class Structure(Mapping, NodeMixin, RomObject):
 
         If the structure size is variable, get the maximum possible size
         """
-        return sum(field.size * field.unit for field in cls.fields)
-
+        return sum(field.size.eval(cls) * field.unit
+                   for field in cls.fields)
 
     def __iter__(self):
         return (f.name for f in self.fields)
