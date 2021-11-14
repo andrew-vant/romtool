@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from .io import Unit
 from .util import HexInt
 
+from romlib.exceptions import RomtoolError
+
 log = logging.getLogger(__name__)
 
 
@@ -69,6 +71,9 @@ class Field(ABC):
             if value is not None and not isinstance(value, field.type):
                 raise ValueError(f'Expected {field.name} to be {field.type}, '
                                  f'got {type(value)}')
+        if self.offset is None:
+            msg = f"'{self.id}' field missing required offset property"
+            raise RomtoolError(msg)
 
     @property
     def identifiers(self):
@@ -129,6 +134,8 @@ class Field(ABC):
             v = row.get(k, None) or None  # ignore missing or empty values
             if v is not None:
                 kwargs[k] = convtbl[field.type](v)
+        if kwargs['type'] not in cls.handlers:
+            raise RomtoolError(f"'{kwargs['type']}' is not a known field type")
         cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
 
@@ -146,6 +153,11 @@ class Field(ABC):
 
 class StringField(Field):
     handles = ['str', 'strz']
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.display:
+            self.display = 'ascii'
 
     @property
     def encoding(self):
@@ -178,19 +190,19 @@ class StringField(Field):
 class IntField(Field):
     handles = ['int', 'uint', 'uintbe', 'uintle']
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, objtype=None, realtype=None):
         if obj is None:
             return self
         view = self.view(obj)
-        i = getattr(view, self.type) + (self.arg or 0)
+        i = getattr(view, (realtype or self.type)) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
             i = HexInt(i, len(view))
         return i
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         view = self.view(obj)
         value -= (self.arg or 0)
-        setattr(view, self.type, value)
+        setattr(view, (realtype or self.type), value)
 
     def parse(self, string):
         return int(string, 0)
@@ -206,11 +218,13 @@ class BytesField(Field):
 class StructField(Field):
     handles = []
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, objtype=None, realtype=None):
+        if obj is None:
+            return self
         view = self.view(obj)
-        return obj.registry[self.type](view, obj)
+        return obj.registry[realtype or self.type](view, obj)
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         value.copy(self.read(obj))
 
     def parse(self, string):

@@ -1,9 +1,9 @@
-id	label	size	type	mod	display	order	info	comment
-hit	Hit%	1	uint					
-dmg	Damage	1	uint					
-crit	Crit Rate	1	uint					
-spl	Spell	1	uint					Probably an index into the spell array.
-elem	Element	1	bin	lsb0	sptdfile			Status Psn/Stn Time Death Fire Ice Lightning Earth
-svs	Strong vs Monster	1	bin	lsb0	mdguwacr			Magical Dragon Giant Undead Were Aquatic Caster Regen
-gfx	Sprite	1	uint		hex			
-pal	Palette	1	uint		hex			
+id	name	offset	size	type	display	order	info	comment
+hit	Hit%	0	1	uint				
+dmg	Damage	1	1	uint				
+crit	Crit Rate	2	1	uint				
+spl	Spell	3	1	uint				Probably an index into the spell array.
+elem	Element	4	1	elements				
+bonus	Strong vs Monster	5	1	genera				
+gfx	Sprite	6	1	uint	hex			
+pal	Palette	7	1	uint	hex			

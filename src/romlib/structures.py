@@ -16,6 +16,7 @@ from .types import Field, StructField
 from . import util
 from .util import RomObject
 from .io import Unit
+from .exceptions import RomtoolError
 
 
 log = logging.getLogger(__name__)
@@ -115,25 +116,6 @@ class Structure(Mapping, NodeMixin, RomObject):
     def __init__(self, view, parent=None):
         self.view = view
         self.parent = parent
-
-    def _subview(self, field):
-        # This ugliness is supposed to get us a bitarrayview of a single field
-        # It's surprisingly difficult to handle int, str, and None values
-        # concisely.
-        context = (self.view if field.origin is None
-                   else self.view.root if field.origin == 'root'
-                   else self.view.root.find(field.origin))
-
-        mapper = {str: lambda v: getattr(self, v) * field.unit,
-                  int: lambda v: v * field.unit,
-                  type(None): lambda v: v}
-
-        offset = mapper[type(field.offset)](field.offset)
-        size = mapper[type(field.size)](field.size)
-        end = (size if not offset
-               else offset + size if size
-               else None)
-        return context[offset:end]
 
     def __getitem__(self, key):
         return self._fbnm(key).read(self)

@@ -2,10 +2,12 @@
 
 import os
 import logging
+import types
 from typing import Mapping, Sequence
 from functools import partial
 from dataclasses import dataclass, field
-from os.path import relpath
+from os.path import relpath, basename
+import importlib.util
 
 from addict import Dict
 
@@ -13,6 +15,7 @@ import romlib.util as util
 import romlib.text as text
 from .structures import Structure, BitField, Table
 from .text import TextTable
+from .exceptions import RomtoolError, MapError
 
 
 log = logging.getLogger(__name__)
@@ -38,11 +41,12 @@ class RomMap:
     """
     _adctfld = partial(field, default_factory=Dict)
 
+    name: str
     structs: Mapping[str, Structure] = _adctfld()
     tables: Mapping[str, Table] = _adctfld()
     ttables: Mapping[str, TextTable] = _adctfld()
     tests: Sequence = list
-
+    hooks: types.ModuleType = None
 
     @property
     def sets(self):
@@ -74,12 +78,28 @@ class RomMap:
         #             log.info("Registering data type '%s'", name)
         #             field.register(cls)
 
+        kwargs = Dict()
+
+        # Load python hooks, if available. This has to be done first, because
+        # it might provide types used later. FIXME: I am not sure if I'm doing
+        # this correctly. In particular, if for some reason multiple maps are
+        # loaded, multiple modules will be created with the name 'hooks', and I
+        # am not sure if python will like that.
+        path = root + "/hooks.py"
+        try:
+            spec = importlib.util.spec_from_file_location("hooks", path)
+        except FileNotFoundError:
+            log.info("skipping hooks, %s not present", path)
+        else:
+            hooks = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(hooks)
+            kwargs.hooks = hooks
+
         # Find all tbl files in the texttables directory and register them.
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
         log.info("Loading text tables")
-        kwargs = Dict()
         files = partial(util.get_subfiles, root)
 
         kwargs.ttables = Dict()
@@ -104,7 +124,11 @@ class RomMap:
         for name, path in files('structs', '.tsv'):
             rpath = relpath(path, root)
             log.info("Loading structure '%s' from '%s'", name, rpath)
-            structcls = Structure.define_from_tsv(path)
+            try:
+                structcls = Structure.define_from_tsv(path)
+            except RomtoolError as ex:
+                msg = f"Map bug in '{name}' structure: {ex}"
+                raise MapError(msg)
             kwargs.structs[name] = structcls
 
         # Now load the array definitions. Note that this doesn't instantiate
@@ -114,6 +138,10 @@ class RomMap:
         log.info("Loading array specs from %s", path)
         kwargs.tables = Dict()
         for record in util.readtsv(path):
+            tspec = Dict(record)
+            if tspec.type in ['str', 'strz'] and not tspec.display:
+                raise MapError(f"Map bug in {tspec.id} array: "
+                               f"'display' is required for string types")
             kwargs.tables[record['id']] = Dict(record)
         # we should check that tables in the same set are the same length
 
@@ -122,4 +150,4 @@ class RomMap:
             log.info("Loading test specs from %s", path)
             kwargs.tests = [MapTest(**row) for row in util.readtsv(path)]
 
-        return cls(**kwargs)
+        return cls(basename(root), **kwargs)
