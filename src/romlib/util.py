@@ -69,6 +69,9 @@ class HexInt(int):
             raise ValueError(msg)
         return self
 
+    def __repr__(self):
+        return f"HexInt({self})"
+
     def __str__(self):
         """ Print self as a hex representation of bytes """
         # two digits per byte; bytes are bits/8 rounding up.

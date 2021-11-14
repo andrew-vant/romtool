@@ -4,6 +4,7 @@ from tempfile import TemporaryFile, NamedTemporaryFile
 
 import romlib
 from romlib import util
+from romlib.util import HexInt
 
 
 class TestUtilFuncs(unittest.TestCase):
@@ -23,3 +24,14 @@ class TestUtilFuncs(unittest.TestCase):
         self.assertRaises(ValueError, util.merge_dicts, dicts[2:])
         merged['key3'] = 'oops'
         self.assertEqual(util.merge_dicts(dicts, True), merged)
+
+class TestHexInt(unittest.TestCase):
+    def test_hi_string(self):
+        self.assertEqual(str(HexInt(0xDEAD)), "0xDEAD")
+
+    def test_hi_repr_str(self):
+        self.assertEqual(repr(HexInt(0xDEAD)), "HexInt(0xDEAD)")
+
+    def test_hi_repr_use(self):
+        hi = HexInt(0xBEEF)
+        self.assertEqual(hi, eval(repr(hi)))
