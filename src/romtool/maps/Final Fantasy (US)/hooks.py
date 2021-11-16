@@ -49,7 +49,9 @@ class SpellArgument(Field):
         self.forward('write', obj, value)
 
     def parse(self, string):
-        return self._realcls(obj).parse(self, string)
+        # FIXME: currently bitfield parsing is handled before parse is ever
+        # hit, so this only works by accident.
+        return int(string, 0)
 
 
 def save_checksum(data):
