@@ -139,10 +139,14 @@ class RomMap:
         kwargs.tables = Dict()
         for record in util.readtsv(path):
             tspec = Dict(record)
-            if tspec.type in ['str', 'strz'] and not tspec.display:
+            if (tspec.source or 'rom') != 'rom':
+                log.warning(f"skipping '{tspec.id}' array with invalid "
+                            f"source '{tspec.source}'")
+            elif tspec.type in ['str', 'strz'] and not tspec.display:
                 raise MapError(f"Map bug in {tspec.id} array: "
                                f"'display' is required for string types")
-            kwargs.tables[record['id']] = Dict(record)
+            else:
+                kwargs.tables[record['id']] = Dict(record)
         # we should check that tables in the same set are the same length
 
         path = root + "/tests.tsv"
