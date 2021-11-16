@@ -126,9 +126,11 @@ def main(argv=None):
     initlog(args)
     util.debug_structure(args)
 
+    expected = (FileNotFoundError, RomtoolError) if not args.debug else ()
+
     try:
         getattr(commands, args.command)(args)
-    except (FileNotFoundError, RomtoolError) as ex:
+    except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
         logging.error(ex)
         sys.exit(2)
