@@ -162,7 +162,7 @@ def loading_context(listname, name, index=None):
         yield
     except Exception as ex:
         msg = "{}\nProblem loading {} #{}: {}"
-        msg = msg.format(ex.args[0], listname, index, name)
+        msg = msg.format(ex, listname, index, name)
         ex.args = (msg,) + ex.args[1:]
         raise
 
