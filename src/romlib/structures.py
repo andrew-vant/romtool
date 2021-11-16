@@ -34,27 +34,24 @@ class Entity:
     below won't match. Need another way to identify name tables.
     """
 
-    def __init__(self, _i, _dct=None, _nametable=None, **tables):
+    def __init__(self, _i, _dct=None, **tables):
         if _dct is None:
             _dct = {}
         else:
             _dct = _dct.copy()
-        _dct.update()
+        _dct.update(tables)
 
         sa = super().__setattr__
         sa('index', _i)
         sa('tables', _dct)
-        sa('nametable', self.tables.get(_nametable))
 
     def __str__(self):
         return f'Entity({list(self.tables)} #{self.index})'
 
     def _name(self):
-        if self.nametable:
-            return self.nametable[self.index]
         for key, table in self.tables.items():
             v = table[self.index]
-            if key.lower() == 'name' and isinstance(v, str):
+            if table.fid == 'name':
                 return v
             try:
                 return v.name
@@ -97,6 +94,9 @@ class Entity:
             self.tables[attr][self.index] = value
             return
         for table in self.tables.values():
+            if table.fid == attr:
+                table[self.index] = value
+                return
             item = table[self.index]
             if hasattr(item, attr):
                 setattr(item, attr, value)
@@ -311,7 +311,7 @@ class Table(Sequence, NodeMixin, RomObject):
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
 
-    def __init__(self, view, typename, index,
+    def __init__(self, view, typename, index, fid=None, name=None,
                  offset=0, size=None, units=Unit.bytes, display=None,
                  parent=None):
         """ Create a Table
@@ -321,6 +321,8 @@ class Table(Sequence, NodeMixin, RomObject):
         cls:    The type of object contained in this table.
         """
 
+        self.fid = fid
+        self.name = name
         self.view = view
         self.parent = parent
         self.index = index
@@ -444,13 +446,16 @@ class Table(Sequence, NodeMixin, RomObject):
         units = Unit[row.get('unit', 'bytes')]
         size = int(row['size'], 0) if 'size' in row else None
         display = row.get('display', None)
+        fid = row.get('fid', None)
+        name = row.get('name', None)
         if 'index' in row:
             index = getattr(parent, row['index'])
         else:
             count = int(row['count'], 0)
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
-        return Table(view, typename, index, offset, size, units, display, parent)
+        return Table(view, typename, index, fid, name,
+                     offset, size, units, display, parent)
 
 
 class Index(Sequence):
