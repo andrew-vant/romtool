@@ -86,13 +86,13 @@ class RomMap:
         # loaded, multiple modules will be created with the name 'hooks', and I
         # am not sure if python will like that.
         path = root + "/hooks.py"
+        spec = importlib.util.spec_from_file_location("hooks", path)
+        hooks = importlib.util.module_from_spec(spec)
         try:
-            spec = importlib.util.spec_from_file_location("hooks", path)
+            spec.loader.exec_module(hooks)
         except FileNotFoundError:
             log.info("skipping hooks, %s not present", path)
         else:
-            hooks = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(hooks)
             kwargs.hooks = hooks
 
         # Find all tbl files in the texttables directory and register them.
