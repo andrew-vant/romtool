@@ -118,6 +118,7 @@ def add_tt(name, f):
                 encode=encoder,
                 decode=decoder
                 )
+        codec.eos = tt.eos
         log.debug("Adding text codec: %s", fullname)
         tt_codecs[fullname] = codec
     return tt

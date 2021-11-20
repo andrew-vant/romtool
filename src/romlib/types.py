@@ -156,32 +156,14 @@ class StringField(Field):
 
     def __post_init__(self):
         super().__post_init__()
-        if not self.display:
-            self.display = 'ascii'
-
-    @property
-    def encoding(self):
-        return ('ascii' if not self.display
-                else self.display + '-clean' if self.type == 'strz'
-                else self.display)
 
     def read(self, obj, objtype=None):
         if obj is None:
             return self
-        return self.view(obj).bytes.decode(self.encoding)
+        return getattr(self.view(obj), self.type).read(self.display)
 
     def write(self, obj, value):
-        # This check avoids spurious changes in patches when there's more than
-        # one way to encode the same string.
-        if value == self.read(obj):
-            return
-        # I haven't come up with a good way to give views a .str property (no
-        # way to feed it a codec), so this is a bit circuitous.
-        view = self.view(obj)
-        content = BytesIO(view.bytes)
-        content.write(value.encode(self.encoding))
-        content.seek(0)
-        view.bytes = content.read()
+        getattr(self.view(obj), self.type).write(value, self.display)
 
     def parse(self, string):
         return string

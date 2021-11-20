@@ -1,4 +1,5 @@
 import unittest
+import logging
 from types import SimpleNamespace
 
 import yaml
@@ -11,7 +12,7 @@ from romlib.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
     def setUp(self):
-        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef')
+        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef\x00')
         self.specs =  [{'id': 'one',
                         'name': 'One Label',
                         'type': 'uint',
@@ -37,6 +38,13 @@ class TestStructure(unittest.TestCase):
                         'size': '6',
                         'arg': '',
                         'display': 'ascii'},
+                       {'id': 'strz',
+                        'name': 'String 2',
+                        'type': 'strz',
+                        'offset': '4',
+                        'size': '7',
+                        'arg': '',
+                        'display': ''},
                        {'id': 'name',
                         'name': 'Name',
                         'type': 'str',
@@ -113,7 +121,7 @@ class TestStructure(unittest.TestCase):
     def test_write_string_field(self):
         struct = self.scratch(Stream(self.data))
         struct.str = 'zyxwvu'
-        expected = b'\x01\x02\x03\x04zyxwvu'
+        expected = b'\x01\x02\x03\x04zyxwvu\x00'
         self.assertEqual(struct.str, 'zyxwvu')
         self.assertEqual(struct.view.bytes, expected)
 
@@ -121,6 +129,11 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data))
         with self.assertRaises(ValueError):
             struct.str = 'abcdefghy'
+
+    def test_overrun_warning(self):
+        struct = self.scratch(Stream(self.data))
+        with self.assertLogs('romlib.io', logging.WARNING):
+            struct.strz = 'abcdefg'
 
     def test_undersized_string(self):
         struct = self.scratch(Stream(self.data))

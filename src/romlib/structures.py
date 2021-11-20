@@ -372,9 +372,9 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             return self._struct(self._subview(i), self)
         elif self.typename == 'str':
-            return self._subview(i).bytes.decode(self.display)
+            return self._subview(i).str.read(self.display)
         elif self.typename == 'strz':
-            return self._subview(i).bytes.decode(self.display + '-clean')
+            return self._subview(i).strz.read(self.display)
         elif self.display in ('hex', 'pointer'):
             return util.HexInt(getattr(self._subview(i), self.typename))
         else:
@@ -413,21 +413,10 @@ class Table(Sequence, NodeMixin, RomObject):
 
         if self._struct:
             self[i].copy(v)
-        elif  self.typename in ('str', 'strz'):
-            encoding = ('ascii' if not self.display
-                        else self.display + '-clean' if self.typename == 'strz'
-                        else self.display)
-            bv = self._subview(i)
-            # Avoid spurious patch changes when there's more than one way
-            # to encode the same string
-            old = bv.bytes.decode(encoding)
-            if v == old:
-                return
-            # This smells. Duplicates the process in Field._set_str.
-            content = BytesIO(bv.bytes)
-            content.write(v.encode(encoding))
-            content.seek(0)
-            bv.bytes = content.read()
+        elif self.typename == 'str':
+            self._subview(i).str.write(v, self.display)
+        elif self.typename == 'strz':
+            self._subview(i).strz.write(v, self.display)
         else:
             setattr(self._subview(i), self.typename, v)
 
