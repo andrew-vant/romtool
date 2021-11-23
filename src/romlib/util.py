@@ -239,6 +239,8 @@ def intify_items(dct, keys, default=None):
         dct[key] = int(dct[key], 0)
 
 def get_subfiles(root, folder, extension):
+    if root is None:
+        root = libroot
     try:
         filenames = [filename for filename
                      in os.listdir("{}/{}".format(root, folder))

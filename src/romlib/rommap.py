@@ -99,9 +99,11 @@ class RomMap:
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
-        log.info("Loading text tables")
-        files = partial(util.get_subfiles, root)
+        def files(folder, ext):
+            yield from util.get_subfiles(None, folder, ext)
+            yield from util.get_subfiles(root, folder, ext)
 
+        log.info("Loading text tables")
         kwargs.ttables = Dict()
         for name, path in files('texttables', '.tbl'):
             rpath = relpath(path, root)
