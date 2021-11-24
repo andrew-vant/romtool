@@ -28,6 +28,8 @@ csv.register_dialect(
         delimiter='\t',
         lineterminator=os.linesep,
         quoting=csv.QUOTE_NONE,
+        doublequote=False,
+        quotechar=None,
         strict=True,
         )
 
