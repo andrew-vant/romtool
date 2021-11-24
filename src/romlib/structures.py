@@ -346,7 +346,9 @@ class Table(Sequence, NodeMixin, RomObject):
         elif isinstance(self.index, Index):
             return self.index.stride * self.units
         else:
-            raise ValueError("Couldn't figure out item size")
+            ident = self.name or self.fid or 'unknown'
+            msg = f"Couldn't figure out size of items in {ident} table"
+            raise ValueError(msg)
 
     def _subview(self, i):
         start = (self.offset + self.index[i]) * self.units
