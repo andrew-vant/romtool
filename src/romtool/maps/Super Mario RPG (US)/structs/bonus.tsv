@@ -1,26 +1,26 @@
-id	label	size	type	mod	display	order	info	comment
-mhpb	Mario HP Bonus	1	uint					
-matkb	Mario Atk Bonus	b4	uint					
-mdefb	Mario Def Bonus	b4	uint					
-mmagb	Mario MAtk Bonus	b4	uint					
-mmdb	Mario MDef Bonus	b4	uint					
-thpb	Toadstool HP Bonus	1	uint					
-tatkb	Toadstool Atk Bonus	b4	uint					
-tdefb	Toadstool Def Bonus	b4	uint					
-tmagb	Toadstool MAtk Bonus	b4	uint					
-tmdb	Toadstool MDef Bonus	b4	uint					
-bhpb	Bowser HP Bonus	1	uint					
-batkb	Bowser Atk Bonus	b4	uint					
-bdefb	Bowser Def Bonus	b4	uint					
-bmagb	Bowser MAtk Bonus	b4	uint					
-bmdb	Bowser MDef Bonus	b4	uint					
-ghpb	Geno HP Bonus	1	uint					
-gatkb	Geno Atk Bonus	b4	uint					
-gdefb	Geno Def Bonus	b4	uint					
-gmagb	Geno MAtk Bonus	b4	uint					
-gmdb	Geno MDef Bonus	b4	uint					
-lhpb	Mallow HP Bonus	1	uint					
-latkb	Mallow Atk Bonus	b4	uint					
-ldefb	Mallow Def Bonus	b4	uint					
-lmagb	Mallow MAtk Bonus	b4	uint					
-lmdb	Mallow MDef Bonus	b4	uint					
+id	name	unit	offset	size	type	display	order	info	comment
+mhpb	Mario HP Bonus	bits	0	8	uint				
+matkb	Mario Atk Bonus	bits	8	4	uint				
+mdefb	Mario Def Bonus	bits	12	4	uint				
+mmagb	Mario MAtk Bonus	bits	16	4	uint				
+mmdb	Mario MDef Bonus	bits	20	4	uint				
+thpb	Toadstool HP Bonus	bits	24	8	uint				
+tatkb	Toadstool Atk Bonus	bits	32	4	uint				
+tdefb	Toadstool Def Bonus	bits	36	4	uint				
+tmagb	Toadstool MAtk Bonus	bits	40	4	uint				
+tmdb	Toadstool MDef Bonus	bits	44	4	uint				
+bhpb	Bowser HP Bonus	bits	48	8	uint				
+batkb	Bowser Atk Bonus	bits	56	4	uint				
+bdefb	Bowser Def Bonus	bits	60	4	uint				
+bmagb	Bowser MAtk Bonus	bits	64	4	uint				
+bmdb	Bowser MDef Bonus	bits	68	4	uint				
+ghpb	Geno HP Bonus	bits	72	8	uint				
+gatkb	Geno Atk Bonus	bits	80	4	uint				
+gdefb	Geno Def Bonus	bits	84	4	uint				
+gmagb	Geno MAtk Bonus	bits	88	4	uint				
+gmdb	Geno MDef Bonus	bits	92	4	uint				
+lhpb	Mallow HP Bonus	bits	96	8	uint				
+latkb	Mallow Atk Bonus	bits	104	4	uint				
+ldefb	Mallow Def Bonus	bits	108	4	uint				
+lmagb	Mallow MAtk Bonus	bits	112	4	uint				
+lmdb	Mallow MDef Bonus	bits	116	4	uint				

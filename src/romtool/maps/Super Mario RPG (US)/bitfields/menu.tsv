@@ -1,0 +1,5 @@
+id	name	unit	offset	size	type	display
+unkm	Unknown Menu Flag	bits	0	1	uint	U
+fp	Act on FP	bits	1	1	uint	F
+spent	Require Spent FP (Menu)	bits	2	1	uint	S
+wounded	Require Wounded (Menu)	bits	3	1	uint	W

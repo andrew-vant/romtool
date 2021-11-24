@@ -1,24 +1,24 @@
-id	label	size	type	mod	display	order	info	comment
-hp	HP	2	uintle					
-spd	Speed	1	uint					
-atk	Attack	1	uint					
-def	Defense	1	uint					
-matt	Magic Atk	1	uint					
-mdef	Magic Def	1	uint					
-fp	FP	1	uint					
-evd	Evade	1	uint					
-mevd	Magic Evd	1	uint					
-pad1	Unused 1	b6	uint					
-spal	Special Palette?	b1	uint					
-sdth	Special Death	b1	uint					Wait for the battle script to remove the monster instead of dying normally. (used by bosses?)
-hsnd	Hit Sound	b4	uint		hex			
-mph	Morph Rate	b2	uint					Check 2/3 values, this may be bitwise little-endian.
-idth	Death Immune	b1	uint					
-inv	Invincible	b1	uint					
-res	Resistances	1	bin		jftifpsm			Jump Fire Thunder Ice Fear Poison Sleep Mute
-weak	Weaknesses	b4	bin		jfti			Jump Fire Thunder Ice
-asnd	Approach Sound	b4	uint		hex			
-imm	Immunities	1	bin		ismufpsm			Invuln Scarecrow Mushroom Unknown Fear Poison Sleep Mute
-coin	Coin Size	b2	uint					Not sure whether this should be treated as a bitfield or int or what.
-hov	Hover Height	b2	uint					
-ent	Entrance Style	b4	uint		hex			
+id	name	unit	offset	size	type	display	order	info	comment
+hp	HP	bits	0	16	uintle				
+spd	Speed	bits	16	8	uint				
+atk	Attack	bits	24	8	uint				
+def	Defense	bits	32	8	uint				
+matt	Magic Atk	bits	40	8	uint				
+mdef	Magic Def	bits	48	8	uint				
+fp	FP	bits	56	8	uint				
+evd	Evade	bits	64	8	uint				
+mevd	Magic Evd	bits	72	8	uint				
+sdth	Special Death	bits	80	1	uint				Wait for the battle script to remove the monster instead of dying normally. (used by bosses?)
+spal	Special Palette?	bits	81	1	uint				
+pad1	Unused 1	bits	82	6	uint				
+inv	Invincible	bits	88	1	uint				
+idth	Death Immune	bits	89	1	uint				
+mph	Morph Rate	bits	90	2	uint				Check 2/3 values, this may be bitwise little-endian.
+hsnd	Hit Sound	bits	92	4	uint	hex			
+res	Resistances	bits	96	8	elements	jftifpsm			Jump Fire Thunder Ice Fear Poison Sleep Mute
+asnd	Approach Sound	bits	104	4	uint	hex			
+weak	Weaknesses	bits	108	4	weak	jfti			Jump Fire Thunder Ice (can't be weak to 'status elements'?)
+imm	Immunities	bits	112	8	statuses				
+ent	Entrance Style	bits	120	4	uint	hex			
+hov	Hover Height	bits	124	2	uint				
+coin	Coin Size	bits	126	2	uint				Not sure whether this should be treated as a bitfield or int or what.

@@ -1,15 +1,15 @@
-id	label	size	type	mod	display	order	info	comment
-lvl	Level	1	uint					
-hp	HP	2	uintle					
-mhp	Max HP	2	uintle					
-spd	Speed	1	uint					
-atk	Attack	1	uint					
-def	Defense	1	uint					
-matt	Magic Atk	1	uint					
-mdef	Magic Def	1	uint					
-exp	Experience	2	uintle					
-wpn	Weapon	1	uint					
-arm	Armor	1	uint					
-acc	Accessory	1	uint					
-unk	Unknown 1	1	uint					
-spl	Starting Spells	4	lbin					One bit per starting spell. Not sure of a good character list for this.
+id	name	offset	size	type	display	order	info	comment
+lvl	Level	0	1	uint				
+hp	HP	1	2	uintle				
+mhp	Max HP	3	2	uintle				
+spd	Speed	5	1	uint				
+atk	Attack	6	1	uint				
+def	Defense	7	1	uint				
+matt	Magic Atk	8	1	uint				
+mdef	Magic Def	9	1	uint				
+exp	Experience	10	2	uintle				
+wpn	Weapon	12	1	uint				
+arm	Armor	13	1	uint				
+acc	Accessory	14	1	uint				
+unk	Unknown 1	15	1	uint				
+spl	Starting Spells	16	4	bin				One bit per starting spell. Not sure of a good character list for this.

@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+mario	Mario	bits	0	1	uint	M
+peach	Toadstool	bits	1	1	uint	T
+bowser	Bowser	bits	2	1	uint	B
+geno	Geno	bits	3	1	uint	G
+mallow	Mallow	bits	4	1	uint	L
+unk1	Unknown 1	bits	5	1	uint	U
+unk2	Unknown 2	bits	6	1	uint	U
+unk3	Unknown 3	bits	7	1	uint	U

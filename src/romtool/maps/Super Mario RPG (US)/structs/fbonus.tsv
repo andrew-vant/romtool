@@ -1,3 +1,3 @@
-id	label	size	type	mod	display	order	info	comment
-fodds	Flower Chance	b4	uint					
-fbon	Flower Drop	b4	uint					
+id	name	unit	offset	size	type	display	order	info	comment
+fodds	Flower Chance	bits	0	4	uint				
+fbon	Flower Drop	bits	4	4	uint				

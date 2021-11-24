@@ -1,25 +1,24 @@
-id	label	size	type	mod	display	order	info	comment
-idth	Death Immunity	b1	uint					
-unk1	Unknown 1	b1	uint					
-use	Usage Flags	b3	lbin		bmr			battle/overworld/reusable
-unk2	Unknown 2	b1	uint					
-type	Type	b2	uint					weapon/armor/accessory/item
-cursor	Cursor Flags	b3	bin					Stop on max Hp; stop on max FP; point to FP.
-unk3	Unknown 3	b2	bin					
-stat	Status Flags	b3	bin		cir			cure/inflict/resist
-users	Users	1	lbin		mtbgluuu			Mario Toadstool Bowser Geno Mallow
-tgt	Targeting Flags	1	lbin		uaeumdon			unknown targetcursor enemy unknown multitarget dead oneside? Notself
-elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
-res	Immunities	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
-weak	Resistances	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
-ail	Ailment	1	bin		ismufpsm			invuln scarecrow mushroom unknown fear poison sleep mute
-enh	Enhancement	1	bin		udramuuu			unknown defense resist attack magic
-spd	Speed	1	int					
-atk	Attack	1	int					
-def	Defense	1	int					
-matt	Magic	1	int					
-mdef	MDef	1	int					
-avar	Attack Variance	1	uint					
-pow	Power	1	uint					
-eff	Item Effect	1	uint		hex			
-attf	Special Flags?	1	bin		llldnhnu			Only bit 6 (hide damage) used, others may be same as special attack flags.
+id	name	unit	offset	size	type	display	order	info	comment
+type	Item Type	bits	0	2	uint				weapon/armor/accessory/item
+usage	Usage Flags	bits	2	4	usage				
+unk1	Unknown 1	bits	6	1	uint				
+idth	Death Immunity	bits	7	1	uint				
+sflags	Status Flags	bits	8	4	sflags				
+menu	Menu Flags	bits	12	4	menu				
+users	Users	bits	16	8	users				
+tgt	Targeting Flags	bits	24	8	targeting				
+elem	Element	bits	32	8	elements				
+res	Immunities	bits	40	8	elements				
+weak	Resistances	bits	48	8	elements				
+status	Status	bits	56	8	statuses				
+buffs	Buffs	bits	64	8	buffs				
+spd	Speed	bits	72	8	int				
+atk	Attack	bits	80	8	int				
+def	Defense	bits	88	8	int				
+matt	Magic	bits	96	8	int				
+mdef	MDef	bits	104	8	int				
+avar	Variance	bits	112	8	uint				
+pow	Power	bits	120	8	uint				
+eff	Effect	bits	128	8	uint				Possibly index into function array?
+dmg	Damage Flags	bits	136	5	dmgflags				
+unk2	Unknown 2	bits	141	3	bin				

@@ -1,0 +1,5 @@
+id	name	unit	offset	size	type	display
+unku	Unknown Usage Flag	bits	0	1	uint	U
+battle	Usable in Battle	bits	1	1	uint	B
+menu	Usable on Menu	bits	2	1	uint	M
+reuse	Reusable	bits	3	1	uint	R

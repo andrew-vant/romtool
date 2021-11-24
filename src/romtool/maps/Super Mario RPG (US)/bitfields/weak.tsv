@@ -1,0 +1,5 @@
+id	name	unit	offset	size	type	display
+ice	Ice	bits	0	1	uint	I
+thunder	Thunder	bits	1	1	uint	T
+fire	Fire	bits	2	1	uint	F
+jump	Jump	bits	3	1	uint	J
