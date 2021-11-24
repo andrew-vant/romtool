@@ -96,8 +96,7 @@ class Rom(NodeMixin, util.RomObject):
             tspecs = [Dict(ts) for ts in tspecs]
             ct_tables = len(tspecs)
             ct_items = int(tspecs[0]['count'], 0)
-            log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
-            log.info(f"Dumping dataset: %s (%s tables, %s items)",
+            log.info("Dumping dataset: %s (%s tables, %s items)",
                      tset, ct_tables, ct_items)
             path = pathjoin(folder, f'{tset}.tsv')
 
