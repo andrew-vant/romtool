@@ -196,7 +196,7 @@ class BitArrayView(NodeMixin):
 
     def str_read(self, encoding):
         encoding = encoding or 'ascii'
-        return self.bytes.decode(encoding)
+        return self.bytes.decode(encoding).rstrip()
 
     def str_write(self, value, encoding):
         encoding = encoding or 'ascii'
@@ -204,7 +204,7 @@ class BitArrayView(NodeMixin):
         s_old, bct_old = codec.decode(self.bytes)
 
         # Avoid spurious changes when there's multiple valid encodings
-        if value == s_old:
+        if value == s_old.rstrip():
             return
 
         # Pad fixed-length strings with spaces
