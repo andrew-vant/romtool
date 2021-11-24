@@ -5,7 +5,10 @@ unk1	Unknown 1	bits	2	3	uint
 dprot	Death-Protectable	bits	5	1	uint				
 unk2	Unknown 2	bits	6	1	bin				
 menu	Castable from Menu	bits	7	1	uint				
-sflags	Status Flags	bits	8	4	sflags				
+heal	Heal Target	bits	8	1	uint				
+apply	Apply Statuses	bits	9	1	uint				
+cure	Cure Statuses	bits	10	1	uint				
+max	Max Damage?	bits	11	1	uint				
 unk3	Unknown 3	bits	12	4	bin				
 fp	FP Cost	bits	16	8	uint				
 tgt	Targeting Flags	bits	24	8	targeting				

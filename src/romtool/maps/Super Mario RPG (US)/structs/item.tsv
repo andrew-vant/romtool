@@ -8,8 +8,8 @@ menu	Menu Flags	bits	12	4	menu
 users	Users	bits	16	8	users				
 tgt	Targeting Flags	bits	24	8	targeting				
 elem	Element	bits	32	8	elements				
-res	Immunities	bits	40	8	elements				
-weak	Resistances	bits	48	8	elements				
+imm	Immunities	bits	40	8	elements				
+res	Resistances	bits	48	8	elements				
 status	Status	bits	56	8	statuses				
 buffs	Buffs	bits	64	8	buffs				
 spd	Speed	bits	72	8	int				
