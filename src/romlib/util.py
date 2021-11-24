@@ -251,7 +251,7 @@ def get_subfiles(root, folder, extension):
                  for filename in filenames]
         return zip(names, paths)
     except FileNotFoundError:
-        log.warning(f"{root}/{folder} not found, treating as empty")
+        log.info(f"{root}/{folder} not found, treating as empty")
         return []
 
 def libpath(path):
