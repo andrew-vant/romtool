@@ -301,3 +301,21 @@ class BitArrayView(NodeMixin):
         if isinstance(i, str):
             i = int(i, 0)
         self.bytes = (i).to_bytes(bits2bytes(len(self)), 'little')
+
+    @property
+    def int(self):
+        return ba2int(self.bits, signed=True)
+
+    @int.setter
+    def int(self, i):
+        if isinstance(i, str):
+            i = int(i, 0)
+        old = self.int
+        self.bits = int2ba(
+                i,
+                length=len(self),
+                endian=self.ba.endian(),
+                signed=True
+                )
+        if old != self.int:
+            log.debug("change detected: %s -> %s", old, self.int)
