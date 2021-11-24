@@ -76,6 +76,22 @@ class Field(ABC):
             raise RomtoolError(msg)
 
     @property
+    def is_name(self):
+        return 'name' in (self.id.lower(), self.name.lower())
+
+    @property
+    def is_flag(self):
+        return self.size.spec == '1'
+
+    @property
+    def is_ptr(self):
+        return self.display == 'pointer'
+
+    @property
+    def is_unknown(self):
+        return 'unknown' in self.name.lower()
+
+    @property
     def identifiers(self):
         return [self.id, self.name]
 

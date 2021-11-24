@@ -100,17 +100,20 @@ class Rom(NodeMixin, util.RomObject):
                      tset, ct_tables, ct_items)
             path = pathjoin(folder, f'{tset}.tsv')
 
-            # Get headers sorted by field explicit order, then whether it's a
-            # name, then whether it's a structural value (non-struct values are
-            # usually pointers and belong at the end).
+            # Try to sort output columns intelligently. Name fields always come
+            # first. Pointers, unknowns, and flags go at the end.
             header_ordering = {}
             def ordering(field):
-                if any(s.lower() == 'name' for s in (field.id, field.name)):
-                    return -1
-                elif field.display == 'pointer':
-                    return 1
-                else:
-                    return 0
+                # This may get fed a "real" field, or a Dict of a table spec,
+                # so a fallback is necessary if the field properties aren't
+                # available.
+                return (
+                        'name' not in (field.id.lower(), field.name.lower()),
+                        field.display == 'pointer',
+                        'unknown' in field.name.lower(),
+                        field.is_flag or field.size == '1',
+                        field.order or 0,
+                        )
 
             for tspec in tspecs:
                 table = getattr(self, tspec.id)
@@ -118,8 +121,7 @@ class Rom(NodeMixin, util.RomObject):
                           if table.typename in Structure.registry
                           else [tspec])
                 for field in fields:
-                    order = (field.order or 0, ordering(field))
-                    header_ordering[field.name] = order
+                    header_ordering[field.name] = ordering(field)
             columns = [k for k, v
                        in sorted(header_ordering.items(),
                                  key=itemgetter(1))]
