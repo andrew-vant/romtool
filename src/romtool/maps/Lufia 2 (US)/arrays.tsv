@@ -1,6 +1,6 @@
-name	label	set	type	offset	length	stride	mod	index	priority	display	comment
-monsters		monsters	monster	0xB0780	224			monster_ptrs			
-monster_ptrs	Monster Pointer	monsters	uintle	0xB05C0	224	2	0xB05C0			pointer	
-items		items	item	0xB530F	467			item_ptrs			
-item_ptrs	Item Pointer	items	uintle	0xB4F69	467	2	0xB4F69			pointer	
-item_names	Name	items	str	0xF47E8	467	12				main	
+id	fid	name	set	type	offset	count	stride	size	mod	index	priority	display	comment
+monsters			monsters	monster	0xB05C0	224				monster_ptrs			
+monster_ptrs	mptr	Monster Pointer	monsters	uintle	0xB05C0	224	2					pointer	
+items			items	item	0xB4F69	467				item_ptrs			
+item_ptrs	iptr	Item Pointer	items	uintle	0xB4F69	467	2					pointer	
+item_names		Name	items	str	0xF47E8	467	12					main	

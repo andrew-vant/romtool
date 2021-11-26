@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+weapon	Weapon	bits	0	1	uint	W
+armor	Armor	bits	1	1	uint	A
+shield	Shield	bits	2	1	uint	S
+helmet	Helmet	bits	3	1	uint	H
+ring	Ring	bits	4	1	uint	R
+jewel	Jewel	bits	5	1	uint	J
+unused1	Unused 1	bits	6	1	uint	U
+unused2	Unused 2	bits	7	1	uint	U
