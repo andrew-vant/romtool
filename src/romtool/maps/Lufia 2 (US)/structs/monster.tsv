@@ -1,4 +1,4 @@
-id	name	unit	offset	size	type	mod	display	order	meta	comment
+id	name	unit	offset	size	type	arg	display	order	meta	comment
 name	Name		0	13	str		main			
 lvl	Level		13	1	uint					
 unk	Unknown 1		14	1	uint					
@@ -14,7 +14,7 @@ gut	GUT (/2)		27	1	uint
 mgr	MGR (/2)		28	1	uint					
 exp	EXP		29	2	uintle					
 gld	GOLD		31	2	uintle					
-drop	Drop	bits	0	9	drop					
-dchance	Drop Chance	bits	0	7	dchance					
-sptr	Script Pointer		0	2	mptr		pointer			
-rptr	Resists Pointer		0	2	mptr		pointer			
+drop	Drop	bits	0	9	exmon	0x03				offset is within the 'extra bytes', not the struct
+dchance	Drop Chance	bits	9	7	exmon	0x03				offset is within the 'extra bytes', not the struct
+sptr	Script Pointer		0	2	exmon	0x07	pointer			offset is within the 'extra bytes', not the struct
+rptr	Resists Pointer		0	2	exmon	0x08	pointer			offset is within the 'extra bytes', not the struct
