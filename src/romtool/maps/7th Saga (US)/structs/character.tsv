@@ -1,4 +1,4 @@
-id	label	size	type	mod	display	order	info	comment
+id	name	size	type	mod	display	order	info	comment
 hp	HP	2	uintle				base	
 mp	MP	2	uintle				base	
 pow	Power	1	uint				base	

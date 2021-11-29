@@ -1,0 +1,13 @@
+id	label	offset	size	unit	type	display	order	mod	info	comment
+name	Name	0	21		str				name	
+b_name	Name Bytes	0	21		bytes					Needed to detect header location before decoding the name
+mapmode	Mapping Mode	21	1		uint	hex				
+tp	Type	176	4	bits	uint					
+coproc	Coprocessor	180	4	bits	uint					
+sz_rom	ROM Size	23	1		uint					2^n kb
+sz_sram	SRAM Size	24	1		uint					2^n kb
+region	Region	25	1		uint					
+devid	Developer ID	26	1		uint					0x33 indicates extended registration data
+version	Version	27	1		uint					
+csum2	Checksum Complement	28	2		uintle					Should match ~csum
+csum	Checksum	30	2		uintle					Should match sum(rombytes) % 0xFFFF

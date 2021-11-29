@@ -15,6 +15,8 @@ from pprint import pprint
 
 from patricia import trie
 
+log = logging.getLogger(__name__)
+
 class TextTable(object):
     """ A ROM text table, used for decoding and encoding text strings."""
     def __init__(self, name, f):
@@ -73,6 +75,10 @@ class TextTable(object):
         """
         text = ""
         i = 0
+        # the python codec infrastructure passes decode a memoryview, not
+        # bytes, which makes patricia-trie choke
+        if isinstance(data, memoryview):
+            data = bytes(data)
         while i < len(data):
             raw = "[${:02X}]".format(data[i])
             match, string = self.dec.item(data[i:], default=raw)
@@ -96,18 +102,19 @@ def add_tt(name, f):
             "-clean": (False, True),
             "-raw":   (True, False)}
 
-    for subcodec, subargs in args.items():
+    for subcodec, (include_eos, stop_on_eos) in args.items():
         # There has got to be a cleaner way to do this...
         decoder = functools.partial(tt.decode,
-                                    include_eos=subargs[0],
-                                    stop_on_eos=subargs[1])
-
+                                    include_eos=include_eos,
+                                    stop_on_eos=stop_on_eos)
         codec = codecs.CodecInfo(
                 name=name+subcodec,
                 encode=tt.encode,
                 decode=decoder
                 )
-        tt_codecs[name+subcodec] = codec
+        log.debug("Adding text codec: %s", codec.name)
+        tt_codecs[codec.name] = codec
+    return tt
 
 def get_tt_codec(name):
     return tt_codecs.get(name, None)

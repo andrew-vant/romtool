@@ -12,7 +12,12 @@ def read(relative_path):
         return f.read()
 
 dependencies = ["bitstring>=3.1.3",
+                "bitarray>=1.5.0",
                 "patricia-trie>=10",
+                "parse",
+                "asteval",
+                "anytree",
+                "addict>=2",
                 "pyyaml>=3.10"]
 
 scm_version_options = {
@@ -34,7 +39,7 @@ setup(name="romtool",
       install_requires=dependencies,
       setup_requires=['setuptools-scm>=3.3.0'],
       use_scm_version=scm_version_options,
-      tests_require=['tox'],
+      tests_require=['tox', 'pytest-subtests'],
       author="Andrew Vant",
       author_email="ajvant@gmail.com",
       description="Library and tool for manipulating video game ROMs.",

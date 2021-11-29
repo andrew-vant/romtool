@@ -1,0 +1,230 @@
+  rom array as a class that implements sequence lookup operations by
+  e.g. seeking in the bitstring (but the returned object needs to know
+  its offset so it can change the underlying data when modified?) might
+  work better than what I'm doing now.
+
+
+---
+
+
+Thought: Don't have structs dereference themselves. Do it at the Rom
+object level, after structs are loaded, in a separate dictionary just
+for pointed-to objects. This allows for the right thing to happen on
+objects with multiple references, and I think will also simplify the
+code a great deal. (and removes various edge cases involving turning
+structs into bytestrings or bitstrings)
+
+Value = Primitive. (is there a word for primitive types?) (would this
+sort of restructuring allow us to ditch the Value type tree entirely?
+Probably not, at some point I'll probably want it to do things like
+enforce fixed sizes.)
+
+
+Thought 2: Structures. Have a "metastruct" type (which might or might
+not be an actual metaclass). Actual structure types (monster,
+character, etc) inherit and/or use it as a metaclass. Instances of
+structure type don't contain dereferenced stuff (e.g. the name strings
+from 7th), but might override getattr/setattr to follow the references.
+Objection: why *not* just give them attributes for the references that
+are None if we don't have a reference for them? Because we need to be
+able to distinguish "setting the pointer" from "setting the reference".
+We want changing .nmp to change which name string you get from .name,
+but we want changing .name to change the contents of said string. Right?
+
+No. All this is making things even more complex. I think if I really
+want to do relations between objects I need to use an actual database to
+keep things consistent. (this might even be a good idea for other
+programs that may *want* to read things in such a mode) I'm probably
+better off using big offset-to-object dicts -- or maybe even an "object"
+that reads on the fly from the underlying ROM when accessing attributes.
+
+# BUG: `apply` doesn't correctly handle patches that expand the ROM.
+#
+# FIXME: Add sanity check for maps that will note or fix things like broken
+# whitespace or line endings.
+
+FIXME: Feature/clone list, reread rest of file, move relevant stuff to top here, then
+remove this message.
+
+* Hashing functions for release cycles
+* consider using click library for cli. It's available as a real package on
+  ubuntu so shouldn't be too much of a problem.
+
+
+Any of these could be fodder for a blog post.
+
+Philosophy
+---------
+
+Commentary on how and why this was done the way it is goes here...probably
+doesn't belong in README.
+
+Underlying philosphy is "fold knowledge into data." Underlying question is "how
+can I describe the format of a data structure in a data structure -- a
+metastructure --  that anyone can deal with." Everything I'm doing with .tsv
+inputs could also be done with yaml, and maybe be more flexible, I'm not sure.
+The main difficulty is links between structures.
+
+Output as tsv is an issue; nested elements are things it just plain *can't*
+describe efficiently. The library should probably try to avoid the assumption
+of flat output, if possible; Instead, do any flattening at the application
+level?  But supporting a genuinely complex interconnected set of structures is
+hard, particularly when multiple structures reference the same data.
+
+Can the library retain shared links and the like and leave it up to the app to
+try and flatten that? But then the app also has to worry about unflattening.
+
+Perhaps flattening as a separate function to be run on an existing structure
+tree?
+
+---
+
+Pretty sure the hooks need to be when reading from the rom and when generating
+a bytemap/patch. Posthook in both cases, maybe?
+
+Optional fields have no size and are up to the hook to read/write. Unused
+optional fields are read as None and output as the empty string. Optional
+fields with value None are "not present" but what to do about them when
+generating a bytemap is module-defined.
+
+So much for optional fields. What about unions?
+
+All unions should probably be read as bits. The post-read hook can convert
+them to a 'real' value. A pre-dump hook can convert them to a string and they
+are output as-is. The field data type is 'union'. A post-load hook can convert
+them back after all other fields are loaded.
+
+Does that cover all cases? Probably not.
+
+--- 
+It would be nice to have a 'romtool document' command that generates change
+logs in the sort of format blizzard uses, e.g: 'Weapon A's power increased
+from X to Y'. Would require some struct metadata explaining which fields are
+scalars of this sort and how they should be grouped, though.
+
+NOTE: Revisit the 'display' attribute. Consider that the type attribute
+indicates how to read in a field from the file; display presumably should
+indicate how to turn it into something you can read. Lookup in display dict,
+with default being integer? Should display handle pointer deref/reref for
+stringz's? (probably not)
+
+Magic indexes: Use label + "Pointer" as label?
+
+Have a .locate function in Map that takes a table name, index, and optionally
+field name, and returns the offset in ROM. May require a 'rom' argument so that
+pointers can first be looked up. Or maybe not; read and cache pointer tables
+first, maybe?
+
+Include pointers in pointer indexes in the output, let the user change them,
+emit an error if they change them to go outside the source table. Suppressable
+by command line argument (convert to warning or info).
+
+For pointers: Rather than trying to convert based on arch, give pointer elements
+a corresponding 'zero' in the definition, stating where the zero-point of the
+pointer is in ROM. This may be negative. Then working out the proper conversion
+is in the hands of the mapmaker rather than the program.
+
+Should pointers with a zero be converted in the output? By default, yes. 0xXYXY
+for ROM addresses, $XYXY for original addresses?
+
+Emit an error if a pointer is changed to go completely out of bounds. Check if
+the pointer would make sense if zeroes were/were not taken into account, guess
+if the user forgot to perform a conversion and inform them of such, guess at
+the correct $ address and/or 0x address and suggest it.
+
+What should be errors and what should be warnings? Anything that stops the
+program should be an error, anything else should be a warning. Default for
+"data that doesn't make sense" should be a warning, have a command line
+option for halting on warnings?
+
+Possibly allow a "project metadata" file that provides as many command line
+options as make sense.
+
+Possibly include a "metadata.yaml" file at the root of dumps that specifies
+things like what version of the map files, map format, and romtool program
+were used. May fasciliatate future conversions when the format changes.
+
+Patch module redesign.
+
+Have a canonical Patch object, with data that is just a simple
+int-to-int(byte) dictionary. No accomodation for long repeated bytes or
+anything. Give it functions for loading/saving to other patch types, such as
+IPS, and a function for *filtering* it against an existing ROM.  __init__ just
+figures out what we're trying to load and loads it.
+
+Patch.data is freely modifiable. Patch merging is just a matter of creating
+two different Patch objects and calling dict.update on their data.
+
+How do I share code for textualization vs. loading? Maybe don't. Maybe have
+patch.from_whatever first compile a textual patch, then load it.
+
+This solves all patch merging/conversion issues, I think, and makes applying
+them to a ROM trivial. It makes the whole process a memory hog, but I don't
+care.
+
+Implement csv/map patches as just another from_ method. Yanking structures now
+falls to a different module.
+
+What do I do when loading a patch that contains overlapping changes within
+itself? Last wins or first wins, but it needs to be consistent. Probably last
+wins -- simpler implementation.
+
+Patching dereferences: Get matching pointer and start check from there?
+
+On load, not everything gets loaded by bitstream; strings don't, in particular.
+What's the best way to handle that during load? I would have liked to join the
+struct fields into a long bitstream format string and load it all at once, but
+I don't see a way to do that when I have additional types not supported by
+bitstream.
+
+Would be nice to have a sanity check when patching strings to make sure they
+don't run into the next string. Should libraries generate warnings? Not sure.
+Maybe the check should be executed and logged from romtool rather than
+romlib. But let romlib have a function that performs the check.
+
+Dereference fields should use _ instead
+of * so that I can implement attribute access later. Better yet, make this a
+constant somewhere.
+
+Patch conversion: Looks like anything more than ips and maybe ups will be too
+complicated to do my own implementation. Farm out to external program;
+something like "take original file plus patch, feed through external program
+for that patch type to get new file, feed through new patch type with original
+file to get new patch." Can I do this without a temp file? Don't want to have
+to read everything into memory, there has to be something like a pipe to work
+with.
+
+Possible strategy for figuring out unknown text encodings:
+
+Take a list of strings on input -- strings of the same type, e.g. monster
+names, character names, something similar, whatever you have a lot of. Get a
+character-by-character diff of sorts...e.g. char[1] = char[0] + 3 or
+something, for each string. (omit initial capitals if necessary). Read the rom
+from beginning to end, looking for sequences of bytes that match any of the
+patterns. When done, look at the list of offsets found for the most compact
+"cluster" in which most string-candidates were found. Look for patterns in
+that cluster -- are they separated by a common character (e.g. 0x00)? Are they
+a common number of bytes apart, mostly? This needs to be fuzzy to allow for
+gaps, but it should work.
+
+Once it's pretty sure it's identified actual cases of the strings, you can get
+the charcodes for initial capitals easily enough, guess at the string
+separators, etc. Then confirm by looking at gaps or on both ends of the set
+for candidates that are mostly-within the known character encoding and are the
+correct number of bytes away (or separated by the correct byte).
+
+
+--
+
+**Release Support**
+
+Add hash checks/generation aimed at release cycles. See [ROM Hasher][hasher]
+for ideas. Also romhacking.net's [rom/iso info][rominfo] specs.
+
+[hasher]: http://www.romhacking.net/utilities/1002/
+[rominfo]: https://www.romhacking.net/system/common/rominfo.html
+
+---
+
+Credit to ffse for parts of the ff1 map, should probably go in the ff1 map
+readme or something.

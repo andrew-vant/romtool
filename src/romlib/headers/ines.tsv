@@ -1,17 +1,17 @@
-id	label	size	type	display	order	mod	info	comment
-ident	Identifier	4	str					
-sz_prg	PRG Size (*16kb)	1	uint					in 16kb units
-sz_chr	CHR Size (*8kb)	1	uint					in 8kb units
-mapper_low	Mapper (Low Nyb)	b4	uint					Low nybble of mapper number
-fourscreen	Four Screen Mode	b1	uint					
-trainer	Trainer Before PRG	b1	uint					
-storage	Has persistent storage	b1	uint					
-mirroring	Mirroring	b1	uint					0 horizontal, 1 vertical
-mapper_high	Mapper (High Nyb)	b4	uint					High nybble of mapper number
-version	Header Format Version	b2	uint					
-console	Console Type	b2	uint					0 NES/NFC, 1 Playchoice 10, 2 VS System
-sz_prg_ram	PRG Ram Size	1	uint					
-reserved	Reserved	b7	bin					
-tv	TV System	b1	uint					0: NTSC; 1: PAL
-ext	Extension	1	uintbe	hex				Used by extensions
-padding	Padding	5	uintbe	hex				
+id	label	offset	size	unit	type	display	order	mod	info	comment
+ident	Identifier	0	4		bytes					always `NES[EOF]`
+sz_prg	PRG Size (*16kb)	4	1		uint					in 16kb units
+sz_chr	CHR Size (*8kb)	5	1		uint					in 8kb units
+mapper_low	Mapper (Low Nyb)	48	4	bits	uint					Low nybble of mapper number
+fourscreen	Four Screen Mode	52	1	bits	uint					
+trainer	Trainer Before PRG	53	1	bits	uint					
+storage	Has persistent storage	54	1	bits	uint					
+mirroring	Mirroring	55	1	bits	uint					0 horizontal, 1 vertical
+mapper_high	Mapper (High Nyb)	56	4	bits	uint					High nybble of mapper number
+version	Header Format Version	60	2	bits	uint					
+console	Console Type	62	2	bits	uint					0 NES/NFC, 1 Playchoice 10, 2 VS System
+sz_prg_ram	PRG Ram Size	8	1		uint					
+tv	TV System	9	1	bits	uint					0: NTSC; 1: PAL
+reserved	Reserved	73	7	bits	bin					
+ext	Extension	10	1		uintbe	hex				Used by extensions
+padding	Padding	11	5		uintbe	hex				

@@ -1,4 +1,4 @@
-id	label	size	type	mod	display	order	pointer	info	comment
+id	name	size	type	mod	display	order	pointer	info	comment
 pow	Spell Power	2	uintle					stats	
 tgt	Targeting	1	uint					behavior	0: Single Enemy | 1: All Enemies | 2: Single Ally | 3: Unknown | 4: Map
 mpc	MP Cost	2	uintle					stats	
@@ -7,4 +7,4 @@ emt	Element	1	uint					stats	0: No element (e.g. healing) | 1: Thunder | 2: Unus
 unk1	Unknown 1	1	bin					unknown	
 unk2	Status?	1	bin					unknown	
 nmp	Name Pointer	3	uintle	-0xC00000	pointer			pointer	
-name	Name		strz		main		nmp	name	
+name	Name	10	strz		main		nmp	name	

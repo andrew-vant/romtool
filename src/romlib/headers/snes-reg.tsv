@@ -1,0 +1,8 @@
+id	label	offset	size	unit	type	display	order	mod	info	comment
+maker	Maker Code	0	2		str	ascii	1			
+game	Game Code	2	4		str	ascii	1			
+pad1	Padding 1	6	6		uintbe	hex	1			
+exflash	Expansion Flash Size	12	1		uint		1			2^n?
+exram	Expansion RAM Size	13	1		uint		1			2^n?
+spver	Special Version?	14	1		uint		1			
+cart	Cartridge Type?	15	1		uint		1			

@@ -1,45 +1,23 @@
-# Thinking: Ignore file objects completely. Just convert to bitstream
-# when the rom object is instantiated. Everything everywhere assumes
-# bitstring objects.
-#
-# Move most of the reader functions out of RomMap and into Rom?
-#
-# Alternately, generate Rom class from the map, rather than having a
-# RomMap object?
-#
-# Use __getattr__ and some listlike object to let the program navigate
-# through the rom data through normal attribute access and list
-# indexing? Seems like it would help with crossreferencing.
-#
-# Fake a database interface? Where the object offset is the ID within
-# its table. Dumps them become the equivalent of a select; patches the
-# equivalent of an update (but what happens when an object's offset
-# changes?)
-#
-# Alternately: No lists. Everything is a dict of offset to object. For
-# pointers, just keep dereferencing until you get a real object. (nope,
-# this doesn't work, some crossrefs are by list index. So each object
-# needs both an index and an offset.)
-#
-# Seriously consider just doing everything in memory. Anything big
-# enough to be too big for memory probably has a real filesystem.
-
-import io
 import string
 import logging
 import math
-from abc import ABCMeta
-from os.path import dirname, basename, realpath
+import operator
+from os.path import splitext, basename
 from os.path import join as pathjoin
+from itertools import groupby, chain
 
-from bitstring import BitStream, ConstBitStream
+from bitarray import bitarray
+from anytree import NodeMixin
 
 from . import util
-from . import struct
+from .io import Unit, BitArrayView as Stream
+from .structures import Structure, Table, Index
+from .rommap import RomMap
 
 
 log = logging.getLogger(__name__)
-headers = util.load_builtins('headers', '.tsv', struct.load)
+headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
+
 
 class RomFormatError(Exception):
     pass
@@ -49,119 +27,210 @@ class HeaderError(RomFormatError):
     pass
 
 
-class Rom:
+class Rom(NodeMixin):
+    registry = {}
+    extensions = []
+
     def __init__(self, romfile, rommap=None):
-        self.validate(romfile)
+        if rommap is None:
+            rommap = RomMap()
+
+        romfile.seek(0)
+        ba = bitarray(endian='little')
+        ba.fromfile(romfile)
+
+        self.file = Stream(ba)
+        self.orig = Stream(bitarray(ba))
+
         self.map = rommap
-        self.orig = ConstBitStream(romfile)
-        self.data = BitStream(self.orig)
+        byidx = lambda row: row.get('index', '')
+        for spec in sorted(self.map.tables.values(), key=byidx):
+            log.debug("creating table: %s", spec['id'])
+            setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
+
+    @property
+    def data(self):
+        return self.file
+
+    @property
+    def tables(self):
+        return {table['id']: getattr(self, table.id)
+                for table in self.map.tables.values()}
+
+    def dump(self, folder, force=False):
+        """ Dump all rom data to `folder` in tsv format"""
+
+        byset = lambda row: row.get('set', None) or row['id']
+        tablespecs = sorted(self.map.tables.values(), key=byset)
+
+        for tset, tspecs in groupby(tablespecs, byset):
+            tspecs = list(tspecs)
+            ct_tables = len(tspecs)
+            ct_items = int(tspecs[0]['count'], 0)
+            log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
+            path = pathjoin(folder, f'{tset}.tsv')
+
+            records = []
+            for i in range(ct_items):
+                record = {}
+                for tspec in tspecs:
+                    tid = tspec['id']
+                    item = getattr(self, tid)[i]
+                    if isinstance(item, Structure):
+                        record.update(item.items())
+                    else:
+                        record[tspec['name']] = item
+                records.append(record)
+            keys = set(records[0].keys())
+            for r in records:
+                assert not (set(r.keys()) - keys)
+            util.writetsv(path, records, force)
+
+    def validate(self):
+        raise NotImplementedError(f"No validator available for {type(self)}")
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name = cls.__name__
+        for ext in cls.extensions:
+            if ext in cls.registry:
+                msg = ("%s attempted to claim %s extension, but it is "
+                      "already registered; ignoring")
+                log.warning(msg, name, ext)
+            else:
+                cls.registry[ext] = cls
 
     @classmethod
-    def make(cls, romfile):
-        log.debug("Autodetecting rom type")
-        for romcls in cls.__subclasses__():
+    def make(cls, romfile, rommap=None, ignore_extension=False):
+        # Check file extension first, if possible
+        ext = splitext(romfile.name)[1]
+        if ext in cls.registry and not ignore_extension:
+            subcls = cls.registry[ext]
+            rom = subcls(romfile, rommap)
+            msg = "%s loaded by extension as a %s"
+            log.info(msg, basename(romfile.name), subcls.__name__)
+            return cls.registry[ext](romfile, rommap)
+
+        log.debug("Unknown extension '%s', inspecting contents", ext)
+        for subcls in Rom.__subclasses__():
+            log.debug("Trying: %s", subcls.romtype)
             try:
-                log.debug("Trying: %s", romcls.romtype)
-                if romcls.validate(romfile):
-                    return romcls(romfile)
-            except RomFormatError:
-                pass
-        else:
-            raise RomFormatError("Input does not match any known ROM format")
+                rom = subcls(romfile)
+                rom.validate()
+                msg = "%s loaded as a %s"
+                log.info(msg, basename(romfile.name), subcls.__name__)
+                return rom
+            except RomFormatError as ex:
+                log.debug("Couldn't validate: %s", ex)
+        raise RomFormatError("Can't figure out what type of ROM this is")
 
 
 class INESRom(Rom):
     romtype = 'ines'
+    extensions = ['.nes', '.ines']
     hdr_ident = b"NES\x1a"
+    sz_header = 16
 
     def __init__(self, romfile, rommap=None):
         super().__init__(romfile, rommap)
-        bs_head = self.orig[:16*8]
-        self.header = headers[self.romtype](bs_head)
-        self.data = self.orig[16*8:]
+        hsz = self.sz_header * Unit.bytes
+        hcls = headers[self.romtype]
+        self.header = hcls(self.file[:hsz])
 
-    @classmethod
-    def validate(cls, romfile):
-        romfile.seek(0)
-        ident = romfile.read(4)
-        if ident != cls.hdr_ident:
-            msg = "Bad ines header ident ({} != {})"
-            raise HeaderError(msg.format(ident, cls.hdr_ident))
+    @property
+    def data(self):
+        return self.file[self.sz_header * Unit.bytes:]
+
+    def validate(self):
+        hid = self.header.ident
+        if hid != self.hdr_ident:
+            msg = f"Bad ines header ident ({hid} != {self.hdr_ident})"
+            raise HeaderError(msg)
         return True
 
 
 class SNESRom(Rom):
     romtype = 'snes'
+    extensions = ['.sfc', '.smc']
     sz_smc = 0x200
-    ofs_lorom = 0x7FB0
-    ofs_hirom = 0xFFB0
+    # FIXME: Pretty sure these are SNES addresses, not ROM addresses, will have
+    # to work out correponding address
+    header_locations = {0x20: 0x7FC0,
+                        0x21: 0xFFC0,
+                        0x23: 0x7FC0,
+                        0x30: 0x7FC0,
+                        0x31: 0xFFC0,
+                        0x32: 0x7FC0,
+                        0x35: 0xFFC0}
 
-    def __init__(self, romfile, rommap=None):
-        super().__init__(romfile, rommap)
-        self.smc = self._load_smc(romfile)
-        self.header = self._load_header(romfile)
-        self.data = BitStream(self.orig[len(self.smc*8):])
+    devid_magic = 0x33  # Indicates extended registration data available
 
-    @classmethod
-    def validate(cls, romfile):
-        try:
-            return bool(cls._load_header(romfile))
-        except HeaderError:
-            return False
+    @property
+    def data(self):
+        """ Data block """
+        offset = len(self.smc) if self.smc else 0
+        return self.file[offset:]
 
-    @classmethod
-    def _load_smc(cls, romfile):
-        sz_file = util.filesize(romfile)
-        sz_smc = sz_file % 1024
-        if sz_smc not in [0, cls.sz_smc]:
+    @property
+    def header(self):
+        for offset in set(self.header_locations.values()):
+            log.debug("Looking for header at 0x%X", offset)
+            hdr = headers['snes-hdr'](self.data[offset::Unit.bytes])
+
+            # Mapping mode check
+            if self.header_locations.get(hdr.mapmode, None) == offset:
+                log.debug("0x%X: mapmode check: ok", offset)
+            else:
+                log.debug("0x%X: mapmode check: failed "
+                          "(mode doesn't match header location)", offset)
+                continue
+
+            # Size byte check
+            sz_max = 2**(hdr.sz_rom) * 1024
+            sz_min = sz_max // 2
+            sz_real = self.data.ct_bytes
+            if sz_max >= sz_real > sz_min:
+                log.debug("0x%X: size check: ok", offset)
+            else:
+                msg = "0x%X: size check: failed (%s not between %s and %s)"
+                log.debug(msg, offset, sz_real, sz_min, sz_max)
+                continue
+
+            # Header version 2 has a null byte where the last printable character
+            # would be, so strip it for this check.
+            if all(chr(c) in string.printable for c in hdr.b_name[:-1]):
+                log.debug("0x%X: name check: ok", offset)
+            else:
+                log.debug("0x%X: name check: failed (unprintable chars in name)", offset)
+
+            log.debug("0x%X: all header checks passed, using this header", offset)
+            return hdr
+        else:
+            raise HeaderError("No valid SNES header found")
+
+    @property
+    def registration(self):
+        if self.header.devid != self.devid_magic:
+            return None
+        offset = self.header_locations[self.header.mapmode] - 0x10
+        return headers['snes-reg'](self.data[offset::Unit.bytes])
+
+    @property
+    def smc(self):
+        sz_smc = self.file.ct_bytes % 1024
+        if sz_smc == 0:
+            return None
+        elif sz_smc == self.sz_smc:
+            return self.file[0:sz_smc:Unit.bytes]
+        else:
             raise HeaderError("Bad rom file size or corrupt SMC header")
-        romfile.seek(0)
-        return romfile.read(sz_smc)
 
-    @classmethod
-    def checksum(cls, romdata):
-        if not math.log(len(romdata), 2).is_integer():
-            msg = "Rom size {} is not a power of two"
-            raise NotImplementedError(msg.format(len(romdata)))
-        return sum(romdata) % 0xFFFF
+    @property
+    def checksum(self):
+        if not math.log(self.data.ct_bytes, 2).is_integer():
+            msg = "Rom size {self.data.ct_bytes} is not a power of two"
+            raise NotImplementedError(msg)
+        return sum(self.data.bytes) % 0xFFFF
 
-
-    @classmethod
-    def _load_header(cls, romfile):
-        smc = cls._load_smc(romfile)
-        romfile.seek(len(smc))
-        data = romfile.read()
-
-        for offset in [cls.ofs_hirom, cls.ofs_lorom]:
-            if offset > len(data):
-                # Happens for at least one Game Genie rom -- it's lorom and not
-                # physically large enough to be hirom
-                continue
-            bs_head = BitStream(bytes=data[offset:offset+64])
-            try:
-                header = headers[cls.romtype](bs_head)
-                cls._validate_header(offset, len(data), header)
-                return header
-            except (UnicodeDecodeError, HeaderError) as e:
-                # The unicode one gets thrown when the name string isn't valid.
-                log.debug(str(e))
-                continue
-        raise HeaderError("No valid header found")
-
-    @classmethod
-    def _validate_header(cls, offset, datasize, header):
-        sz_max = 1024*2**(header.sz_rom)
-
-        if offset != (cls.ofs_hirom if header.hirom else cls.ofs_lorom):
-            raise HeaderError("Hirom bit doesn't match location")
-        if not sz_max >= datasize > sz_max/2:
-            raise HeaderError("Rom file size doesn't match header.")
-        if not all(c in string.printable for c in header.name):
-            raise HeaderError("Bogus ROM name in header.")
-
-        return True
-
-def identify(romfile):
-    # Requires reading the whole rom to determine its type. There must be a
-    # better way to do this.
-    return Rom.make(romfile).romtype
+    def validate(self):
+        return bool(self.header)

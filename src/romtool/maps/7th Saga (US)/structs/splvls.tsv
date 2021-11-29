@@ -1,4 +1,4 @@
-id	label	size	type	subtype	display	order	info	comment
+id	name	size	type	subtype	display	order	info	comment
 slvl0	Spell 0 Level	1	uint					
 slvl1	Spell 1 Level	1	uint					
 slvl2	Spell 2 Level	1	uint					
