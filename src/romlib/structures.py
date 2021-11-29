@@ -195,8 +195,28 @@ class Structure(Mapping, NodeMixin):
             else:
                 other[k] = v
 
+    def load(self, tsv_row):
+        for field in self.fields:
+            key = field.name
+            if isinstance(self[key], BitField):
+                old = str(self[key])
+                self[key].parse(tsv_row[key])
+                new = str(self[key])
+                if old != new:
+                    log.debug("changed: %s:%s (%s -> %s)",
+                              type(self).__name__, key, old, new)
+            else:
+                value = field.parse(tsv_row[field.name])
+                old = str(self[key])
+                new = str(value)
+                if old != new:
+                    log.debug("changed: %s:%s (%s -> %s)",
+                              type(self).__name__, key, old, new)
+                self[key] = value
+
 
 class BitField(Structure):
+    # FIXME: this is the next thing that needs doing, I think.
     def __str__(self):
         return ''.join(field.display.upper() if self[field.name]
                        else field.display.lower()
@@ -271,12 +291,16 @@ class Table(Sequence, NodeMixin):
             raise IndexError("Table index out of range")
         elif self._struct:
             return self._struct(self._subview(i), self)
-        elif  self.typename == 'str':
+        elif self.typename == 'str':
             return self._subview(i).bytes.decode(self.display)
+        elif self.display in ('hex', 'pointer'):
+            return util.HexInt(getattr(self._subview(i), self.typename))
         else:
             return getattr(self._subview(i), self.typename)
 
     def __setitem__(self, i, v):
+        if str(v) != str(self[i]):
+            log.debug("difference detected: %r != %r", v, self[i])
         if isinstance(i, slice):
             indices = list(range(i.start, i.stop, i.step))
             if len(indices) != len(v):
@@ -289,7 +313,17 @@ class Table(Sequence, NodeMixin):
         if self._struct:
             self[i].copy(v)
         elif  self.typename == 'str':
-            self._subview(i).bytes = v.encode(self.display)
+            bv = self._subview(i)
+            # Avoid spurious patch changes when there's more than one way
+            # to encode the same string
+            old = bv.bytes.decode(self.display or 'ascii')
+            if v == old:
+                return
+            # This smells. Duplicates the process in Field._set_str.
+            content = BytesIO(bitview.bytes)
+            content.write(v.encode(self.display or 'ascii'))
+            content.seek(0)
+            bv.bytes = content.read()
         else:
             setattr(self._subview(i), self.typename, v)
 

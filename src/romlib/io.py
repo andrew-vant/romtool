@@ -56,6 +56,9 @@ class BitArrayView(NodeMixin):
     def __len__(self):
         return self.length
 
+    def __eq__(self, other):
+        return self.bits == other.bits
+
     @property
     def sha1(self):
         """ Get sha1 hash of contents """
@@ -167,14 +170,22 @@ class BitArrayView(NodeMixin):
 
     @bits.setter
     def bits(self, ba):
+        old = self.bits
         if len(ba) != len(self):
             msg = f"expected {len(self)} bits, got {len(ba)}"
             raise ValueError(msg)
         self.ba[self.abs_slice] = ba
+        new = self.bits
+        if new != old:
+            log.debug("change detected: %s -> %s", old, new)
 
     @property
     def bin(self):
         return ''.join('1' if bit else '0' for bit in self)
+
+    @bin.setter
+    def bin(self, string):
+        self.bits = bitarray(string, endian=self.ba.endian())
 
     @property
     def bytes(self):
@@ -190,7 +201,12 @@ class BitArrayView(NodeMixin):
 
     @uint.setter
     def uint(self, i):
+        if isinstance(i, str):
+            i = int(i, 0)
+        old = self.uint
         self.bits = int2ba(i, length=len(self), endian=self.ba.endian())
+        if old != self.uint:
+            log.debug("change detected: %s -> %s", old, self.uint)
 
     @property
     def uintbe(self):
@@ -206,4 +222,6 @@ class BitArrayView(NodeMixin):
 
     @uintle.setter
     def uintle(self, i):
+        if isinstance(i, str):
+            i = int(i, 0)
         self.bytes = (i).to_bytes(bits2bytes(len(self)), 'little')

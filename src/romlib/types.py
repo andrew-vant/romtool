@@ -1,12 +1,14 @@
+import logging
 from functools import lru_cache, partial
 from dataclasses import dataclass, fields
 from collections import UserList
 from io import BytesIO
 
 from anytree import NodeMixin
+from bitarray import bitarray
 
 from .io import BitArrayView, Unit
-from .util import intify
+from .util import intify, HexInt
 
 @dataclass
 class Field:
@@ -64,6 +66,9 @@ class Field:
     def write(self, bitview, value):
         self.writer(bitview, value)
 
+    def parse(self, string):
+        return self.parser(string)
+
     @property
     def reader(self):
         return partial(self.readers[self.type], self)
@@ -71,6 +76,10 @@ class Field:
     @property
     def writer(self):
         return partial(self.writers[self.type], self)
+
+    @property
+    def parser(self):
+        return partial(self.parsers[self.type], self)
 
     @classmethod
     def from_tsv_row(cls, row):
@@ -105,11 +114,40 @@ class Field:
         bitview.bytes = content.read()
 
     def _get_int(self, bitview):
-        return getattr(bitview, self.type) + (self.arg or 0)
+        i = getattr(bitview, self.type) + (self.arg or 0)
+        if self.display in ('hex', 'pointer'):
+            return HexInt(i, len(bitview))
+        else:
+            return i
+
 
     def _set_int(self, bitview, value):
         value -= (self.arg or 0)
         setattr(bitview, self.type, value)
+
+    def _parse_int(self, string):
+        return int(string, 0)
+
+    def _parse_bin(self, string):
+        # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
+        # necessary if possible.
+        old = string
+        if isinstance(self.size, int):
+            string = string.zfill(self.size * self.unit)
+        return string
+
+    def _parse_bytes(self, string):
+        return bytes.fromhex(string)
+
+    def _get_direct(self, bitview):
+        return getattr(bitview, self.type)
+
+    def _set_direct(self, bitview, value):
+        setattr(bitview, self.type, value)
+
+    def _noop(self, obj):
+        return obj
+
 
     @classmethod
     def register_type(cls, name, reader, writer):
@@ -123,12 +161,23 @@ class Field:
                'uintle': _get_int,
                'str':    _get_str,
                'strz':   _get_str,
-               'bytes':  lambda self, bv: bv.bytes,
-               'bin':    lambda self, bv: bv.bin}
+               'bytes':  _get_direct,
+               'bin':    _get_direct}
 
     writers = {'int':    _set_int,
                'uint':   _set_int,
                'uintbe': _set_int,
                'uintle': _set_int,
                'str':    _set_str,
-               'strz':   _set_str}
+               'strz':   _set_str,
+               'bytes':  _set_direct,
+               'bin':    _set_direct}
+
+    parsers = {'int':    _parse_int,
+               'uint':   _parse_int,
+               'uintbe': _parse_int,
+               'uintle': _parse_int,
+               'str':    _noop,
+               'strz':   _noop,
+               'bytes':  _parse_bytes,
+               'bin':    _parse_bin}

@@ -1,15 +1,19 @@
 import string
 import logging
 import math
+import io
 import operator
+from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
 from itertools import groupby, chain
 
 from bitarray import bitarray
 from anytree import NodeMixin
+from addict import Dict
 
 from . import util
+from .patch import Patch
 from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Table, Index
 from .rommap import RomMap
@@ -40,7 +44,7 @@ class Rom(NodeMixin):
         ba.fromfile(romfile)
 
         self.file = Stream(ba)
-        self.orig = Stream(bitarray(ba))
+        self.orig = Stream(ba.copy())
 
         self.map = rommap
         byidx = lambda row: row.get('index', '')
@@ -64,27 +68,96 @@ class Rom(NodeMixin):
         tablespecs = sorted(self.map.tables.values(), key=byset)
 
         for tset, tspecs in groupby(tablespecs, byset):
-            tspecs = list(tspecs)
+            tspecs = [Dict(ts) for ts in tspecs]
             ct_tables = len(tspecs)
             ct_items = int(tspecs[0]['count'], 0)
             log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
             path = pathjoin(folder, f'{tset}.tsv')
 
+            # Get headers sorted by field explicit order, then whether it's a
+            # name, then whether it's a structural value (non-struct values are
+            # usually pointers and belong at the end).
+            header_ordering = {}
+            def ordering(field):
+                if any(s.lower() == 'name' for s in (field.id, field.name)):
+                    return -1
+                elif field.display == 'pointer':
+                    return 1
+                else:
+                    return 0
+
+            for tspec in tspecs:
+                table = getattr(self, tspec.id)
+                fields = (Structure.registry[table.typename].fields
+                          if table.typename in Structure.registry
+                          else [tspec])
+                for field in fields:
+                    order = (field.order or 0, ordering(field))
+                    header_ordering[field.name] = order
+            headers = [k for k, v
+                       in sorted(header_ordering.items(),
+                                 key=itemgetter(1))]
+            headers.append('_idx')
+
+            # Now turn the records themselves into dicts.
             records = []
             for i in range(ct_items):
-                record = {}
+                log.debug("Dumping %s #%s", tset, i)
+                record = {'_idx': i}
                 for tspec in tspecs:
-                    tid = tspec['id']
-                    item = getattr(self, tid)[i]
+                    item = getattr(self, tspec.id)[i]
                     if isinstance(item, Structure):
                         record.update(item.items())
                     else:
-                        record[tspec['name']] = item
+                        record[tspec.name] = item
                 records.append(record)
+
             keys = set(records[0].keys())
             for r in records:
                 assert not (set(r.keys()) - keys)
-            util.writetsv(path, records, force)
+                assert not (set(keys - r.keys()))
+            util.writetsv(path, records, force, headers)
+
+    def load(self, folder):
+        data = {}
+        for _set in self.map.sets:
+            path = pathjoin(folder, f'{_set}.tsv')
+            log.debug("loading mod set '%s' from %s", _set, path)
+            contents = util.readtsv(path)
+            byidx = lambda row: int(row['_idx'], 0)
+            try:
+                contents = sorted(contents, key=byidx)
+            except KeyError:
+                log.warning('_idx field not present; assuming input order is correct')
+            data[_set] = contents
+
+        for tspec in self.map.tables.values():
+            tspec = Dict(tspec)
+            log.info("Loading table '%s' from set '%s'", tspec.id, tspec.set)
+            table = getattr(self, tspec.id)
+            for i, (orig, new) in enumerate(zip(table, data[tspec.set])):
+                name = new.get('Name', 'nameless')
+                log.debug("Loading %s #%s (%s)", tspec.id, i, name)
+                with util.loading_context(tspec.id, name, i):
+                    if isinstance(orig, Structure):
+                        orig.load(new)
+                    else:
+                        table[i] = new[tspec['name']]
+
+    @property
+    def patch(self):
+        return self.make_patch()
+
+    def make_patch(self):
+        old = io.BytesIO(self.orig.bytes)
+        new = io.BytesIO(self.file.bytes)
+        return Patch.from_diff(old, new)
+
+    def apply_patch(self, patch):
+        contents = io.BytesIO(self.file.bytes)
+        patch.apply(contents)
+        contents.seek(0)
+        self.file.bytes = contents.read()
 
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")

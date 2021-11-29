@@ -5,12 +5,13 @@ import logging
 from typing import Mapping, Sequence
 from functools import partial
 from dataclasses import dataclass, field
+from os.path import relpath
 
 from addict import Dict
 
 import romlib.util as util
 import romlib.text as text
-from .structures import Structure, Table
+from .structures import Structure, BitField, Table
 from .text import TextTable
 
 
@@ -42,6 +43,10 @@ class RomMap:
     ttables: Mapping[str, TextTable] = _adctfld()
     tests: Sequence = list
 
+
+    @property
+    def sets(self):
+        return set(t['set'] for t in self.tables.values())
 
     @classmethod
     def load(cls, root):
@@ -76,20 +81,30 @@ class RomMap:
         # text.
         log.info("Loading text tables")
         kwargs = Dict()
+        files = partial(util.get_subfiles, root)
 
         kwargs.ttables = Dict()
-        for name, path in util.get_subfiles(root, "texttables", ".tbl"):
-            msg = "Loading text table '%s' from %s"
-            log.info(msg, name, path)
+        for name, path in files('texttables', '.tbl'):
+            rpath = relpath(path, root)
+            log.info("Loading text table '%s' from %s", name, rpath)
             with open(path) as f:
                 kwargs.ttables[name] = text.add_tt(name, f)
+
+        # Repeat for bitfields
+        kwargs.structs = Dict()
+        log.info("Loading bitfields")
+        for name, path in files('bitfields', '.tsv'):
+            rpath = relpath(path, root)
+            log.info("Loading bitfield '%s' from '%s'", name, rpath)
+            structcls = BitField.define_from_tsv(path)
+            kwargs.structs[name] = structcls
 
         # Repeat for structs.
         kwargs.structs = Dict()
         log.info("Loading structures")
-        structfiles = util.get_subfiles(root, 'structs', '.tsv')
-        for name, path in structfiles:
-            log.info("Loading structure '%s' from '%s'", name, path)
+        for name, path in files('structs', '.tsv'):
+            rpath = relpath(path, root)
+            log.info("Loading structure '%s' from '%s'", name, rpath)
             structcls = Structure.define_from_tsv(path)
             kwargs.structs[name] = structcls
 
