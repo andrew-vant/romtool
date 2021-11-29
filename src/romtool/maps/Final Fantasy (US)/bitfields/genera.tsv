@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+magic	Magical	bits	0	1	uint	M
+dragon	Dragon	bits	1	1	uint	D
+giant	Giant	bits	2	1	uint	G
+undead	Undead	bits	3	1	uint	U
+were	Werebeast	bits	4	1	uint	W
+aqua	Aquatic	bits	5	1	uint	A
+caster	Caster	bits	6	1	uint	C
+regen	Regenerative	bits	7	1	uint	R

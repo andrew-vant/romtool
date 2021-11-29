@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+mute	Mute	bits	0	1	uint	M
+sleep	Sleep	bits	1	1	uint	S
+poison	Poison	bits	2	1	uint	P
+fear	Fear	bits	3	1	uint	F
+unk	Unknown	bits	4	1	uint	U
+mushroom	Mushroom	bits	5	1	uint	M
+scarecrow	Scarecrow	bits	6	1	uint	S
+invuln	Invulnerable	bits	7	1	uint	I

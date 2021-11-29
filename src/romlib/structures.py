@@ -7,19 +7,107 @@ import logging
 from collections.abc import Mapping, Sequence
 from itertools import chain, combinations
 from os.path import basename, splitext
+from io import BytesIO
 
 import yaml
 from anytree import NodeMixin
 
-from .types import Field
+from .types import Field, StructField
 from . import util
+from .util import RomObject
 from .io import Unit
+from .exceptions import RomtoolError
 
 
 log = logging.getLogger(__name__)
 
+class Entity:
+    """ Wrapper for corresponding objects in parallel tables
 
-class Structure(Mapping, NodeMixin):
+    Attribute and key operations on an Entity will be forwarded to the `i`th
+    element of each underlying table until one returns successfully. For tables
+    that return a primitive value, the lookup will be checked against the
+    table's name.
+
+    FIXME: can't have more than one table with an id of 'name'. Also intuitive
+    table names for primtives are things like 'charnames', which the check
+    below won't match. Need another way to identify name tables.
+    """
+
+    def __init__(self, _i, _dct=None, **tables):
+        if _dct is None:
+            _dct = {}
+        else:
+            _dct = _dct.copy()
+        _dct.update(tables)
+
+        sa = super().__setattr__
+        sa('index', _i)
+        sa('tables', _dct)
+
+    def __str__(self):
+        return f'Entity({list(self.tables)} #{self.index})'
+
+    def _name(self):
+        for key, table in self.tables.items():
+            v = table[self.index]
+            if table.fid == 'name':
+                return v
+            try:
+                return v.name
+            except AttributeError:
+                pass
+        raise AttributeError(f"Tried to get name of {self}, but it is nameless")
+
+    def __getitem__(self, key):
+        for name, table in self.tables.items():
+            if key == name:
+                return table[self.index]
+            try:
+                return table[self.index][key]
+            except (KeyError, TypeError):
+                pass
+        raise KeyError(f"no field with name '{key}'")
+
+    def __setitem__(self, key, value):
+        for name, table in self.tables.items():
+            item = table[self.index]
+            if key == name:
+                table[self.index] = value
+            elif isinstance(item, Structure) and key in item:
+                item[key] = value
+        raise KeyError(f"no field with name '{key}'")
+
+    def __getattr__(self, attr):
+        if attr == 'name':
+            return self._name()
+        if attr in self.tables:
+            return self.tables[attr][self.index]
+        for table in self.tables.values():
+            item = table[self.index]
+            if hasattr(item, attr):
+                return getattr(item, attr)
+        raise AttributeError(f"no field with id: '{attr}'")
+
+    def __setattr__(self, attr, value):
+        if attr in self.tables:
+            self.tables[attr][self.index] = value
+            return
+        for table in self.tables.values():
+            if table.fid == attr:
+                table[self.index] = value
+                return
+            item = table[self.index]
+            if hasattr(item, attr):
+                setattr(item, attr, value)
+                return
+        raise AttributeError(f"no field with id: '{attr}'")
+
+    # TODO: add equivalent of Structure.__iter__, keys(), etc...so we can
+    # get output headers in the right order more easily.
+
+
+class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
 
     registry = {}
@@ -29,55 +117,32 @@ class Structure(Mapping, NodeMixin):
         self.view = view
         self.parent = parent
 
-    def _subview(self, field):
-        # This ugliness is supposed to get us a bitarrayview of a single field
-        # It's surprisingly difficult to handle int, str, and None values
-        # concisely.
-        context = (self.view if field.origin is None
-                   else self.view.root if field.origin == 'root'
-                   else self.view.root.find(field.origin))
-
-        mapper = {str: lambda v: getattr(self, v) * field.unit,
-                  int: lambda v: v * field.unit,
-                  type(None): lambda v: v}
-
-        offset = mapper[type(field.offset)](field.offset)
-        size = mapper[type(field.size)](field.size)
-        end = (size if not offset
-               else offset + size if size
-               else None)
-        return context[offset:end]
-
-    def _get(self, field):
-        """ Plumbing behind getitem/getattr """
-        subview = self._subview(field)
-        if field.type in self.registry:
-            return Structure.registry[field.type](subview, self)
-        else:
-            return field.read(subview)
-
-    def _set(self, field, value):
-        if field.type in self.registry:
-            value.copy(self._get_struct(field))
-        else:
-            subview = self._subview(field)
-            field.write(subview, value)
-
     def __getitem__(self, key):
-        return self._get(self._fbnm(key))
+        return self._fbnm(key).read(self)
 
     def __setitem__(self, key, value):
-        self._set(self._fbnm(key), value)
+        self._fbnm(key).write(self, value)
 
     def __getattr__(self, key):
-        return self._get(self._fbid(key))
+        return self._fbid(key).read(self)
 
     def __setattr__(self, key, value):
         # TODO: don't allow setting new attributes after definition is done.
         try:
-            self._set(self._fbid(key), value)
+            self._fbid(key).write(self, value)
         except AttributeError:
             super().__setattr__(key, value)
+
+    def lookup(self, key):
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            pass
+        try:
+            return self[key]
+        except KeyError:
+            pass
+        raise LookupError(f"Couldn't find {key} in {self}")
 
     @classmethod
     def _fbid(cls, fid):
@@ -102,8 +167,8 @@ class Structure(Mapping, NodeMixin):
 
         If the structure size is variable, get the maximum possible size
         """
-        return sum(field.size * field.unit for field in cls.fields)
-
+        return sum(field.size.eval(cls) * field.unit
+                   for field in cls.fields)
 
     def __iter__(self):
         return (f.name for f in self.fields)
@@ -155,6 +220,7 @@ class Structure(Mapping, NodeMixin):
         if name in cls.registry:
             log.warning("duplicate definition of '%s'", name)
         cls.registry[name] = cls
+        StructField.handle(name)
 
     @classmethod
     def define(cls, name, fields):
@@ -183,8 +249,13 @@ class Structure(Mapping, NodeMixin):
     @classmethod
     def define_from_tsv(cls, path):
         name = splitext(basename(path))[0]
+        rows = util.readtsv(path)
+        return cls.define_from_rows(name, rows)
+
+    @classmethod
+    def define_from_rows(cls, name, rows):
         fields = [Field.from_tsv_row(row)
-                  for row in util.readtsv(path)]
+                  for row in rows]
         return cls.define(name, fields)
 
     def copy(self, other):
@@ -235,12 +306,12 @@ class BitField(Structure):
             self[k] = letter.isupper()
 
 
-class Table(Sequence, NodeMixin):
+class Table(Sequence, NodeMixin, RomObject):
 
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
 
-    def __init__(self, view, typename, index,
+    def __init__(self, view, typename, index, fid=None, name=None,
                  offset=0, size=None, units=Unit.bytes, display=None,
                  parent=None):
         """ Create a Table
@@ -250,6 +321,8 @@ class Table(Sequence, NodeMixin):
         cls:    The type of object contained in this table.
         """
 
+        self.fid = fid
+        self.name = name
         self.view = view
         self.parent = parent
         self.index = index
@@ -273,7 +346,9 @@ class Table(Sequence, NodeMixin):
         elif isinstance(self.index, Index):
             return self.index.stride * self.units
         else:
-            raise ValueError("Couldn't figure out item size")
+            ident = self.name or self.fid or 'unknown'
+            msg = f"Couldn't figure out size of items in {ident} table"
+            raise ValueError(msg)
 
     def _subview(self, i):
         start = (self.offset + self.index[i]) * self.units
@@ -284,6 +359,13 @@ class Table(Sequence, NodeMixin):
         content = ', '.join(repr(item) for item in self)
         return f'Table({content})\n'
 
+    def __str__(self):
+        tp = self.typename
+        ct = len(self)
+        offset = util.HexInt(self.index.offset)
+        return f'Table({tp}*{ct}@{offset})'
+
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             return Table(self.view, self.typename, self.index[i])
@@ -292,11 +374,33 @@ class Table(Sequence, NodeMixin):
         elif self._struct:
             return self._struct(self._subview(i), self)
         elif self.typename == 'str':
-            return self._subview(i).bytes.decode(self.display)
+            return self._subview(i).str.read(self.display)
+        elif self.typename == 'strz':
+            return self._subview(i).strz.read(self.display)
         elif self.display in ('hex', 'pointer'):
             return util.HexInt(getattr(self._subview(i), self.typename))
         else:
             return getattr(self._subview(i), self.typename)
+
+    def lookup(self, name):
+        try:
+            return next(item for item in self if item.name == name)
+        except AttributeError:
+            raise AttributeError(f"Tried to look up {self.typename} by name, "
+                                  "but they are nameless")
+        except StopIteration:
+            raise LookupError(f"No object with name: {name}")
+
+    def locate(self, name):
+        """ Get the index of a structure with the given name """
+        try:
+            return next(i for i, item in enumerate(self)
+                        if item == name or item.name == name)
+        except AttributeError:
+            raise LookupError(f"Tried to look up {self.typename} by name, "
+                               "but they are nameless")
+        except StopIteration:
+            raise ValueError(f"No object with name: {name}")
 
     def __setitem__(self, i, v):
         if str(v) != str(self[i]):
@@ -309,21 +413,12 @@ class Table(Sequence, NodeMixin):
             for i, v in zip(range(i.start, i.stop, i.step), v):
                 self[i] = v
 
-        cls = self._struct
         if self._struct:
             self[i].copy(v)
-        elif  self.typename == 'str':
-            bv = self._subview(i)
-            # Avoid spurious patch changes when there's more than one way
-            # to encode the same string
-            old = bv.bytes.decode(self.display or 'ascii')
-            if v == old:
-                return
-            # This smells. Duplicates the process in Field._set_str.
-            content = BytesIO(bitview.bytes)
-            content.write(v.encode(self.display or 'ascii'))
-            content.seek(0)
-            bv.bytes = content.read()
+        elif self.typename == 'str':
+            self._subview(i).str.write(v, self.display)
+        elif self.typename == 'strz':
+            self._subview(i).strz.write(v, self.display)
         else:
             setattr(self._subview(i), self.typename, v)
 
@@ -337,19 +432,21 @@ class Table(Sequence, NodeMixin):
 
         # Filter out empty strings
         row = {k: v for k, v in row.items() if v}
-        aid = row['id']
         typename = row['type']
         offset = int(row.get('offset', '0'), 0)
         units = Unit[row.get('unit', 'bytes')]
         size = int(row['size'], 0) if 'size' in row else None
         display = row.get('display', None)
+        fid = row.get('fid', None)
+        name = row.get('name', None)
         if 'index' in row:
             index = getattr(parent, row['index'])
         else:
             count = int(row['count'], 0)
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
-        return Table(view, typename, index, offset, size, units, display, parent)
+        return Table(view, typename, index, fid, name,
+                     offset, size, units, display, parent)
 
 
 class Index(Sequence):

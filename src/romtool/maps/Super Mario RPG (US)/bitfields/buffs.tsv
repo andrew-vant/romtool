@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+unk1	Unknown 1	bits	0	1	uint	U
+unk2	Unknown 2	bits	1	1	uint	U
+unk3	Unknown 3	bits	2	1	uint	U
+mag	Magic Up	bits	3	1	uint	M
+atk	Attack Up	bits	4	1	uint	A
+res	Resist Up	bits	5	1	uint	R
+def	Defense Up	bits	6	1	uint	D
+unk4	Unknown 4	bits	7	1	uint	U

@@ -1,39 +1,29 @@
-import argparse
 import sys
 import hashlib
 import logging
 import os
-import io
 import shutil
-import textwrap
 import itertools
 import csv
-from pprint import pprint
-from itertools import chain
-from importlib.machinery import SourceFileLoader
-
-import yaml
+import json
+from os.path import splitext
 
 import romlib
 import romlib.charset
 from romlib.rommap import RomMap
 from romlib.rom import Rom
-from romtool import util
-from romtool.util import pkgfile
+from romlib.patch import Patch
+from romtool.util import pkgfile, slurp, loadyaml
+from romlib.util import pipeline
+from romlib.exceptions import ChangesetError
 
-try:
-    # Try to do the right thing when piping to head, etc.
-    from signal import signal, SIGPIPE, SIG_DFL
-    signal(SIGPIPE, SIG_DFL)
-except ImportError:
-    # SIGPIPE isn't available on Windows, at least not on my machine. For now
-    # just ignore it, but I should probably test piping on windows at some
-    # point.
-    pass
+log = logging.getLogger(__name__)
+
 
 class RomDetectionError(Exception):
     """ Indicates that we couldn't autodetect the map to use for a ROM."""
     def __init__(self, _hash=None, filename=None):
+        super().__init__()
         self.hash = _hash
         self.filename = filename
     def __str__(self):
@@ -99,10 +89,19 @@ def dump(args):
     except FileExistsError as err:
         logging.error(err)
         dest = os.path.abspath(args.moddir)
-        logging.error("Aborting, dump would overwrite files in {dest}")
+        logging.error("Aborting, dump would overwrite files in %s", dest)
         logging.error("you can use --force if you really mean it")
         sys.exit(2)
     logging.info("Dump finished")
+
+def initchg(args):
+    """ Generate a starter changeset file
+
+    The generated file should indicate what tables are available for
+    modification, what fields exist for the objects in those tables, and
+    if possible provide minimal commented examples.
+    """
+    raise NotImplementedError
 
 
 def build(args):
@@ -110,26 +109,16 @@ def build(args):
 
     Intended to be applied to a directory created by the dump subcommand.
     """
-    # FIXME 2!: Don't require users to edit the dumps in-place; let them
-    # provide one or more yaml files specifying only the changes to make.
-    # Optionally, generate a changelog along with the patch. Changes should
-    # specify a table, name, key, and value, in most cases. Changelog should be
-    # something like "esuna's HP increased from 16 to 100" or similar. If this
-    # is the mode encouraged for novices, it gets around the stupid shit with
-    # spreadsheet programs, too. Also makes patch testing easier. Might also
-    # make it eaiser to migrate mods from one version of the map to another.
-    #
-    # FIXME 3: Why stop with yaml? Allow json for the crazies.
+    # FIXME: Optionally, generate a changelog along with the patch. Changes
+    # should specify a table, name, key, and value, in most cases. Changelog
+    # should be something like "esuna's HP increased from 16 to 100" or
+    # similar. If this is the mode encouraged for novices, it gets around the
+    # stupid shit with spreadsheet programs, too. Also makes patch testing
+    # easier. Might also make it eaiser to migrate mods from one version of
+    # the map to another.
 
-    # FIXME: Really ought to support --include for auto-merging other patches.
-    # Have it do the equivalent of build and then merge.
-    #
-    # FIXME: accept any number of positional args indicating input files or
-    # directories. It should accept moddirs, json or yaml changesets, or
-    # existing patches, apply them sequentially in command-line order, and
-    # print the resulting patch.
-    #
-    # FIXME: This stuff should probably be next.
+    # FIXME: I'd like to print a warning if overlapping changes occur, but
+    # I'm not sure how to detect that
 
     if not args.map:
         try:
@@ -143,41 +132,32 @@ def build(args):
     logging.info("Opening ROM file at: %s", args.rom)
     with open(args.rom, "rb") as f:
         rom = Rom.make(f, rmap)
+    # For each supported changeset type, specify a set of functions to apply in
+    # sequence to the filename to load it.
+    typeloaders = {'.ips': [Patch.load, rom.apply_patch],
+                   '.ipst': [Patch.load, rom.apply_patch],
+                   '.yaml': [slurp, loadyaml, rom.apply],
+                   '.json': [slurp, json.loads, rom.apply]}
     for path in args.input:
-        logging.info("Reading modification data from: %s", args.input[0])
-        rom.load(path)
-    _writepatch(rom.patch, args.patch)
-
-
-def merge(args):
-    """ Merge multiple patches.
-
-    This can accept and merge changes from any number of existing patches and
-    formats. Overlapping changes will produce a warning. Last changeset
-    specified on the command line wins.
-    """
-    changeset = romlib.util.CheckedDict()
-    for patchfile in args.patches:
-        msg = "Importing changes from %s."
-        logging.info(msg, patchfile)
-        changeset.update(romlib.Patch.load(patchfile).changes)
-
-    # Filter the complete changeset against a target ROM if asked.
-    patch = romlib.Patch(changeset)
-    _filterpatch(patch, args.rom)
-    _writepatch(patch, args.out)
+        logging.info("Loading changes from: %s", path)
+        ext = splitext(path)[1]
+        loaders = typeloaders.get(ext, None)
+        if loaders:
+            try:
+                pipeline(path, *loaders)
+            except ChangesetError as ex:
+                raise ChangesetError(f"Error in '{path}': {ex}")
+        elif os.path.isdir(path):
+            rom.load(path)
+        else:
+            raise ValueError(f"Don't know what to do with input file: {path}")
+    _writepatch(rom.patch, args.out)
 
 
 def convert(args):
-    """ Convert one patch format to another.
-
-    This is just syntactic sugar over merge.
-    """
-    args.patches = [args.infile]
-    args.out = args.outfile
-    args.rom = None
-    merge(args)
-
+    """ Convert one patch format to another. """
+    patch = Patch.load(args.infile)
+    patch.save(args.outfile)
 
 def diff(args):
     """ Build a patch by diffing two roms.
@@ -187,7 +167,7 @@ def diff(args):
     """
     with open(args.original, "rb") as original:
         with open(args.modified, "rb") as changed:
-            patch = romlib.Patch.from_diff(original, changed)
+            patch = Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
 
 def apply(args):
@@ -197,7 +177,7 @@ def apply(args):
     """
     # Move the target to a backup name first to preserve its metadata, then
     # copy it back to its original name, then patch it there.
-    patch = romlib.Patch.load(args.patch)
+    patch = Patch.load(args.patch)
     tgt = args.target
     _backup(args.target, args.nobackup)
     logging.info("Applying patch")
@@ -213,7 +193,7 @@ def sanitize(args):
     This uses map-specific hooks to correct any checksum errors or similar
     file-level issues in a rom or savegame.
 
-    FIXME: pretty sure the savegame part doesn't work anymore...
+    FIXME: Supply separate sanitizer
     """
     if args.map is None:
         try:
@@ -221,43 +201,12 @@ def sanitize(args):
         except RomDetectionError as e:
             e.log()
             sys.exit(2)
-    rmap = romlib.RomMap(args.map)
-
-    # Maps must supply sanitize_save and sanitize_rom hooks. If they're not
-    # found, assume nothing needs to be done. FIXME: separate sanatization into
-    # mandatory parts (e.g checksums) and linting (e.g. hp > max hp, oops).
-    # Call the latter lint_save, lint_rom, etc.
-
-    try:
-        path = args.map + "/hooks.py"
-        logging.info("Loading map hooks from %s", path)
-        hooks = SourceFileLoader("hooks", path).load_module()
-    except FileNotFoundError:
-        logging.info("%s not present", path)
-        logging.info("Nothing needs to be done")
-        sys.exit(0)
-    else:
-        logging.debug("Done loading hooks.")
-
-    if not args.type:
-        args.type = "rom"
-    funcname = "sanitize_" + args.type
-    logging.info("Looking for %s hook", funcname)
-    try:
-        sanitize = getattr(hooks, funcname)
-    except AttributeError:
-        logging.info("No hook for %s", funcname)
-        logging.info("Nothing needs to be done")
-        sys.exit(0)
-    else:
-        logging.debug("Found hook %s", funcname)
-
-    # Well that was ugly. Here's the actual work:
-
+    rmap = RomMap.load(args.map)
     _backup(args.target, args.nobackup)
-    with open(args.target, "r+b") as f:
-        logging.info("Sanitizing '%s'", args.target)
-        sanitize(f)
+    rom = Rom.make(args.target, rmap)
+    log.info("Sanitizing '%s'", args.target)
+    rom.sanitize()
+    rom.write(args.target)
 
 
 def charmap(args):
@@ -301,7 +250,6 @@ def charmap(args):
             merged = romlib.charset.merge(*m)
         except romlib.charset.MappingConflictError:
             logging.debug("Mapping conflict")
-            pass
         else:
             logging.info("Found consistent character map.")
             charsets.append(merged)
@@ -317,10 +265,11 @@ def charmap(args):
         for byte, char in out:
             print("{:02X}={}".format(byte, char))
 
-def blocks(args):
+def findblocks(args):
+    """ Search for unused blocks in a rom """
     # Most users likely use Windows, so I can't rely on them having sort, head,
     # etc or equivalents available, nor that they'll know how to use them.
-    # Hence some extra args that shouldn't be necessary but are.
+    # Hence some extra args for sorting/limiting the output
     args.byte = romlib.util.intify(args.byte, None)
     args.num = romlib.util.intify(args.num, None)
     args.min = romlib.util.intify(args.min, 16)
@@ -369,7 +318,7 @@ def meta(args):
                 continue
         header_data = {"File": filename}
         header_data.update(rom.header.dump())
-        columns = ['File'] + romlib.struct.output_fields(rom.header)
+        columns = ['File'] + list(rom.header.labels)
         if not writer:
             writer = csv.DictWriter(sys.stdout, columns, dialect='romtool')
             writer.writeheader()
@@ -379,7 +328,10 @@ def meta(args):
 def identify(args):
     for filename in args.rom:
         with open(filename, 'rb') as romfile:
-            print(romlib.rom.identify(romfile) + "\t" + filename)
+            path = detect(romfile)
+            rmap = RomMap.load(path)
+            name = getattr(rmap, 'name', None) or "unknown"
+            print('\t'.join([name, filename, path]))
 
 
 def _backup(filename, skip=False):
@@ -400,7 +352,7 @@ def _filterpatch(patch, romfile):
         msg = "Filtering changes against %s."
         logging.info(msg, romfile)
         with open(romfile, "rb") as rom:
-                patch.filter(rom)
+            patch.filter(rom)
 
 
 def _writepatch(patch, outfile):

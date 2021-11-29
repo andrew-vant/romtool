@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+status	Status	bits	0	1	uint	S
+poison	Poison	bits	1	1	uint	P
+time	Time	bits	2	1	uint	T
+death	Death	bits	3	1	uint	D
+fire	Fire	bits	4	1	uint	F
+ice	Ice	bits	5	1	uint	I
+lit	Lightning	bits	6	1	uint	L
+earth	Earth	bits	7	1	uint	E

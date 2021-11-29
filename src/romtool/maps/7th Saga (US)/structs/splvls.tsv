@@ -1,17 +1,17 @@
-id	name	size	type	subtype	display	order	info	comment
-slvl0	Spell 0 Level	1	uint					
-slvl1	Spell 1 Level	1	uint					
-slvl2	Spell 2 Level	1	uint					
-slvl3	Spell 3 Level	1	uint					
-slvl4	Spell 4 Level	1	uint					
-slvl5	Spell 5 Level	1	uint					
-slvl6	Spell 6 Level	1	uint					
-slvl7	Spell 7 Level	1	uint					
-slvl8	Spell 8 Level	1	uint					
-slvl9	Spell 9 Level	1	uint					
-slvl10	Spell 10 Level	1	uint					
-slvl11	Spell 11 Level	1	uint					
-slvl12	Spell 12 Level	1	uint					
-slvl13	Spell 13 Level	1	uint					
-slvl14	Spell 14 Level	1	uint					
-slvl15	Spell 15 Level	1	uint					
+id	name	offset	size	type	subtype	display	order	info	comment
+slvl0	Spell 0 Level	0	1	uint					
+slvl1	Spell 1 Level	1	1	uint					
+slvl2	Spell 2 Level	2	1	uint					
+slvl3	Spell 3 Level	3	1	uint					
+slvl4	Spell 4 Level	4	1	uint					
+slvl5	Spell 5 Level	5	1	uint					
+slvl6	Spell 6 Level	6	1	uint					
+slvl7	Spell 7 Level	7	1	uint					
+slvl8	Spell 8 Level	8	1	uint					
+slvl9	Spell 9 Level	9	1	uint					
+slvl10	Spell 10 Level	10	1	uint					
+slvl11	Spell 11 Level	11	1	uint					
+slvl12	Spell 12 Level	12	1	uint					
+slvl13	Spell 13 Level	13	1	uint					
+slvl14	Spell 14 Level	14	1	uint					
+slvl15	Spell 15 Level	15	1	uint					

@@ -1,5 +1,5 @@
-id	label	size	type	mod	display	order	info	comment
-weight	Weight	1	uint					0-64 range
-abs	Absorb	1	uint					
-res	Resist	1	bin	lsb0	sptdfile			Status Psn/Stn Time Death Fire Ice Lightning Earth
-spl	Spell	1	uint					Probably an index into the spell array.
+id	name	offset	size	type	order	info	comment
+weight	Weight	0	1	uint			0-64 range
+abs	Absorb	1	1	uint			
+res	Resist	2	1	elements			Status Psn/Stn Time Death Fire Ice Lightning Earth
+spl	Spell	3	1	uint			Probably an index into the spell array.

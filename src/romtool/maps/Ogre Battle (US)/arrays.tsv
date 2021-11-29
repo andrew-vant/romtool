@@ -1,16 +1,18 @@
-name	label	set	type	offset	length	stride	display	tags	comment
-hpbase	HP Base	classes	uintle	0x1ef91	100	2			
-hpgrowth	HP Growth	classes	uintle	0x1f08b	100	1			
-strbase	Base Str	classes	uintle	0x1f0f0	100	1			
-strgrowth	Str Growth	classes	uintle	0x1f16d	100	1			
-agibase	Agi Base	classes	uintle	0x1f1d2	100	1			
-agigrowth	Agi Growth	classes	uintle	0x1f24f	100	1			
-intbase	Int Base	classes	uintle	0x1f2b4	100	1			
-intgrowth	Int Growth	classes	uintle	0x1f331	100	1			
-charisma	Cha Base	classes	uintle	0x1f396	100	1			
-alignment	Ali Base	classes	uintle	0x1f413	100	1			
-luck	Luck Base	classes	uintle	0x1f490	100	1			
-attacks	Attacks	classes	attacks	0x1f50d	100	1			
-attack1	Attack 1	classes	uintle	0x1f572	100	1			
-attack2	Attack 2	classes	uintle	0x1f5d7	100	1			
-affinity	Affinity	classes	uintle	0x1f63c	100	1			
+id	fid	name	set	type	offset	count	stride	size	index	priority	display	comment
+hp		HP Base	classes	uintle	0x1ef91	100	2					
+hpg		HP Growth	classes	uintle	0x1f08b	100	1					
+str		Str Base	classes	uintle	0x1f0f0	100	1					
+strg		Str Growth	classes	uintle	0x1f16d	100	1					
+agi		Agi Base	classes	uintle	0x1f1d2	100	1					
+agig		Agi Growth	classes	uintle	0x1f24f	100	1					
+int		Int Base	classes	uintle	0x1f2b4	100	1					
+intg		Int Growth	classes	uintle	0x1f331	100	1					
+cha		Cha Base	classes	uintle	0x1f396	100	1					
+ali		Ali Base	classes	uintle	0x1f413	100	1					
+luck		Luck Base	classes	uintle	0x1f490	100	1					
+attacks		Attacks	classes	attacks	0x1f50d	100	1					
+fatk		Attack (Front)	classes	uintle	0x1f572	100	1					
+ratk		Attack (Rear)	classes	uintle	0x1f5d7	100	1					
+affinity		Affinity	classes	uintle	0x1f63c	100	1					
+clsnmp	nmp	Name Pointer	classes	uintle	0x8ba2f	100	2	2			pointer	
+clsnm	name	Name	classes	strz	0x80000	100		16	clsnmp		ascii	

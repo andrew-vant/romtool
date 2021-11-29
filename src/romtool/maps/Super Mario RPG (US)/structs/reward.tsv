@@ -1,6 +1,6 @@
-id	label	size	type	mod	display	order	info	comment
-exp	Exp	2	uintle					
-coins	Coins	1	uintle					
-cookie	Cookie Drop	1	uintle					
-drop	Item Drop	1	uintle					
-rare	Rare Drop	1	uintle					
+id	name	offset	size	type	display	order	info	comment
+xp	Exp	0	2	uintle				
+coins	Coins	2	1	uint				
+cookie	Cookie Drop	3	1	uint				
+drop	Item Drop	4	1	uint				
+rare	Rare Drop	5	1	uint				

@@ -1,20 +1,20 @@
-id	label	size	type	mod	display	order	meta	comment
-name	Name	13	str		main			
-lvl	Level	1	uint					
-unk	Unknown 1	1	uint					
-gfx	Sprite	1	uint					
-pal	Palette	1	uint					Labeled as pattern in editor I'm working from, not sure what it means
-hp	HP	2	uintle					
-mp	MP	2	uintle					
-atk	ATK	2	uintle					
-def	DEF	2	uintle					
-agl	AGL (/2)	1	uint					
-int	INT (/2)	1	uint					
-gut	GUT (/2)	1	uint					
-mgr	MGR (/2)	1	uint					
-exp	EXP	2	uintle					
-gld	GOLD	2	uintle					
-dchance	Drop Chance	b7	uint				extra	
-drop	Drop Item	b9	uint				extra	
-resist	Resists Pointer	2	uintle		hex		extra	
-script	Script Pointer	2	uintle		hex		extra	
+id	name	unit	offset	size	type	arg	display	order	meta	comment
+name	Name		0	13	str		main			
+lvl	Level		13	1	uint					
+unk	Unknown 1		14	1	uint					
+gfx	Sprite		15	1	uint					
+pal	Palette		16	1	uint					Labeled as pattern in editor I'm working from, not sure what it means
+hp	HP		17	2	uintle					
+mp	MP		19	2	uintle					
+atk	ATK		21	2	uintle					
+def	DEF		23	2	uintle					
+agl	AGL (/2)		25	1	uint					
+int	INT (/2)		26	1	uint					
+gut	GUT (/2)		27	1	uint					
+mgr	MGR (/2)		28	1	uint					
+exp	EXP		29	2	uintle					
+gld	GOLD		31	2	uintle					
+drop	Drop	bits	0	9	exmon	0x03				offset is within the 'extra bytes', not the struct
+dchance	Drop Chance	bits	9	7	exmon	0x03				offset is within the 'extra bytes', not the struct
+sptr	Script Pointer		0	2	exmon	0x07	pointer			offset is within the 'extra bytes', not the struct
+rptr	Resists Pointer		0	2	exmon	0x08	pointer			offset is within the 'extra bytes', not the struct

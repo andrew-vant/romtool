@@ -2,11 +2,13 @@ import string
 import logging
 import math
 import io
-import operator
 from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
 from itertools import groupby, chain
+from functools import reduce, partial
+from operator import itemgetter
+from collections.abc import Mapping
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -15,15 +17,16 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, Index
+from .structures import Structure, Table, Entity
 from .rommap import RomMap
+from .exceptions import RomError, ChangesetError
 
 
 log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
 
 
-class RomFormatError(Exception):
+class RomFormatError(RomError):
     pass
 
 
@@ -31,13 +34,14 @@ class HeaderError(RomFormatError):
     pass
 
 
-class Rom(NodeMixin):
+class Rom(NodeMixin, util.RomObject):
     registry = {}
     extensions = []
 
     def __init__(self, romfile, rommap=None):
         if rommap is None:
             rommap = RomMap()
+        self.name = romfile.name
 
         romfile.seek(0)
         ba = bitarray(endian='little')
@@ -52,6 +56,9 @@ class Rom(NodeMixin):
             log.debug("creating table: %s", spec['id'])
             setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
 
+    def __str__(self):
+        return f"Rom({self.name})"
+
     @property
     def data(self):
         return self.file
@@ -60,6 +67,24 @@ class Rom(NodeMixin):
     def tables(self):
         return {table['id']: getattr(self, table.id)
                 for table in self.map.tables.values()}
+
+    def entities(self, tset):
+        # FIXME: I think I probably need an EntityList class to zip tables
+        # together. I want lazy lookups and I need lookups of primitives to
+        # work the same as lookups of struct keys, and I don't see a way to
+        # accomplish that without a custom sequence type.
+
+        components = {}
+        for tspec in self.map.tables.values():
+            if tset in (tspec.id, tspec.set):
+                components[tspec.id] = getattr(self, tspec.id)
+        if not components:
+            raise ValueError(f"No such entity: {tset}")
+        lengths = set(len(table) for table in components.values())
+        if len(lengths) != 1:
+            raise Exception(f"MAP BUG: mismatched table lengths in table set '{tset}'")
+        for i in range(lengths.pop()):
+            yield Entity(i, components)
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
@@ -71,20 +96,24 @@ class Rom(NodeMixin):
             tspecs = [Dict(ts) for ts in tspecs]
             ct_tables = len(tspecs)
             ct_items = int(tspecs[0]['count'], 0)
-            log.info(f"Dumping dataset: {tset} ({ct_tables} tables, {ct_items} items)")
+            log.info("Dumping dataset: %s (%s tables, %s items)",
+                     tset, ct_tables, ct_items)
             path = pathjoin(folder, f'{tset}.tsv')
 
-            # Get headers sorted by field explicit order, then whether it's a
-            # name, then whether it's a structural value (non-struct values are
-            # usually pointers and belong at the end).
+            # Try to sort output columns intelligently. Name fields always come
+            # first. Pointers, unknowns, and flags go at the end.
             header_ordering = {}
             def ordering(field):
-                if any(s.lower() == 'name' for s in (field.id, field.name)):
-                    return -1
-                elif field.display == 'pointer':
-                    return 1
-                else:
-                    return 0
+                # This may get fed a "real" field, or a Dict of a table spec,
+                # so a fallback is necessary if the field properties aren't
+                # available.
+                return (
+                        'name' not in (field.id.lower(), field.name.lower()),
+                        field.display == 'pointer',
+                        'unknown' in field.name.lower(),
+                        field.is_flag or field.size == '1',
+                        field.order or 0,
+                        )
 
             for tspec in tspecs:
                 table = getattr(self, tspec.id)
@@ -92,12 +121,11 @@ class Rom(NodeMixin):
                           if table.typename in Structure.registry
                           else [tspec])
                 for field in fields:
-                    order = (field.order or 0, ordering(field))
-                    header_ordering[field.name] = order
-            headers = [k for k, v
+                    header_ordering[field.name] = ordering(field)
+            columns = [k for k, v
                        in sorted(header_ordering.items(),
                                  key=itemgetter(1))]
-            headers.append('_idx')
+            columns.append('_idx')
 
             # Now turn the records themselves into dicts.
             records = []
@@ -116,7 +144,16 @@ class Rom(NodeMixin):
             for r in records:
                 assert not (set(r.keys()) - keys)
                 assert not (set(keys - r.keys()))
-            util.writetsv(path, records, force, headers)
+            util.writetsv(path, records, force, columns)
+
+    def lookup(self, key):
+        if key in self.map.sets:
+            log.debug(f"set found for {key}")
+            return util.Searchable(self.entities(key))
+        elif key in self.map.tables:
+            return getattr(self, key)
+        else:
+            raise LookupError(f"no table or set with id '{key}'")
 
     def load(self, folder):
         data = {}
@@ -144,9 +181,52 @@ class Rom(NodeMixin):
                     else:
                         table[i] = new[tspec['name']]
 
+    def apply(self, changeset):
+        """ Apply a dictionary of changes to a ROM
+
+        The changeset should be a nested dictionary describing key paths in the
+        ROM. Keys will be recursively looked up, starting with top-level tables
+        or table sets. Subkeys may have any type or value accepted by the
+        parent object's .lookup() method. Leaf keys should be attributes or
+        field ids of their parent.
+        """
+
+        def flatten(dct, prefix='', sep=':'):
+            for k, v in dct.items():
+                if isinstance(v, Mapping):
+                    yield from flatten(v, prefix+k+sep, sep=sep)
+                else:
+                    yield (prefix + k).split(sep), v
+
+        for keys, value in flatten(changeset):
+            attr = keys.pop()
+            parent = self
+            path = []
+            for key in keys:
+                try:
+                    parent = parent.lookup(key)
+                except LookupError as ex:
+                    path = ':'.join(path + [str(ex)])
+                    msg = f"Couldn't find item from changeset: {path}"
+                    raise ChangesetError(msg)
+                path.append(key)
+            try:
+                setattr(parent, attr, value)
+            except AttributeError:
+                path = ':'.join(path)
+                msg = f"{attr} is not a valid attribute of {path}"
+                raise ChangesetError(msg)
+
+
     @property
     def patch(self):
         return self.make_patch()
+
+    def changes(self):
+        """ Generate changeset dictionary """
+        # This might be hard. Loop over each table, look for items that differ
+        # between orig and self, emit table:name:key:value dict tree
+        raise Exception("Changeset generator not implemented yet")
 
     def make_patch(self):
         old = io.BytesIO(self.orig.bytes)
@@ -196,6 +276,24 @@ class Rom(NodeMixin):
             except RomFormatError as ex:
                 log.debug("Couldn't validate: %s", ex)
         raise RomFormatError("Can't figure out what type of ROM this is")
+
+    def sanitize(self):
+        """ Fix checksums, headers, etc as needed """
+        self.map.sanitize(self)
+
+    def lint(self):
+        """ Run lint checks on the rom
+
+        This prints messages for things like hp > maxhp or the like. Actual
+        implementation must be punted to the map.
+        """
+        self.map.lint(self)
+
+    def write(self, path, force=True):
+        """ Write a rom to a file """
+        mode = 'wb' if force else 'xb'
+        with open(path, mode) as f:
+            f.write(self.file.bytes)
 
 
 class INESRom(Rom):
@@ -278,8 +376,7 @@ class SNESRom(Rom):
 
             log.debug("0x%X: all header checks passed, using this header", offset)
             return hdr
-        else:
-            raise HeaderError("No valid SNES header found")
+        raise HeaderError("No valid SNES header found")
 
     @property
     def registration(self):

@@ -1,17 +1,37 @@
 import logging
-from functools import lru_cache, partial
+from functools import partial
 from dataclasses import dataclass, fields
-from collections import UserList
 from io import BytesIO
+from abc import ABC, abstractmethod
 
-from anytree import NodeMixin
-from bitarray import bitarray
+from .io import Unit
+from .util import HexInt
 
-from .io import BitArrayView, Unit
-from .util import intify, HexInt
+from romlib.exceptions import RomtoolError
+
+log = logging.getLogger(__name__)
+
+
+class FieldExpr:
+    """ A field property whose value may be variable
+
+    This is mainly of use for field offsets and sizes that are defined by
+    another field of the parent structure.
+    """
+
+
+    def __init__(self, spec):
+        self.spec = spec
+
+    def eval(self, parent):
+        try:
+            return int(self.spec, 0)
+        except ValueError:
+            return getattr(parent, self.spec)
+
 
 @dataclass
-class Field:
+class Field(ABC):
     """ Define a ROM object's type and location
 
     There's a lot of things needed to fully characterize "what something is,
@@ -34,150 +54,187 @@ class Field:
     type: str = 'uint'
     origin: str = None
     unit: Unit = Unit.bytes
-    offset: int = None
-    size: int = None
+    offset: FieldExpr = None
+    size: FieldExpr = '1'
     arg: int = None
     display: str = None
     order: int = 0
     comment: str = ''
 
+    handlers = {}
+    handles = []
+
     def __post_init__(self):
         self.name = self.name or self.id
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if value is not None and not isinstance(value, field.type):
+                raise ValueError(f'Expected {field.name} to be {field.type}, '
+                                 f'got {type(value)}')
+        if self.offset is None:
+            msg = f"'{self.id}' field missing required offset property"
+            raise RomtoolError(msg)
 
     @property
-    def is_int(self):
-        return self.type in ['int', 'uint', 'uintbe', 'uintle']
+    def is_name(self):
+        return 'name' in (self.id.lower(), self.name.lower())
 
     @property
-    def is_str(self):
-        return self.type in ['str', 'strz']
+    def is_flag(self):
+        return self.size.spec == '1'
+
+    @property
+    def is_ptr(self):
+        return self.display == 'pointer'
+
+    @property
+    def is_unknown(self):
+        return 'unknown' in self.name.lower()
 
     @property
     def identifiers(self):
         return [self.id, self.name]
 
-    def read(self, bitview):
-        """ Plumbing behind getitem/getattr """
-        if self.size:
-            expected = self.size * self.unit
-            assert len(bitview) == expected, f'{len(bitview)} != {expected}'
-        return self.reader(bitview)
+    def view(self, obj):
+        """ Get the bitview corresponding to this field's data """
+        # Get the parent view that this field is "relative to"
+        context = (obj.view if not self.origin
+                   else obj.view.root if self.origin == 'root'
+                   else obj.view.root.find(self.origin))
+        offset = self.offset.eval(obj) * self.unit
+        size = self.size.eval(obj) * self.unit
+        end = offset + size
+        return context[offset:end]
 
-    def write(self, bitview, value):
-        self.writer(bitview, value)
+    def read(self, obj, objtype=None):
+        """ Read from a structure field
 
+        The default implementation assumes the field's `type` is a readable
+        attribute of a bitview.
+        """
+        if obj is None:
+            return self
+        view = self.view(obj)
+        assert len(view) == self.size.eval(obj) * self.unit
+        return getattr(view, self.type)
+
+    def write(self, obj, value):
+        """ Write to a structure field
+
+        The default implementation assigns to the bitview attribute named by
+        self.type.
+        """
+        setattr(self.view(obj), self.type, value)
+
+    @abstractmethod
     def parse(self, string):
-        return self.parser(string)
+        """ Parse the string representation of this field's value type
 
-    @property
-    def reader(self):
-        return partial(self.readers[self.type], self)
+        The resulting value is returned, for convenience.
+        """
 
-    @property
-    def writer(self):
-        return partial(self.writers[self.type], self)
-
-    @property
-    def parser(self):
-        return partial(self.parsers[self.type], self)
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        for typename in cls.handles:
+            cls.handle(typename)
 
     @classmethod
     def from_tsv_row(cls, row):
         kwargs = {}
         convtbl = {int: partial(int, base=0),
                    Unit: Unit.__getitem__,
+                   FieldExpr: FieldExpr,
                    str: str}
-
         for field in fields(cls):
             k = field.name
             v = row.get(k, None) or None  # ignore missing or empty values
             if v is not None:
-                try:
-                    kwargs[k] = convtbl[field.type](v)
-                except ValueError:
-                    kwargs[k] = v
+                kwargs[k] = convtbl[field.type](v)
+        if kwargs['type'] not in cls.handlers:
+            raise RomtoolError(f"'{kwargs['type']}' is not a known field type")
+        cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
 
-    def _get_str(self, bitview):
-        return bitview.bytes.decode(self.display or 'ascii')
+    @classmethod
+    def handle(cls, typename):
+        name = cls.__name__
+        if typename in cls.handlers:
+            other = cls.handlers[typename].__name__
+            msg = (f"{name} wants to handle type '{typename}', "
+                   f"but it is already handled by {other}")
+            raise ValueError(msg)
+        cls.handlers[typename] = cls
+        log.debug(f"{name} registered as handler for '{typename}'")
 
-    def _set_str(self, bitview, value):
-        # This check avoids spurious changes in patches when there's more than
-        # one way to encode the same string.
-        if value == self._get_str(bitview):
-            return
-        # I haven't come up with a good way to give views a .str property (no
-        # way to feed it a codec), so this is a bit circuitous.
-        content = BytesIO(bitview.bytes)
-        content.write(value.encode(self.display or 'ascii'))
-        content.seek(0)
-        bitview.bytes = content.read()
 
-    def _get_int(self, bitview):
-        i = getattr(bitview, self.type) + (self.arg or 0)
+class StringField(Field):
+    handles = ['str', 'strz']
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    def read(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(self.view(obj), self.type).read(self.display)
+
+    def write(self, obj, value):
+        getattr(self.view(obj), self.type).write(value, self.display)
+
+    def parse(self, string):
+        return string
+
+
+class IntField(Field):
+    handles = ['int', 'uint', 'uintbe', 'uintle']
+
+    def read(self, obj, objtype=None, realtype=None):
+        if obj is None:
+            return self
+        view = self.view(obj)
+        i = getattr(view, (realtype or self.type)) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
-            return HexInt(i, len(bitview))
-        else:
-            return i
+            i = HexInt(i, len(view))
+        return i
 
-
-    def _set_int(self, bitview, value):
+    def write(self, obj, value, realtype=None):
+        view = self.view(obj)
         value -= (self.arg or 0)
-        setattr(bitview, self.type, value)
+        setattr(view, (realtype or self.type), value)
 
-    def _parse_int(self, string):
+    def parse(self, string):
         return int(string, 0)
 
-    def _parse_bin(self, string):
+
+class BytesField(Field):
+    handles = ['bytes']
+
+    def parse(self, string):
+        return bytes.fromhex(string)
+
+
+class StructField(Field):
+    handles = []
+
+    def read(self, obj, objtype=None, realtype=None):
+        if obj is None:
+            return self
+        view = self.view(obj)
+        return obj.registry[realtype or self.type](view, obj)
+
+    def write(self, obj, value, realtype=None):
+        value.copy(self.read(obj))
+
+    def parse(self, string):
+        raise NotImplementedError
+
+
+class BinField(Field):
+    handles = ['bin']
+
+    def parse(self, string):
         # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
         # necessary if possible.
-        old = string
         if isinstance(self.size, int):
             string = string.zfill(self.size * self.unit)
         return string
-
-    def _parse_bytes(self, string):
-        return bytes.fromhex(string)
-
-    def _get_direct(self, bitview):
-        return getattr(bitview, self.type)
-
-    def _set_direct(self, bitview, value):
-        setattr(bitview, self.type, value)
-
-    def _noop(self, obj):
-        return obj
-
-
-    @classmethod
-    def register_type(cls, name, reader, writer):
-        cls.readers[name] = reader
-        cls.writers[name] = writer
-
-
-    readers = {'int':    _get_int,
-               'uint':   _get_int,
-               'uintbe': _get_int,
-               'uintle': _get_int,
-               'str':    _get_str,
-               'strz':   _get_str,
-               'bytes':  _get_direct,
-               'bin':    _get_direct}
-
-    writers = {'int':    _set_int,
-               'uint':   _set_int,
-               'uintbe': _set_int,
-               'uintle': _set_int,
-               'str':    _set_str,
-               'strz':   _set_str,
-               'bytes':  _set_direct,
-               'bin':    _set_direct}
-
-    parsers = {'int':    _parse_int,
-               'uint':   _parse_int,
-               'uintbe': _parse_int,
-               'uintle': _parse_int,
-               'str':    _noop,
-               'strz':   _noop,
-               'bytes':  _parse_bytes,
-               'bin':    _parse_bin}

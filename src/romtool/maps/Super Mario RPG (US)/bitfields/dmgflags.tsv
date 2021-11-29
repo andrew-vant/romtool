@@ -1,0 +1,6 @@
+id	name	unit	offset	size	type	display
+max	Max Damage	bits	0	1	uint	X
+nil2	No Damage 2	bits	1	1	uint	N
+hide	Hide Damage	bits	2	1	uint	H
+nil1	No Damage 1	bits	3	1	uint	N
+unkd	Unknown Damage Flag	bits	4	1	uint	U

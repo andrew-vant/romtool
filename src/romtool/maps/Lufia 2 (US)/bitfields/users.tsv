@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+maxim	Maxim	bits	0	1	uint	M
+selan	Selan	bits	1	1	uint	S
+guy	Guy	bits	2	1	uint	G
+artea	Artea	bits	3	1	uint	A
+tia	Tia	bits	4	1	uint	T
+dekar	Dekar	bits	5	1	uint	D
+lexis	Lexis	bits	6	1	uint	L
+unused	Unused	bits	7	1	uint	U

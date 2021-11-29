@@ -7,6 +7,9 @@ from tempfile import TemporaryFile
 class TestTextTable(unittest.TestCase):
     def setUp(self):
         self.codec = 'main'
+        self.std = self.codec + '-std'
+        self.clean = self.codec + '-clean'
+        self.raw = self.codec + '-raw'
         self.ttfile = "src/romtool/maps/7th Saga (US)/texttables/main.tbl"
         with open(self.ttfile) as f:
             self.tbl = text.add_tt(self.codec, f)
@@ -21,15 +24,20 @@ class TestTextTable(unittest.TestCase):
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A])
         self.assertEqual(binary.decode(self.codec), text)
 
-    def test_decode_eos(self):
+    def test_decode_stop_at_eos(self):
         text = "Esuna[EOS]"
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
         self.assertEqual(binary.decode(self.codec), text)
 
     def test_decode_clean(self):
         text = "Esuna"
-        binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
-        self.assertEqual(binary.decode(self.codec+'-clean'), text)
+        binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7])
+        self.assertEqual(binary.decode(self.clean), text)
+
+    def test_encode_clean(self):
+        text = "Esuna"
+        binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7])
+        self.assertEqual(text.encode(self.clean), binary)
 
     def test_decode_miss(self):
         text = "Esuna[$F0][$0A]"

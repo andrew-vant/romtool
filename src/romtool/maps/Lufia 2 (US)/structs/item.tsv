@@ -1,25 +1,20 @@
-id	label	size	type	mod	display	order	meta	comment
-battle	Usable in Battle	b1	uint					
-menu	Usable in Menu	b1	uint					
-sticky	Undroppable	b1	uint					
-fruitinv	Fruit (Inventory)	b1	uint					
-cursed	Cursed	b1	uint					
-unk1	Unknown Inventory Flag 1	b1	uint			1		
-equip	Equipment	b1	uint					
-priority	Top of Inventory	b1	uint					
-fruit	Fruit?	b1	uint					
-unk2	Unknown 2	b1	uint			1		
-unk3	Unknown 3	b1	uint			1		
-unk4	Unknown 4	b1	uint			1		
-ring	Tool Ring Order?	b4	uint					
-party	Target Enemies	b1	uint					
-unk5	Unknown 5	b5	uint			1		
-tgt	Target Mode	b2	uint					
-icon	Icon	1	uint					
-sprite	Sprite	1	uint					
-cost	Cost	2	uintle					
-slot	Equip Slot	b6	bin	lsb0	washrj			Weapon Armor Shield Helmet Ring Jewel
-unslot	Unused Equip Slot	b2	bin	lsb0		2		
-users	Users	b7	bin	lsb0	msgatdl			Maxim Selan Guy Artea Tia Dekar Lexis
-unusers	Unused Users	b1	bin	lsb0		2		
-effects	Effect Flags	2	bin	lsb0				
+id	name	unit	offset	size	type	mod	display	order	info	comment
+priority	Top of Inventory	bits	0	1	uint					
+equip	Equipment	bits	1	1	uint					
+unk1	Unknown Inventory Flag 1	bits	2	1	uint					
+cursed	Cursed	bits	3	1	uint					
+fruitinv	Fruit (Inventory)	bits	4	1	uint					
+sticky	Undroppable	bits	5	1	uint					
+menu	Usable in Menu	bits	6	1	uint					
+battle	Usable in Battle	bits	7	1	uint					
+ring	Tool Ring Order?	bits	8	4	uint					
+food	Food Value?	bits	12	4	uint					
+tgt	Target Mode	bits	16	2	uint					
+unk5	Unknown 5	bits	18	5	uint					
+party	Target Enemies	bits	23	1	uint					
+icon	Icon	bits	24	8	uint					
+sprite	Sprite	bits	32	8	uint					
+cost	Cost	bits	40	16	uintle					
+slot	Equip Slot	bits	56	8	eslots					
+users	Users	bits	64	8	users					
+effects	Effect Flags	bits	72	16	bin					

@@ -1,13 +1,13 @@
-id	label	size	type	mod	display	order	info	comment
-id	ID	1	uint					
-hp	Base HP	1	uint					
-str	Base Str	1	uint					
-agi	Base Agi	1	uint					
-int	Base Int	1	uint					
-vit	Base Vit	1	uint					
-luck	Base Luck	1	uint					
-dmg	Base Dmg	1	uint					
-hit	Base Hit%	1	uint					
-evd	Base Evade%	1	uint					
-mdef	Base Mdef	1	uint					
-unk	Padding?	5	uintbe		hexify			
+id	name	offset	size	type	arg	display	order	info	comment
+id	ID	0	1	uint					
+hp	Base HP	1	1	uint					
+str	Base Str	2	1	uint					
+agi	Base Agi	3	1	uint					
+int	Base Int	4	1	uint					
+vit	Base Vit	5	1	uint					
+luck	Base Luck	6	1	uint					
+dmg	Base Dmg	7	1	uint					
+hit	Base Hit%	8	1	uint					
+evd	Base Evade%	9	1	uint					
+mdef	Base Mdef	10	1	uint					
+unk	Padding?	11	5	uintbe		hex			

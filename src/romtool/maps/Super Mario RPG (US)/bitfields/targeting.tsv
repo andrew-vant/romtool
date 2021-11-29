@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+unk1	Unknown 1	bits	0	1	uint	U
+friendly	Target Allies	bits	1	1	uint	Y
+enemy	Target Enemies	bits	2	1	uint	E
+unk2	Unknown 2	bits	3	1	uint	U
+all	Area Effect	bits	4	1	uint	A
+wounded	Target Dead	bits	5	1	uint	D
+party	Party Locked	bits	6	1	uint	P
+other	Target Others	bits	7	1	uint	O

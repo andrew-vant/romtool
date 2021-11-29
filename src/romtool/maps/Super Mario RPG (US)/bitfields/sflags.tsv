@@ -1,0 +1,5 @@
+id	name	unit	offset	size	type	display
+resist	Resist Status	bits	0	1	uint	R
+cause	Apply Status	bits	1	1	uint	A
+cure	Cure Status	bits	2	1	uint	C
+unks	Max Damage?	bits	3	1	uint	M

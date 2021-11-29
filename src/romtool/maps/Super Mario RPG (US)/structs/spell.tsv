@@ -1,14 +1,23 @@
-id	label	size	type	mod	display	order	info	comment
-mflags	Magic Flags	1	bin		muduuuip			menu unknown deathprotectable unknown unknown unknown ignoredefense party?
-unk1	Unknown 1	b4	bin					
-aflags	Status Flags	b4	lbin		cird			cure/inflict/resist/death
-fp	FP Cost	1	uint					
-tgt	Targeting Flags	1	lbin		uteumdon			unknown targetcursor enemy unknown multitarget dead oneside? Notself
-elem	Element	1	bin		jftifpsm			jump fire thunder ice fear poison sleep mute
-pow	Power	1	uint					
-hit	Hit Rate	1	uint					
-ail	Ailment	1	bin		ismufpsm			Invuln Scarecrow Mushroom Unknown Fear Poison Sleep Mute
-enh	Enhancement	1	bin		udramuuu			unknown defense resist attack magic
-unk2	Unknown 2	1	uint		hex			
-func	Special Function	1	uint		hex			
-flags	Attack Flags	1	lbin		dnhnuuuu			Death Nodamage1 Hidedamage Nodamage2 Unknown Unknown Unknown Unknown | only hidedamage actually used, others speculative.
+id	name	unit	offset	size	type	display	order	info	comment
+party	Party?	bits	0	1	uint				in docs, 'read from attack & defense of allies/monsters'
+idef	Ignore Defense	bits	1	1	uint				
+unk1	Unknown 1	bits	2	3	uint				
+dprot	Death-Protectable	bits	5	1	uint				
+unk2	Unknown 2	bits	6	1	bin				
+menu	Castable from Menu	bits	7	1	uint				
+heal	Heal Target	bits	8	1	uint				
+apply	Apply Statuses	bits	9	1	uint				
+cure	Cure Statuses	bits	10	1	uint				
+max	Max Damage?	bits	11	1	uint				
+unk3	Unknown 3	bits	12	4	bin				
+fp	FP Cost	bits	16	8	uint				
+tgt	Targeting Flags	bits	24	8	targeting				
+elem	Element	bits	32	8	elements				
+pow	Power	bits	40	8	uint				
+hit	Hit Rate	bits	48	8	uint				
+status	Statuses	bits	56	8	statuses				
+buffs	Buffs	bits	64	8	buffs				
+unk4	Unknown 4	bits	72	8	uint	hex			
+func	Special Function	bits	80	8	uint	hex			
+dmg	Damage Flags	bits	88	5	dmgflags				
+unk5	Unknown 5	bits	93	3	uint				

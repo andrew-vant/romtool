@@ -11,6 +11,8 @@ Usage:
     romtool fix <rom>
     romtool info <rom>
     romtool charmap <rom> <strings>...
+    romtool convert <infile> <outfile>
+    romtool initchg <rom> <filename>
 
 Commmands:
     dump                Dump all known data from a ROM to `moddir`
@@ -20,6 +22,8 @@ Commmands:
     fix                 Fix bogus headers and checksums
     info                Print rom type information and metadata
     charmap             Generate a texttable from known strings
+    convert             Convert a patch from one format to another
+    initchg             Generate a starter changeset file.
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations
@@ -45,24 +49,30 @@ Examples:
     $ romtool build game.rom projectdir -o game.ips
 """
 
-import os
 import sys
 import logging
-import argparse
 import textwrap
-from itertools import chain
 
-import yaml
 from docopt import docopt
 from addict import Dict
 
-import romtool.commands
 from romtool import util
-from romtool.util import pkgfile
 from romtool.version import version
+from romlib.exceptions import RomtoolError
 from . import commands
 
 log = logging.getLogger(__name__)
+
+try:
+    # Try to do the right thing when piping to head, etc.
+    from signal import signal, SIGPIPE, SIG_DFL
+    signal(SIGPIPE, SIG_DFL)
+except ImportError:
+    # SIGPIPE isn't available on Windows, at least not on my machine. For now
+    # just ignore it, but I should probably test piping on windows at some
+    # point.
+    pass
+
 
 class Args(Dict):
     """ Convenience wrapper for the docopt dict
@@ -116,19 +126,21 @@ def main(argv=None):
     initlog(args)
     util.debug_structure(args)
 
+    expected = (FileNotFoundError, RomtoolError) if not args.debug else ()
+
     try:
         getattr(commands, args.command)(args)
-    except FileNotFoundError as ex:
+    except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
         logging.error(ex)
         sys.exit(2)
-    except Exception as ex:
-        # I want to break this into a function but every time I try it doesn't
-        # work.
+    except Exception as ex:  # pylint: disable=broad-except
+        # I want to break this into a function and use it as excepthook, but
+        # every time I try it doesn't work.
         logging.exception(ex)
         if not args.pdb:
             sys.exit(2)
-        import pdb, traceback
+        import pdb
         print("\n\nCRASH -- UNHANDLED EXCEPTION")
         msg = ("Starting debugger post-mortem. If you got here by "
                "accident (perhaps by trying to see what --pdb does), "

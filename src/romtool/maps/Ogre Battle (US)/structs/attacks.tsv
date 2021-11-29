@@ -1,3 +1,3 @@
-id	label	size	type	display	order	tags	comment
-attacksf	Front Attacks	b4	uint				
-attacksb	Back Attacks	b4	uint				
+id	name	unit	offset	size	type	display	order	comment
+ct_fatk	#Attacks (Front)	bits	0	4	uint			FIXME: not actually sure which is front or rear, check
+ct_ratk	#Attacks (Rear)	bits	4	4	uint			

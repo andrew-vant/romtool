@@ -1,18 +1,18 @@
-id	label	size	type	mod	display	order	info	comment
-xp	Exp	2	uintle			16		
-gld	Gold	2	uintle			15		
-hp	HP	2	uintle			1		
-mor	Morale	1	uint			9		
-ai	AI Skillset	1	uint		hex	17		
-evd	Evasion	1	uint			8		
-def	Defense	1	uint			6		
-hits	Hits	1	uint			4		
-acc	Accuracy	1	uint			3		
-str	Strength	1	uint			2		
-crit	Crit Rate	1	uint			5		Ranges from 0-64 (0%-100%)
-eatk	Attack Element	1	bin	lsb0	sptdfile	10		Status Psn/Stn Time Death Fire Ice Lightning Earth
-satk	Attack Status	1	bin	lsb0	dspbtlmc	11		Death Stone Poison Blind Stun Sleep Mute Confuse
-fam	Family	1	bin	lsb0	mdguwacr	14		Magical Dragon Giant Undead Were Aquatic Caster Regen
-mdef	Mag. Defense	1	uint			7		
-weak	Weaknesses	1	bin	lsb0	sptdfile	12		Status Psn/Stn Time Death Fire Ice Lightning Earth
-res	Resistances	1	bin	lsb0	sptdfile	13		Status Psn/Stn Time Death Fire Ice Lightning Earth
+id	name	offset	size	type	mod	display	order	info	comment
+xp	Exp	0	2	uintle			16		
+gld	Gold	2	2	uintle			15		
+hp	HP	4	2	uintle			1		
+mor	Morale	6	1	uint			9		
+ai	AI Skillset	7	1	uint		hex	17		
+evd	Evasion	8	1	uint			8		
+def	Defense	9	1	uint			6		
+hits	Hits	10	1	uint			4		
+acc	Accuracy	11	1	uint			3		
+str	Strength	12	1	uint			2		
+crit	Crit Rate	13	1	uint			5		Ranges from 0-64 (0%-100%)
+eatk	Attack Element	14	1	elements		sptdfile	10		
+satk	Attack Status	15	1	statuses		dspbtlmc	11		
+fam	Family	16	1	genera		mdguwacr	14		
+mdef	Mag. Defense	17	1	uint			7		
+weak	Weaknesses	18	1	elements		sptdfile	12		
+res	Resistances	19	1	elements		sptdfile	13		

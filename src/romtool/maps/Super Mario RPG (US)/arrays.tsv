@@ -1,29 +1,29 @@
-name	label	set	type	offset	length	stride	mod	index	priority	display	comment
-monsters		monsters	monster	0x390226	256	16		monster_ptrs			
-monster_ptrs	Stats Pointer	monsters	uintle	0x390026	256	2	0x390000			pointer	
-monster_names	Name	monsters	strz	0x3992D1	256	13				names	
-rewards		monsters	reward	0x39162A	256	6		reward_ptrs			
-reward_ptrs	Reward Pointer	monsters	uintle	0x39142A	256	2	0x390000			pointer	
-fbonus		monsters	fbonus	0x39BB44	256	1					
-aiptr	AI Pointer	monsters	uintle	0x3930AA	256	2	0x390000		1	pointer	
-psychs	Psych	monsters	strz	0x39A1D1	256			psych_ptrs		battle	
-psych_ptrs	Psych Pointer	monsters	uintle	0x399FD1	256	2	0x390000			pointer	
-characters		characters	cstats	0x3A002C	5	20					
-char_names	Name	characters	strz	0x3A134D	5	10				names	
-level_exp	Exp Requirement	levels	uintle	0x3A1AFF	29	2					
-newspell		levels	newspell	0x3A42F5	29	5					
-growth		levels	growth	0x3A1B39	29	15					
-bonus		levels	bonus	0x3A1CEC	29	15					
-items		items	item	0x3A014D	256	18					
-prices	Price	items	uintle	0x3A40F2	256	2					
-item_names	Name	items	strz	0x3A46EF	256	15				names	
-item_descs	Description	items	strz	0x3A3120	256			item_desc_ptrs		descs	
-item_desc_ptrs	Description Ptr	items	uintle	0x3A2F20	256	2	0x3A0000			pointer	
-specials		specials	special	0x391226	129	4					
-special_names	Name	specials	strz	0x3959F4	129	13				names	
-pspells	Player Spells	pspells	spell	0x3A20F1	27	12					
-pspell_names	Name	pspells	strz	0x3A137F	27	15				names	
-pspell_descs	Description	pspells	strz	0x3A2BB6	27			pspell_desc_ptrs		descs	
-pspell_desc_ptrs	Description Ptr	pspells	uintle	0x3A2B80	27	2	0x3A0000			pointer	
-mspells		mspells	spell	0x3A2235	101	12					
-mspell_names	Name	mspells	strz	0x3A1514	101	15				names	
+id	fid	name	set	type	offset	count	stride	size	mod	index	priority	display	comment
+monsters			monsters	monster	0x390000	256	16			monster_ptrs			
+monster_ptrs	mptr	Stats Pointer	monsters	uintle	0x390026	256	2					pointer	
+monster_names	name	Name	monsters	str	0x3992D1	256	13					names	
+rewards			monsters	reward	0x390000	256	6			reward_ptrs			
+reward_ptrs	rptr	Reward Pointer	monsters	uintle	0x39142A	256	2					pointer	
+fbonus			monsters	fbonus	0x39BB44	256	1						
+aiptr	aiptr	AI Pointer	monsters	uintle	0x3930AA	256	2		0x390000		1	pointer	
+psychs	psych	Psych	monsters	strz	0x390000	256		32		psych_ptrs		battle	
+psych_ptrs	pptr	Psych Pointer	monsters	uintle	0x399FD1	256	2					pointer	
+characters			characters	cstats	0x3A002C	5	20						
+char_names	name	Name	characters	strz	0x3A134D	5	10					names	
+level_exp	xpreq	Exp Requirement	levels	uintle	0x3A1AFF	29	2						
+newspell			levels	newspell	0x3A42F5	29	5						
+growth			levels	growth	0x3A1B39	29	15						
+bonus			levels	bonus	0x3A1CEC	29	15						
+items			items	item	0x3A014D	256	18						
+prices	price	Price	items	uintle	0x3A40F2	256	2						
+item_names	name	Name	items	strz	0x3A46EF	256	15					names	
+item_descs	desc	Description	items	strz	0x3A0000	256		256		item_desc_ptrs		descs	
+item_desc_ptrs	dptr	Description Ptr	items	uintle	0x3A2F20	256	2					pointer	
+specials			specials	special	0x391226	129	4						
+special_names	name	Name	specials	strz	0x3959F4	129	13					names	
+pspells		Player Spells	pspells	spell	0x3A20F1	27	12						
+pspell_names	name	Name	pspells	strz	0x3A137F	27	15					names	
+pspell_descs	desc	Description	pspells	strz	0x3A0000	27		256		pspell_desc_ptrs		descs	
+pspell_desc_ptrs	dptr	Description Ptr	pspells	uintle	0x3A2B80	27	2					pointer	
+mspells			mspells	spell	0x3A2235	101	12						
+mspell_names	name	Name	mspells	strz	0x3A1514	101	15					names	

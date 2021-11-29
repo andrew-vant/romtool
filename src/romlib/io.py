@@ -1,10 +1,15 @@
 import logging
 import enum
+import hashlib
+import zlib
+import codecs
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
 from anytree import NodeMixin
 from anytree.search import find
+from collections import namedtuple
+from io import BytesIO
 
 from .util import bytes2ba
 
@@ -38,6 +43,7 @@ class BitArrayView(NodeMixin):
     underlying bitarray. The underlying bitarray is available as BitArrayView.bits.
     """
     def __init__(self, auto, offset=None, length=None, name=None):
+        self._ba = None
         if isinstance(auto, BitArrayView):
             self.parent = auto
         elif isinstance(auto, bitarray):
@@ -72,7 +78,6 @@ class BitArrayView(NodeMixin):
     def crc32(self):
         checksum = zlib.crc32(self.bytes)
         return f"{checksum:08X}"
-        return zlib.crc32(self.bytes)
 
     @property
     def ct_bytes(self):
@@ -137,7 +142,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def ba(self):
-        return self.root._ba
+        return self._ba or self.root.ba
 
     @property
     def abs_start(self):
@@ -178,6 +183,77 @@ class BitArrayView(NodeMixin):
         new = self.bits
         if new != old:
             log.debug("change detected: %s -> %s", old, new)
+
+    @property
+    def str(self):
+        nt = namedtuple('str', 'read write')
+        return nt(self.str_read, self.str_write)
+
+    @property
+    def strz(self):
+        nt = namedtuple('strz', 'read write')
+        return nt(self.strz_read, self.strz_write)
+
+    def str_read(self, encoding):
+        encoding = encoding or 'ascii'
+        return self.bytes.decode(encoding).rstrip()
+
+    def str_write(self, value, encoding):
+        encoding = encoding or 'ascii'
+        codec = codecs.lookup(encoding)
+        s_old, bct_old = codec.decode(self.bytes)
+
+        # Avoid spurious changes when there's multiple valid encodings
+        if value == s_old.rstrip():
+            return
+
+        # Pad fixed-length strings with spaces
+        content = BytesIO(' '.encode(encoding) * len(self.bytes))
+        content.write(value.encode(encoding))
+        content.seek(0)
+        self.bytes = content.read()
+
+
+    def strz_read(self, encoding):
+        encoding = 'ascii' if not encoding else encoding + '-clean'
+        codec = codecs.lookup(encoding)
+        # Evil way to figure out if we're using a default codec, like ascii.
+        # The default codecs don't stop on nulls, but we probably want to.
+        # FIXME: Awful, find a better way to do this.
+        if hasattr(codec, 'eos'):
+            data = self.bytes
+        else:
+            data = self.bytes.partition(b'\0')[0]
+        return data.decode(encoding)
+
+    def strz_write(self, value, encoding):
+        encoding = 'ascii' if not encoding else encoding + '-clean'
+        codec = codecs.lookup(encoding)
+        b_old = (self.bytes if hasattr(codec, 'eos')
+                 else self.bytes.partition(b'\0')[0])
+        s_old, bct_old = codec.decode(b_old)
+
+        # Avoid spurious changes when there's multiple valid encodings
+        if value == s_old:
+            return
+
+        # Scribbling past the old string's terminator will usually cause
+        # problems, but it might be intentional, so warn rather than failing.
+        #
+        # FIXME: this check doesn't work with builtin codecs. They don't treat
+        # nulls as EOS, so always read to the end of the view. Need a way to
+        # deal with that.
+        b_new = value.encode(encoding)
+        overrun = len(b_new) - bct_old
+        log.debug(f"replacing string '{s_old}' (len {bct_old}) "
+                  f"with '{value}' (len {len(b_new)})")
+        if overrun > 0:
+            log.warning(f"replacement string '{value}' overruns end of old "
+                        f"string '{s_old}' by {overrun} bytes")
+        content = BytesIO(self.bytes)
+        content.write(b_new)
+        content.seek(0)
+        self.bytes = content.read()
 
     @property
     def bin(self):
@@ -225,3 +301,21 @@ class BitArrayView(NodeMixin):
         if isinstance(i, str):
             i = int(i, 0)
         self.bytes = (i).to_bytes(bits2bytes(len(self)), 'little')
+
+    @property
+    def int(self):
+        return ba2int(self.bits, signed=True)
+
+    @int.setter
+    def int(self, i):
+        if isinstance(i, str):
+            i = int(i, 0)
+        old = self.int
+        self.bits = int2ba(
+                i,
+                length=len(self),
+                endian=self.ba.endian(),
+                signed=True
+                )
+        if old != self.int:
+            log.debug("change detected: %s -> %s", old, self.int)

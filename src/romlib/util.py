@@ -4,10 +4,12 @@ import csv
 import contextlib
 import logging
 import os
-from collections import OrderedDict
+import abc
+from collections import OrderedDict, Counter
+from collections.abc import Mapping, Sequence
+from itertools import chain
 from os.path import dirname, realpath
 from os.path import join as pathjoin
-from math import ceil
 
 import yaml
 import asteval
@@ -26,6 +28,8 @@ csv.register_dialect(
         delimiter='\t',
         lineterminator=os.linesep,
         quoting=csv.QUOTE_NONE,
+        doublequote=False,
+        quotechar=None,
         strict=True,
         )
 
@@ -55,6 +59,8 @@ class HexInt(int):
 
     Suitable for printing offsets.
     """
+    sz_bits: int  # for pylint
+
     def __new__(cls, value, sz_bits=None):
         if isinstance(value, str):
             value = int(value, 0)
@@ -65,12 +71,58 @@ class HexInt(int):
             raise ValueError(msg)
         return self
 
+    def __repr__(self):
+        return f"HexInt({self})"
+
     def __str__(self):
         """ Print self as a hex representation of bytes """
         # two digits per byte; bytes are bits/8 rounding up.
         digits = bits2bytes(self.sz_bits) * 2
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
+
+
+class RomObject(abc.ABC):
+    """ Base class for rom objects that act as collections
+
+    Defines a common interface intended to permit "do what I mean" operations
+    across different types.
+    """
+
+    @abc.abstractmethod
+    def lookup(self, key):
+        """ Look up a sub-object within this container
+
+        Subclass implementations should accept any sort of key that might make
+        sense. e.g. field ids, field names, table indices, names to search for,
+        etc. The aim is to allow nested lookups to proceed without having to
+        worry about the underlying types.
+
+        Implementations should raise LookupError if the key isn't present.
+        """
+
+class Searchable:
+    """ Generator wrapper that supports lookups by name """
+    def __init__(self, iterable, searcher=None):
+        self.iter = iter(iterable)
+        self.searcher = searcher or self._default_search
+
+    @staticmethod
+    def _default_search(obj, key):
+        return obj == key or obj.name == key
+
+    def __iter__(self):
+        yield from self.iter
+
+    def __str__(self):
+        return f"{type(self).__name__}({self.iter})"
+
+    def lookup(self, key):
+        try:
+            return next(i for i in self if self.searcher(i, key))
+        except StopIteration:
+            typename = getattr(self, 'name', 'object')
+            raise LookupError(key)
 
 
 class PrettifierMixin:
@@ -112,9 +164,16 @@ def loading_context(listname, name, index=None):
         yield
     except Exception as ex:
         msg = "{}\nProblem loading {} #{}: {}"
-        msg = msg.format(ex.args[0], listname, index, name)
+        msg = msg.format(ex, listname, index, name)
         ex.args = (msg,) + ex.args[1:]
         raise
+
+
+def pipeline(first, *functions):
+    """ Apply several functions to an object in sequence """
+    for func in functions:
+        first = func(first)
+    return first
 
 
 def str_reverse(s):
@@ -182,6 +241,8 @@ def intify_items(dct, keys, default=None):
         dct[key] = int(dct[key], 0)
 
 def get_subfiles(root, folder, extension):
+    if root is None:
+        root = libroot
     try:
         filenames = [filename for filename
                      in os.listdir("{}/{}".format(root, folder))
@@ -192,16 +253,16 @@ def get_subfiles(root, folder, extension):
                  for filename in filenames]
         return zip(names, paths)
     except FileNotFoundError:
-        log.warn(f"{root}/{folder} not found, treating as empty")
+        log.info(f"{root}/{folder} not found, treating as empty")
         return []
 
 def libpath(path):
     return pathjoin(libroot, path)
 
 def libwalk(path):
-    for dirname, dirs, files in os.walk(libpath(path)):
+    for root, dirs, files in os.walk(libpath(path)):
         for filename in (dirs + files):
-            yield pathjoin(dirname, filename)
+            yield pathjoin(root, filename)
 
 def load_builtins(path, extension, loader):
     path = libpath(path)
@@ -271,11 +332,12 @@ def bytes2ba(_bytes, *args, **kwargs):
     return ba
 
 def convert(dct, mapper):
-    return {k: conv_map[k](v) if k in mapper else v}
+    return {k: mapper[k](v) if k in mapper else v
+            for k, v in dct.items()}
 
 def duplicates(iterable):
     return [k for k, v
-            in Counter(chain(*iterables)).items()
+            in Counter(chain(*iterable)).items()
             if v > 1]
 
 def subregistry(cls):

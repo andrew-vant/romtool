@@ -1,10 +1,6 @@
 #!/usr/bin/python3
 
-import sys
-import logging
 import string
-import itertools
-from pprint import pprint
 
 # Given a string and a byte stream, how do I know if it matches?
 #

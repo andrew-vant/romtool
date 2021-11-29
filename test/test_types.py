@@ -1,4 +1,5 @@
 import unittest
+import logging
 from types import SimpleNamespace
 
 import yaml
@@ -11,7 +12,7 @@ from romlib.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
     def setUp(self):
-        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef')
+        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef\x00')
         self.specs =  [{'id': 'one',
                         'name': 'One Label',
                         'type': 'uint',
@@ -37,6 +38,13 @@ class TestStructure(unittest.TestCase):
                         'size': '6',
                         'arg': '',
                         'display': 'ascii'},
+                       {'id': 'strz',
+                        'name': 'String 2',
+                        'type': 'strz',
+                        'offset': '4',
+                        'size': '7',
+                        'arg': '',
+                        'display': ''},
                        {'id': 'name',
                         'name': 'Name',
                         'type': 'str',
@@ -49,6 +57,7 @@ class TestStructure(unittest.TestCase):
 
     def tearDown(self):
         del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_define_struct(self):
         self.assertTrue(issubclass(self.scratch, Structure))
@@ -112,7 +121,7 @@ class TestStructure(unittest.TestCase):
     def test_write_string_field(self):
         struct = self.scratch(Stream(self.data))
         struct.str = 'zyxwvu'
-        expected = b'\x01\x02\x03\x04zyxwvu'
+        expected = b'\x01\x02\x03\x04zyxwvu\x00'
         self.assertEqual(struct.str, 'zyxwvu')
         self.assertEqual(struct.view.bytes, expected)
 
@@ -120,6 +129,11 @@ class TestStructure(unittest.TestCase):
         struct = self.scratch(Stream(self.data))
         with self.assertRaises(ValueError):
             struct.str = 'abcdefghy'
+
+    def test_overrun_warning(self):
+        struct = self.scratch(Stream(self.data))
+        with self.assertLogs('romlib.io', logging.WARNING):
+            struct.strz = 'abcdefg'
 
     def test_undersized_string(self):
         struct = self.scratch(Stream(self.data))
@@ -166,19 +180,19 @@ class TestSubstructures(unittest.TestCase):
                    'unit': 'bits',
                    'display': None,
                    'arg': None,}]
-        structfields = [Field.from_tsv_row(row) for row in fields]
-        flagfields = [Field.from_tsv_row(row) for row in subfields]
-        self.cls_flags = BitField.define('flags', flagfields)
-        self.cls_struct = Structure.define('scratch', structfields)
+        self.cls_flags = BitField.define_from_rows('flags', subfields)
+        self.cls_struct = Structure.define_from_rows('scratch', fields)
         self.data = bytes2ba(bytes([0b10000000]))
+
+    def tearDown(self):
+        for name in ['scratch', 'flags']:
+            del Structure.registry[name]
+            del Field.handlers[name]
 
     def test_substruct(self):
         struct = self.cls_struct(Stream(self.data))
         self.assertTrue(struct.sub.one)
 
-    def tearDown(self):
-        del Structure.registry['scratch']
-        del Structure.registry['flags']
 
 
 class TestBitField(unittest.TestCase):
@@ -202,6 +216,10 @@ class TestBitField(unittest.TestCase):
                         'arg': '0'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = BitField.define('scratch', self.fields)
+
+    def tearDown(self):
+        del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_define(self):
         self.assertTrue(issubclass(self.scratch, BitField))
@@ -227,9 +245,6 @@ class TestBitField(unittest.TestCase):
         self.assertTrue(bf.two)
         self.assertEqual(str(bf), "jQ")
 
-    def tearDown(self):
-        del Structure.registry['scratch']
-
 
 class TestIndex(unittest.TestCase):
     def test_make_index(self):
@@ -252,6 +267,7 @@ class TestTable(unittest.TestCase):
 
     def tearDown(self):
         del Structure.registry['scratch']
+        del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
         array = Table(self.stream, 'uint', Index(0, 4, 1))

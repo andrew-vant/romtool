@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+death	Death	bits	0	1	uint	D
+stone	Stone	bits	1	1	uint	S
+poison	Poison	bits	2	1	uint	P
+blind	Blind	bits	3	1	uint	B
+stun	Stun	bits	4	1	uint	T
+sleep	Sleep	bits	5	1	uint	L
+mute	Mute	bits	6	1	uint	M
+confuse	Confuse	bits	7	1	uint	C

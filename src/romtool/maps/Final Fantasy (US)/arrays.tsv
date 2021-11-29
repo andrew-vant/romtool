@@ -1,24 +1,24 @@
-name	label	set	type	source	offset	length	stride	mod	index	priority	display	comment
-classes		classes	class	rom	0x3050	6	16					
-monsters		monsters	monster	rom	0x30530	128	20					
-weapons		weapons	weapon	rom	0x30010	40	8					
-armor		armor	armor	rom	0x30150	40	4					
-spells		spells	spell	rom	0x301F0	64	8					
-specials		specials	special	rom	0x30400	26	8					
-mnames	Name	monsters	strz	rom	0x2D5F0	128			mname_ptrs		names	String lengths differ
-cnames	Name	classes	strz	rom	0x2BF53	6	8		cname_ptrs		names	
-anames	Name	armor	strz	rom	0x2BB0D	40			aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
-wnames	Name	weapons	strz	rom	0x2B9CD	40	8		wname_ptrs		names	
-splnames	Name	spells	strz	rom	0x2BE13	64	5		splname_ptrs		names	
-spcnames	Name	specials	strz	rom	0x2B644	26			spcname_ptrs		names	String lengths differ
-mname_ptrs	Name Pointer	monsters	uintle	rom	0x2D4F0	128	2	0x24010			pointer	
-spcname_ptrs	Name Pointer	specials	uintle	rom	0x2B610	26	2	0x20010			pointer	
-aname_ptrs	Name Pointer	armor	uintle	rom	0x2B798	40	2	0x20010			pointer	
-cname_ptrs	Name Pointer	classes	uintle	rom	0x2B8F0	6	2	0x20010			pointer	
-wname_ptrs	Name Pointer	weapons	uintle	rom	0x2B748	40	2	0x20010			pointer	
-splname_ptrs	Name Pointer	spells	uintle	rom	0x2B870	64	2	0x20010			pointer	
-wp_price	Price	weapons	uintle	rom	0x37C48	40	2					
-a_price	Price	armor	uintle	rom	0x37C98	40	2					
-m_price	Price	spells	uintle	rom	0x37D70	64	2					
-characters		characters	character	save	0x500	4	64					Character stats
-magic		characters	magic	save	0x700	4	64					Character spell data
+id	fid	name	set	type	source	offset	count	stride	size	index	priority	display	comment
+classes			classes	class	rom	0x3040	6	16					
+monsters			monsters	monster	rom	0x030520	128	20					
+weapons			weapons	weapon	rom	0x030000	40	8					
+armor			armor	armor	rom	0x030140	40	4					
+spells			spells	spell	rom	0x0301E0	64	8					
+specials			specials	special	rom	0x0303F0	26	8					
+mnames	name	Name	monsters	strz	rom	0x24000	128		12	mname_ptrs		names	String lengths differ
+cnames	name	Name	classes	strz	rom	0x20000	6	8	12	cname_ptrs		names	
+anames	name	Name	armor	strz	rom	0x20000	40		12	aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
+wnames	name	Name	weapons	strz	rom	0x20000	40	8	12	wname_ptrs		names	
+splnames	name	Name	spells	strz	rom	0x20000	64	5	12	splname_ptrs		names	
+spcnames	name	Name	specials	strz	rom	0x20000	26		12	spcname_ptrs		names	String lengths differ
+mname_ptrs	nmp	Name Pointer	monsters	uintle	rom	0x02D4E0	128	2				pointer	
+spcname_ptrs	nmp	Name Pointer	specials	uintle	rom	0x02B600	26	2				pointer	
+aname_ptrs	nmp	Name Pointer	armor	uintle	rom	0x02B788	40	2				pointer	
+cname_ptrs	nmp	Name Pointer	classes	uintle	rom	0x02B8E0	6	2				pointer	
+wname_ptrs	nmp	Name Pointer	weapons	uintle	rom	0x02B738	40	2				pointer	
+splname_ptrs	nmp	Name Pointer	spells	uintle	rom	0x02B860	64	2				pointer	
+wp_price	price	Price	weapons	uintle	rom	0x037C38	40	2					
+a_price	price	Price	armor	uintle	rom	0x037C88	40	2					
+m_price	price	Price	spells	uintle	rom	0x037D60	64	2					
+characters			characters	character	save	0x500	4	64					Character stats
+magic			characters	magic	save	0x700	4	64					Character spell data
