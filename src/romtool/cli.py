@@ -132,12 +132,12 @@ def main(argv=None):
         getattr(commands, args.command)(args)
     except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
-        logging.error(ex)
+        log.error(ex)
         sys.exit(2)
     except Exception as ex:  # pylint: disable=broad-except
         # I want to break this into a function and use it as excepthook, but
         # every time I try it doesn't work.
-        logging.exception(ex)
+        log.exception(ex)
         if not args.pdb:
             sys.exit(2)
         import pdb

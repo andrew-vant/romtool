@@ -90,6 +90,6 @@ def sanitize_save(savefile):
     oldsum = data[_save_checksum_offset]
     checksum = save_checksum(data)
     msg = "Updating checksum. Old checksum was 0x%02X, new checksum is 0x%02X"
-    logging.info(msg, oldsum, checksum)
+    log.info(msg, oldsum, checksum)
     savefile.seek(_save_data_offset + _save_checksum_offset)
     savefile.write(bytes([checksum]))

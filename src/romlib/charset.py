@@ -2,6 +2,7 @@
 
 import string
 
+
 # Given a string and a byte stream, how do I know if it matches?
 #
 # Take all lowercase letters. Ensure they differ from each other in the manner

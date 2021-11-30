@@ -51,7 +51,7 @@ class CheckedDict(dict):
 
     def _check_conflict(self, key, value):
         if key in self and value != self[key]:
-            logging.debug(self.cmsg, key, self[key], value)
+            log.debug(self.cmsg, key, self[key], value)
 
 
 class HexInt(int):
