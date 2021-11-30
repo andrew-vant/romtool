@@ -51,6 +51,7 @@ Examples:
 
 import sys
 import logging
+import logging.config
 import textwrap
 
 from docopt import docopt
@@ -109,14 +110,12 @@ class Args(Dict):
 
 
 def initlog(args):
-    fmt = '\t'.join(['%(levelname)s',
-                     '%(filename)s:%(lineno)s',
-                     '%(message)s'])
-    level = (logging.DEBUG if args.debug
-             else logging.INFO if args.verbose
-             else logging.WARN)
-
-    logging.basicConfig(format=fmt, level=level)
+    key = ('debug' if args.debug
+            else 'verbose' if args.verbose
+            else 'default')
+    with open(util.pkgfile('logging.yaml')) as f:
+        logconf = util.loadyaml(f.read())
+    logging.config.dictConfig(logconf[key])
 
 
 def main(argv=None):
