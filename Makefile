@@ -1,4 +1,4 @@
-.PHONY : all wheel venv clean test
+.PHONY : all wheel venv clean test FORCE
 
 version = $(shell python3 setup.py --version)
 wheel = romtool-$(version)-py2-none-any.whl
@@ -6,9 +6,15 @@ deb = romtool_$(version)_all.deb
 
 all : wheel
 wheel : dist/$(wheel)
+nointro : src/romtool/nointro.tsv
 
 dist/$(wheel) :
 	python3 setup.py bdist_wheel
+
+src/romtool/nointro.tsv : FORCE
+	find resources/nointro \
+		-name '*.dat' \
+		-exec python3 tools/rtbuild.py datomatic -vo $@ {} + 
 
 deb :
 	mkdir -p dist

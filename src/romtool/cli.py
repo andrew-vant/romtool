@@ -13,6 +13,7 @@ Usage:
     romtool charmap <rom> <strings>...
     romtool convert <infile> <outfile>
     romtool initchg <rom> <filename>
+    romtool ident [options] <rom>...
 
 Commmands:
     dump                Dump all known data from a ROM to `moddir`
@@ -24,6 +25,7 @@ Commmands:
     charmap             Generate a texttable from known strings
     convert             Convert a patch from one format to another
     initchg             Generate a starter changeset file.
+    ident               Print information about a ROM file
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations

@@ -8,14 +8,17 @@ import csv
 import json
 from os.path import splitext
 
+from addict import Dict
+
 import romlib
 import romlib.charset
 from romlib.rommap import RomMap
 from romlib.rom import Rom
 from romlib.patch import Patch
 from romtool.util import pkgfile, slurp, loadyaml
-from romlib.util import pipeline
+from romlib.util import pipeline, readtsv
 from romlib.exceptions import ChangesetError
+
 
 log = logging.getLogger(__name__)
 
@@ -325,14 +328,37 @@ def meta(args):
             writer.writeheader()
         writer.writerow(header_data)
 
+def ident(args):
+    dbfile = os.path.join(pkgfile("maps"), "hashdb.txt")
+    with open(pkgfile('maps/hashdb.txt'), 'r') as f:
+        hashdb = {line.split()[0] for line in f if line}
+    nointro = {item['sha1']: item['name']
+               for item in readtsv(pkgfile('nointro.tsv'))}
 
-def identify(args):
+    first = True
     for filename in args.rom:
-        with open(filename, 'rb') as romfile:
-            path = detect(romfile)
-            rmap = RomMap.load(path)
-            name = getattr(rmap, 'name', None) or "unknown"
-            print('\t'.join([name, filename, path]))
+        if first:
+            first = False
+        else:
+            print("%%")
+        with open(filename, 'rb') as f:
+            rom = Rom.make(f)
+        info = Dict()
+        name = (nointro.get(rom.file.sha1)
+                or nointro.get(rom.data.sha1)
+                or rom.map.name
+                or 'unknown')
+        info.name = name
+        info.file = rom.name
+        info.type = rom.romtype
+        info.size = len(rom.file.bytes)
+        info.crc32 = rom.file.crc32
+        info.sha1 = rom.file.sha1
+        info.md5 = rom.file.md5
+        info.supported = 'yes' if info.sha1 in hashdb else 'no'
+        for k, v in info.items():
+            print(f"{k+':':12}{v}")
+
 
 
 def _backup(filename, skip=False):

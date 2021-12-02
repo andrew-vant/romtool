@@ -1,0 +1,110 @@
+<!---
+ schema for processing nointro datomatic rom datasets
+
+ Mostly this will be used to generate known hashes to distribute
+ with the package. It sort-of-has to be done at build time because
+ there's no easy way to download these at runtime. The files don't
+ seem to be available at fixed urls, you have to go through multiple
+ posts to get at them. Easier to download them once myself and
+ then generate the data I need 
+-->
+<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
+
+ <xs:complexType name='datafile'>
+  <xs:sequence>
+   <xs:element name='header' type='header'/>
+   <xs:element name='game' type='game' minOccurs='0' maxOccurs='unbounded'/>
+  </xs:sequence>
+ </xs:complexType>
+
+ <xs:complexType name='header'>
+  <xs:all>
+   <xs:element name='name' type='xs:string'/>
+   <xs:element name='description' type='xs:string'/>
+   <xs:element name='category' type='xs:string' minOccurs='0'/>
+   <xs:element name='version' type='xs:string'/>
+   <xs:element name='date' type='xs:string' minOccurs='0'/>
+   <xs:element name='author' type='xs:string'/>
+   <xs:element name='email' type='xs:string' minOccurs='0'/>
+   <xs:element name='homepage' type='xs:string' minOccurs='0'/>
+   <xs:element name='url' type='xs:string' minOccurs='0'/>
+   <xs:element name='comment' type='xs:string' minOccurs='0'/>
+   <xs:element name='clrmamepro' type='clrmamepro' minOccurs='0' maxOccurs='unbounded'/>
+   <xs:element name='romcenter' type='romcenter' minOccurs='0'/>
+  </xs:all>
+ </xs:complexType>
+
+ <xs:complexType name='clrmamepro'>
+  <xs:attribute name='header'/>
+  <xs:attribute name='forcemerging' default='split'>
+   <xs:simpleType>
+    <xs:restriction base='xs:string'>
+     <xs:enumeration value='none'/>
+     <xs:enumeration value='split'/>
+     <xs:enumeration value='full'/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name='forcenodump' default='obsolete'>
+   <xs:simpleType>
+    <xs:restriction base='xs:string'>
+     <xs:enumeration value='obsolete'/>
+     <xs:enumeration value='required'/>
+     <xs:enumeration value='ignore'/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name='forcepacking' default='zip'>
+   <xs:simpleType>
+    <xs:restriction base='xs:string'>
+     <xs:enumeration value='zip'/>
+     <xs:enumeration value='unzip'/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+ </xs:complexType>
+
+ <xs:complexType name='romcenter'>
+  <xs:attribute name='plugin'/>
+ </xs:complexType>
+
+ <xs:complexType name="game">
+  <xs:sequence>
+   <xs:element name='description'/>
+   <xs:element name='game_id' minOccurs='0'/>
+   <xs:element name='comment' minOccurs='0' maxOccurs='unbounded'/>
+   <xs:element name='release' type='release' minOccurs='0' maxOccurs='unbounded'/>
+   <xs:element name='rom' type='rom' minOccurs='0' maxOccurs='unbounded'/>
+  </xs:sequence>
+  <xs:attribute name='name' use='required'/>
+  <xs:attribute name='cloneof'/>
+ </xs:complexType>
+
+ <xs:complexType name='release'>
+  <xs:attribute name='name' use='required'/>
+  <xs:attribute name='region' use='required'/>
+  <xs:attribute name='language'/>
+  <xs:attribute name='date'/>
+  <xs:attribute name='default' default='no'>
+   <xs:simpleType>
+    <xs:restriction base='xs:string'>
+     <xs:enumeration value='yes'/>
+     <xs:enumeration value='no'/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+ </xs:complexType>
+
+ <xs:complexType name='rom'>
+  <xs:attribute name='name' use='required'/>
+  <xs:attribute name='size' use='required'/>
+  <xs:attribute name='crc'/>
+  <xs:attribute name='sha1'/>
+  <xs:attribute name='md5'/>
+  <xs:attribute name='merge'/>
+  <xs:attribute name='status'/>
+  <xs:attribute name='date'/>
+ </xs:complexType>
+
+ <xs:element name='datafile' type='datafile'/>
+</xs:schema>

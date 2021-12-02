@@ -1,10 +1,13 @@
-# Vim swapfiles.
+# This file shouldn't be committed, but generated at build from the
+# datomatic no-intro dats and included in the wheel
+src/romtool/nointro.tsv
 
+# Vim swapfiles.
 *.swp
 
 # Libreoffice backup files.
-
 .~lock*#
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
