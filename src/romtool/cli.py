@@ -129,6 +129,9 @@ def main(argv=None):
 
     try:
         getattr(commands, args.command)(args)
+    except KeyboardInterrupt as ex:
+        log.error(f"keyboard interrupt; aborting")
+        sys.exit(2)
     except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
         log.error(ex)
