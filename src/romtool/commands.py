@@ -329,9 +329,6 @@ def meta(args):
         writer.writerow(header_data)
 
 def ident(args):
-    dbfile = os.path.join(pkgfile("maps"), "hashdb.txt")
-    with open(pkgfile('maps/hashdb.txt'), 'r') as f:
-        hashdb = {line.split()[0] for line in f if line}
     nointro = {item['sha1']: item['name']
                for item in readtsv(pkgfile('nointro.tsv'))}
 
@@ -341,8 +338,14 @@ def ident(args):
             first = False
         else:
             print("%%")
+
+        try:
+            rmap = RomMap.load(detect(filename))
+        except RomDetectionError:
+            rmap = None
+
         with open(filename, 'rb') as f:
-            rom = Rom.make(f)
+            rom = Rom.make(f, rmap)
         info = Dict()
         name = (nointro.get(rom.file.sha1)
                 or nointro.get(rom.data.sha1)
@@ -355,7 +358,8 @@ def ident(args):
         info.crc32 = rom.file.crc32
         info.sha1 = rom.file.sha1
         info.md5 = rom.file.md5
-        info.supported = 'yes' if info.sha1 in hashdb else 'no'
+        info.supported = 'yes' if rom.map.path else 'no'
+        info.map = rom.map.path or '(no map found)'
         for k, v in info.items():
             print(f"{k+':':12}{v}")
 

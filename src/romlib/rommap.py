@@ -7,6 +7,7 @@ from typing import Mapping, Sequence
 from functools import partial
 from dataclasses import dataclass, field
 from os.path import relpath, basename
+from pathlib import Path
 import importlib.util
 
 from addict import Dict
@@ -42,6 +43,7 @@ class RomMap:
     _adctfld = partial(field, default_factory=Dict)
 
     name: str = 'unknown'
+    path: Path = None
     structs: Mapping[str, Structure] = _adctfld()
     tables: Mapping[str, Table] = _adctfld()
     ttables: Mapping[str, TextTable] = _adctfld()
@@ -79,6 +81,7 @@ class RomMap:
         #             field.register(cls)
 
         kwargs = Dict()
+        kwargs.path = Path(root)
 
         # Load python hooks, if available. This has to be done first, because
         # it might provide types used later. FIXME: I am not sure if I'm doing
