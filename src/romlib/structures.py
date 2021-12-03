@@ -144,6 +144,10 @@ class Structure(Mapping, NodeMixin, RomObject):
             pass
         raise LookupError(f"Couldn't find {key} in {self}")
 
+    @property
+    def fids(self):
+        return [f.id for f in self.fields]
+
     @classmethod
     def _fbid(cls, fid):
         """ Get field by fid """

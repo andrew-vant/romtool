@@ -3,6 +3,9 @@ from functools import partial
 from dataclasses import dataclass, fields
 from io import BytesIO
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+
+from asteval import Interpreter
 
 from .io import Unit
 from .util import HexInt
@@ -10,6 +13,41 @@ from .util import HexInt
 from romlib.exceptions import RomtoolError
 
 log = logging.getLogger(__name__)
+
+
+class FieldContext(Mapping):
+    """ A dict-like context intended to be passed to asteval
+
+    The following names are available when evaluating:
+
+    * `root` refers to the root file view
+    * `rom` refers to the rom object
+    * all field IDs of the structure being evaluated are available, and will
+      read the value of that field.
+    * TODO: table names from the ROM, so you don't need rom.table
+    * TODO: the index of the struct within its table. Useful for
+      cross-references.
+    """
+
+    def __init__(self, struct):
+        self.struct = struct
+
+    def __getitem__(self, key):
+        if key == 'root':
+            return self.struct.view.root
+        if key == 'rom':
+            raise NotImplementedError
+        if key in self.struct.fids:
+            return getattr(self.struct, key)
+        raise ValueError(f"name not in context: {key}")
+
+    def __iter__(self):
+        yield 'rom'
+        yield 'root'
+        yield from self.struct.fids
+
+    def __len__(self):
+        return len(iter(self))
 
 
 class FieldExpr:
@@ -21,14 +59,24 @@ class FieldExpr:
 
 
     def __init__(self, spec):
+        if not spec:
+            raise ValueError("empty fieldexpr spec")
         self.spec = spec
 
     def eval(self, parent):
-        try:
-            return int(self.spec, 0)
-        except ValueError:
-            return getattr(parent, self.spec)
-
+        # Eval of any kind can be dangerous, and I'd like third-party maps to
+        # be safe-ish, so for now let's avoid any builtin stuff at all and see
+        # if it's good enough.
+        interpreter = Interpreter(minimal=True)
+        interpreter.symtable = FieldContext(parent)
+        result = interpreter.eval(self.spec)
+        errs = interpreter.error
+        if errs:
+            msg = "error evaluating FieldExpr '{}': {}"
+            for err in errs:
+                log.error(msg.format(self.spec, err.msg))
+            raise RomtoolError(msg.format(self.spec, err.msg))
+        return result
 
 @dataclass
 class Field(ABC):

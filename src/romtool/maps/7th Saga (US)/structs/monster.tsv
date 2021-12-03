@@ -33,5 +33,5 @@ gld	Gold/Exp	34	2	uintle						stats	Experience is always 2.201 * Gold
 drp	Dropset	36	1	uintle						misc	
 script	Script	37	1	uintle					script_ptr	misc	
 boss	Boss Flag	38	1	uintle						flag	Monster won't run, can't be run from, and is immune to effects.
-nmp	Name Pointer	39	3	uintle		pointer		-0xC00000		pointer	
-name	Name	nmp	32	strz	root	main				name	
+nmp	Name Pointer	39	3	uintle		pointer				pointer	
+name	Name	nmp-0xC00000	32	strz	root	main				name	
