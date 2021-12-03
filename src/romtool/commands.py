@@ -333,7 +333,7 @@ def ident(args):
                for item in readtsv(pkgfile('nointro.tsv'))}
 
     first = True
-    for filename in args.rom:
+    for filename in args.roms:
         if first:
             first = False
         else:
