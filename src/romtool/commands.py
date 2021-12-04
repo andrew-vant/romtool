@@ -8,8 +8,10 @@ import csv
 import json
 from os.path import splitext
 from itertools import chain
+from textwrap import dedent
 
 from addict import Dict
+from appdirs import AppDirs
 
 import romlib
 import romlib.charset
@@ -366,6 +368,17 @@ def ident(args):
         for k, v in info.items():
             print(f"{k+':':12}{v}")
 
+
+def dirs(args):
+    dirs = AppDirs("romtool")
+    out = f"""
+        config:     {dirs.user_config_dir}
+        data:       {dirs.user_data_dir}
+        state:      {dirs.user_state_dir}
+        cache:      {dirs.user_cache_dir}
+        logs:       {dirs.user_log_dir}
+        """
+    print(dedent(out).strip())
 
 
 def _backup(filename, skip=False):

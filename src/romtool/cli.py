@@ -14,6 +14,7 @@ Usage:
     romtool convert <infile> <outfile>
     romtool initchg <rom> <filename>
     romtool ident [options] <roms>...
+    romtool dirs
 
 Commmands:
     dump                Dump all known data from a ROM to `moddir`
@@ -26,6 +27,7 @@ Commmands:
     convert             Convert a patch from one format to another
     initchg             Generate a starter changeset file.
     ident               Print information about a ROM file
+    dirs                Print directory paths used by romtool
 
 Options:
     -i, --interactive   Prompt for confirmation on destructive operations
