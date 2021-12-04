@@ -38,6 +38,13 @@ class TestStructure(unittest.TestCase):
                         'size': '6',
                         'arg': '',
                         'display': 'ascii'},
+                       {'id': 'strb',
+                        'name': 'strb',
+                        'type': 'bytes',
+                        'offset': '4',
+                        'size': '6',
+                        'arg': '',
+                        'display': ''},
                        {'id': 'strz',
                         'name': 'String 2',
                         'type': 'strz',
@@ -138,7 +145,8 @@ class TestStructure(unittest.TestCase):
     def test_undersized_string(self):
         struct = self.scratch(Stream(self.data))
         struct.str = 'abc'
-        self.assertEqual(struct.str, 'abc   ')
+        self.assertEqual(struct.strb, b'abc   ')
+        self.assertEqual(struct.str, 'abc')
 
     def test_repr(self):
         struct = self.scratch(Stream(self.data))

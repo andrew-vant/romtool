@@ -63,7 +63,7 @@ class TestRomMap(unittest.TestCase):
                       'count': '2',
                       'stride': '0x8000'}
                      }
-        self.rmap = RomMap('nameless', structs, tables)
+        self.rmap = RomMap('nameless', None, structs, tables)
 
     def test_init(self):
         self.assertIsInstance(self.rmap, RomMap)
