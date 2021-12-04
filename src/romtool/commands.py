@@ -7,6 +7,7 @@ import itertools
 import csv
 import json
 from os.path import splitext
+from itertools import chain
 
 from addict import Dict
 
@@ -18,6 +19,7 @@ from romlib.patch import Patch
 from romtool.util import pkgfile, slurp, loadyaml
 from romlib.util import pipeline, readtsv
 from romlib.exceptions import ChangesetError
+from . import config
 
 
 log = logging.getLogger(__name__)
@@ -48,8 +50,9 @@ def detect(romfile, maproot=None):
     maproot -- A root directory containing a set of rom maps and a hashdb.txt
                file associating sha1 hashes with map names.
     """
+    cfg = config.load('romtool.yaml')
     if maproot is None:
-        maproot = pkgfile("maps")
+        maproot = next(chain(cfg.map_paths, [pkgfile("maps")]))
 
     dbfile = os.path.join(maproot, 'hashdb.txt')
     with open(dbfile) as hashdb, open(romfile, "rb") as rom:

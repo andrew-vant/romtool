@@ -1,0 +1,3 @@
+map_paths: []    # Paths to search for maps
+rom_paths: []    # Paths to search for roms
+rom_aliases: []  # shortname -> nointro name aliases

@@ -64,6 +64,7 @@ from romtool import util
 from romtool.version import version
 from romlib.exceptions import RomtoolError
 from . import commands
+from . import config
 
 log = logging.getLogger(__name__)
 
@@ -117,8 +118,7 @@ def initlog(args):
             else 'verbose' if args.verbose
             else 'quiet' if args.quiet
             else 'default')
-    with open(util.pkgfile('logging.yaml')) as f:
-        logconf = util.loadyaml(f.read())
+    logconf = config.load('logging.yaml')
     logging.config.dictConfig(logconf[key])
 
 
