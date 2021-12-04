@@ -28,6 +28,11 @@ default:
     level: WARN
     handlers: [normal]
 
+quiet:
+  << : *shared
+  root:
+    level: ERROR
+
 verbose:
   << : *shared
   root:

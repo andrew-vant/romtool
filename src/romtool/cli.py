@@ -40,6 +40,7 @@ Options:
     -h, --help          Print this help
     -V, --version       Print version and exit
     -v, --verbose       Verbose output
+    -q, --quiet         Quiet output
     -D, --debug         Even more verbose output
     --pdb               Start interactive debugger on crash
 
@@ -114,6 +115,7 @@ class Args(Dict):
 def initlog(args):
     key = ('debug' if args.debug
             else 'verbose' if args.verbose
+            else 'quiet' if args.quiet
             else 'default')
     with open(util.pkgfile('logging.yaml')) as f:
         logconf = util.loadyaml(f.read())
