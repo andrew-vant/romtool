@@ -274,6 +274,13 @@ def load_builtins(path, extension, loader):
             builtins[base] = loader(pathjoin(path, filename))
     return builtins
 
+
+def loadyaml(data):
+    # Just so I don't have to remember the extra argument everywhere.
+    # Should take anything yaml.load will take.
+    return yaml.load(data, Loader=yaml.SafeLoader)
+
+
 def writetsv(path, data, force=False, headers=None):
     mode = "w" if force else "x"
     data = list(data)

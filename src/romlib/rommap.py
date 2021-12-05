@@ -49,6 +49,7 @@ class RomMap:
     ttables: Mapping[str, TextTable] = _adctfld()
     tests: Sequence = list
     hooks: types.ModuleType = None
+    meta: Mapping[str, str] = _adctfld()
 
     @property
     def sets(self):
@@ -82,6 +83,12 @@ class RomMap:
 
         kwargs = Dict()
         kwargs.path = Path(root)
+        try:
+            path = Path(root, 'meta.yaml')
+            with open(path) as f:
+                kwargs.meta = Dict(util.loadyaml(f))
+        except FileNotFoundError as ex:
+            log.warning(f"map metadata missing: {ex}")
 
         # Load python hooks, if available. This has to be done first, because
         # it might provide types used later. FIXME: I am not sure if I'm doing
