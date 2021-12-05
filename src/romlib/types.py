@@ -67,7 +67,10 @@ class FieldExpr:
         # Eval of any kind can be dangerous, and I'd like third-party maps to
         # be safe-ish, so for now let's avoid any builtin stuff at all and see
         # if it's good enough.
-        interpreter = Interpreter(minimal=True)
+        #
+        # NOTE: Letting the Interpreter create its default symtable is
+        # *surprisingly* expensive, so suppress it.
+        interpreter = Interpreter({}, minimal=True)
         interpreter.symtable = FieldContext(parent)
         result = interpreter.eval(self.spec)
         errs = interpreter.error
