@@ -63,17 +63,20 @@ class FieldExpr:
             raise ValueError("empty fieldexpr spec")
         self.spec = spec
 
-    def eval(self, parent):
         # Eval of any kind can be dangerous, and I'd like third-party maps to
         # be safe-ish, so for now let's avoid any builtin stuff at all and see
         # if it's good enough.
         #
-        # NOTE: Letting the Interpreter create its default symtable is
-        # *surprisingly* expensive, so suppress it.
-        interpreter = Interpreter({}, minimal=True)
-        interpreter.symtable = FieldContext(parent)
-        result = interpreter.eval(self.spec)
-        errs = interpreter.error
+        # NOTE: Interpreter creation is *surprisingly* expensive, espcially the
+        # default symtable creation. So skip the default creation and make the
+        # interpreter only once. We'll set the actual symtable just before
+        # using it.
+        self.interpreter = Interpreter({}, minimal=True)
+
+    def eval(self, parent):
+        self.interpreter.symtable = FieldContext(parent)
+        result = self.interpreter.eval(self.spec)
+        errs = self.interpreter.error
         if errs:
             msg = "error evaluating FieldExpr '{}': {}"
             for err in errs:
