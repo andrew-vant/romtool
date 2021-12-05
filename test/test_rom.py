@@ -1,12 +1,16 @@
 import os
 import unittest
 import logging
+from pathlib import Path
+from functools import partialmethod
 
 import romlib.rom
 import romlib.rommap
 from romlib.rom import Rom, SNESRom
 from romlib.rommap import RomMap
 from romlib.structures import Structure, Table
+from romlib.types import Field
+from romtool.util import pkgfile
 
 
 romenv = 'ROMLIB_TEST_ROM'
@@ -72,61 +76,51 @@ class TestRomMap(unittest.TestCase):
         self.assertEqual(len(self.rmap.ttables), 0)
 
 
-@unittest.skipUnless(romfile, f'{romenv} not set, skipping')
-class TestMappedRom(unittest.TestCase):
-    def setUp(self):
-        structs = {'snesheaders': romlib.rom.headers['snes-hdr']}
-        tables = {'snesheaders':
-                     {'id': 'snesheaders',
-                      'name': 'Header',
-                      'set': '',
-                      'type': 'snes-hdr',
-                      'offset': '0x7FC0',
-                      'size': '32',
-                      'count': '2',
-                      'stride': '0x8000'}
-                     }
-        self.rmap = RomMap(structs, tables)
-        filename = romfile
-        if not filename:
-            self.skipTest(f"{rom_envvar} not set, skipping")
-        with open(filename, 'rb') as f:
-            self.rom = Rom.make(f, self.rmap)
+class TestKnownMaps(unittest.TestCase):
+    known_map_roots = [p for p
+                       in Path(pkgfile('maps')).iterdir()
+                       if p.is_dir()]
+    rom_dir = Path('~/.local/share/romtool/roms').expanduser()
 
-    def test_init(self):
-        self.assertIsInstance(self.rom, Rom)
-        self.assertEqual(len(self.rom.snesheaders), 2)
-        log.info(type(romlib.rom.headers))
-        log.info(type(self.rom.snesheaders))
-        headcls = romlib.rom.headers['snes-hdr']
-        log.debug(headcls)
-        log.debug(type(self.rom.snesheaders[0]))
-        self.assertIsInstance(self.rom.snesheaders[0], headcls)
+    def _find_rom(self, rmap):
+        for parent, dirs, files in os.walk(self.rom_dir):
+            for filename in files:
+                if filename == rmap.meta.file:
+                    return Path(parent, filename)
+        raise FileNotFoundError(f"no matching rom for {rmap.name}")
 
-    def test_header(self):
-        if not isinstance(self.rom, SNESRom):
-            self.skipTest("test requires an SNES rom")
-        real_header = next(h for h in self.rom.snesheaders
-                           if h.view.offset == self.rom.header.view.offset)
-        self.assertEqual(real_header.csum + real_header.csum2, 0xFFFF)
+    def _test_map(self, maproot):
+        rmap = RomMap.load(str(maproot))
+        if not rmap.meta:
+            self.skipTest(f"no metadata for map: {rmap.name}")
+        try:
+            with open(self._find_rom(rmap), 'rb') as f:
+                rom = Rom(f, rmap)
+        except FileNotFoundError as ex:
+            self.skipTest(ex)
 
-@unittest.skipUnless(rommap, f'{mapenv} not set, skipping')
-@unittest.skipUnless(romfile, f'{romenv} not set, skipping')
-class TestMapDefinition(unittest.TestCase):
-    def setUp(self):
-        self.map = RomMap.load(rommap)
-        with open(romfile, 'rb') as f:
-            self.rom = Rom.make(f, self.map)
-
-    def test_load(self):
-        # Forces setUp to run, and nothing else
-        pass
-
-    def test_known(self):
-        for d in self.map.tests:
+        self.assertIsInstance(rom, Rom)
+        for d in rmap.tests:
             with self.subTest(f'{d.table}[{d.item}].{d.attribute}={d.value}'):
                 expected = d.value
-                table = getattr(self.rom, d.table)
+                table = getattr(rom, d.table)
                 item = table[d.item]
                 value = item if not d.attribute else getattr(item, d.attribute)
                 self.assertEqual(value, expected)
+
+    @classmethod
+    def add_map_tests(cls):
+        for i, root in enumerate(cls.known_map_roots):
+            method = partialmethod(cls._test_map, maproot=root)
+            name = f"test_map_{i}"
+            setattr(cls, name, method)
+
+    def setUp(self):
+        self.std_struct_registry = Structure.registry.copy()
+        self.std_field_handlers = Field.handlers.copy()
+
+    def tearDown(self):
+        Structure.registry = self.std_struct_registry
+        Field.handlers = self.std_field_handlers
+
+TestKnownMaps.add_map_tests()
