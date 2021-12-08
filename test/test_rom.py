@@ -79,7 +79,8 @@ class TestRomMap(unittest.TestCase):
 class TestKnownMaps(unittest.TestCase):
     known_map_roots = [p for p
                        in Path(pkgfile('maps')).iterdir()
-                       if p.is_dir()]
+                       if p.is_dir()
+                       and Path(p, 'meta.yaml').exists()]
     rom_dir = Path('~/.local/share/romtool/roms').expanduser()
 
     def _find_rom(self, rmap):
@@ -91,28 +92,38 @@ class TestKnownMaps(unittest.TestCase):
 
     def _test_map(self, maproot):
         rmap = RomMap.load(str(maproot))
-        if not rmap.meta:
-            self.skipTest(f"no metadata for map: {rmap.name}")
+        self.assertTrue(rmap.meta, f"metadata missing for {rmap.name}")
         try:
             with open(self._find_rom(rmap), 'rb') as f:
-                rom = Rom(f, rmap)
+                rom = Rom.make(f, rmap)
         except FileNotFoundError as ex:
             self.skipTest(ex)
 
         self.assertIsInstance(rom, Rom)
         for d in rmap.tests:
-            with self.subTest(f'{d.table}[{d.item}].{d.attribute}={d.value}'):
-                expected = d.value
-                table = getattr(rom, d.table)
-                item = table[d.item]
-                value = item if not d.attribute else getattr(item, d.attribute)
-                self.assertEqual(value, expected)
+            slug = rmap.meta.slug
+            tbl = d.table
+            idx = d.item
+            attr = d.attribute
+            expected = d.value
+            with self.subTest(f'{slug}:{tbl}[{idx}].{attr}=={expected}'):
+                table = rom.entities(tbl)
+                item = list(table)[idx]
+                value = item if not attr else getattr(item, attr)
+                emsg = f'expected {expected}, found {value}'
+                self.assertEqual(value, expected, emsg)
 
     @classmethod
     def add_map_tests(cls):
-        for i, root in enumerate(cls.known_map_roots):
-            method = partialmethod(cls._test_map, maproot=root)
-            name = f"test_map_{i}"
+        """ Dynamically add a test for each map in the builtin map directory """
+        for root in cls.known_map_roots:
+            # Kludgy way to get a usable identifier for each test
+            with open(Path(root, 'meta.yaml')) as f:
+                slug = next(line.split(':')[-1].strip()
+                            for line in f
+                            if line.startswith('slug:'))  # ew
+            method = partialmethod(cls._test_map, root)
+            name = f"test_map_{slug}"
             setattr(cls, name, method)
 
     def setUp(self):

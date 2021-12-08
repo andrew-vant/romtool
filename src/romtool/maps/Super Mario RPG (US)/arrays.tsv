@@ -16,14 +16,14 @@ growth			levels	growth	0x3A1B39	29	15
 bonus			levels	bonus	0x3A1CEC	29	15						
 items			items	item	0x3A014D	256	18						
 prices	price	Price	items	uintle	0x3A40F2	256	2						
-item_names	name	Name	items	strz	0x3A46EF	256	15					names	
+item_names	name	Name	items	str	0x3A46EF	256	15					names	
 item_descs	desc	Description	items	strz	0x3A0000	256		256		item_desc_ptrs		descs	
 item_desc_ptrs	dptr	Description Ptr	items	uintle	0x3A2F20	256	2					pointer	
 specials			specials	special	0x391226	129	4						
-special_names	name	Name	specials	strz	0x3959F4	129	13					names	
+special_names	name	Name	specials	str	0x3959F4	129	13					names	
 pspells		Player Spells	pspells	spell	0x3A20F1	27	12						
-pspell_names	name	Name	pspells	strz	0x3A137F	27	15					names	
+pspell_names	name	Name	pspells	str	0x3A137F	27	15					names	
 pspell_descs	desc	Description	pspells	strz	0x3A0000	27		256		pspell_desc_ptrs		descs	
 pspell_desc_ptrs	dptr	Description Ptr	pspells	uintle	0x3A2B80	27	2					pointer	
 mspells			mspells	spell	0x3A2235	101	12						
-mspell_names	name	Name	mspells	strz	0x3A1514	101	15					names	
+mspell_names	name	Name	mspells	str	0x3A1514	101	15					names	

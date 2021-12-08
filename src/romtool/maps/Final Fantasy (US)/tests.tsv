@@ -1,3 +1,5 @@
 table	item	attribute	value
+monsters	0	name	IMP
 monsters	0	hp	8
 monsters	12	name	SAHAG
+monsters	12	hp	28

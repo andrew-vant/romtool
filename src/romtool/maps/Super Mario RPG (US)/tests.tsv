@@ -1,0 +1,6 @@
+table	item	attribute	value
+monsters	0	name	TERRAPIN
+monsters	0	hp	10
+monsters	1	name	SPIKEY
+monsters	1	hp	20
+items	5	name	{H}Hammer

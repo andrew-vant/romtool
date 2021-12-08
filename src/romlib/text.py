@@ -126,4 +126,8 @@ def add_tt(name, f):
 def get_tt_codec(name):
     return tt_codecs.get(name, None)
 
+def clear_tt_codecs():
+    codecs.unregister(get_tt_codec)
+    codecs.register(get_tt_codec)
+
 codecs.register(get_tt_codec)

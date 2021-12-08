@@ -3,4 +3,4 @@ monsters			monsters	monster	0xB05C0	224				monster_ptrs
 monster_ptrs	mptr	Monster Pointer	monsters	uintle	0xB05C0	224	2					pointer	
 items			items	item	0xB4F69	467				item_ptrs			
 item_ptrs	iptr	Item Pointer	items	uintle	0xB4F69	467	2					pointer	
-item_names		Name	items	str	0xF47E8	467	12					main	
+item_names	name	Name	items	str	0xF47E8	467	12					main	

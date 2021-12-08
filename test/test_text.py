@@ -6,7 +6,7 @@ from tempfile import TemporaryFile
 
 class TestTextTable(unittest.TestCase):
     def setUp(self):
-        self.codec = 'main'
+        self.codec = 'test_text_main'
         self.std = self.codec + '-std'
         self.clean = self.codec + '-clean'
         self.raw = self.codec + '-raw'

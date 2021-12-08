@@ -1,7 +1,7 @@
 table	item	attribute	value
 monsters	2	hp	30
 monsters	36	name	Hermit
-charnames	2		Esuna
+characters	2	name	Esuna
 armor	0	cost	80
 armor	104	cost	0
 armor	0	name	*AR_Xtri

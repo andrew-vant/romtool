@@ -1,0 +1,10 @@
+table	item	attribute	value
+monsters	0	name	Goblin
+monsters	0	hp	102
+monsters	0	mp	30
+monsters	4	name	Troll
+monsters	4	hp	252
+monsters	4	sptr	0x002B
+monsters	4	rptr	0x0036
+items	0	name	No equip
+items	1	name	Charred newt

@@ -162,8 +162,10 @@ class RomMap:
         # we should check that tables in the same set are the same length
 
         path = root + "/tests.tsv"
-        if os.path.exists(path):
+        try:
             log.info("Loading test specs from %s", path)
             kwargs.tests = [MapTest(**row) for row in util.readtsv(path)]
+        except FileNotFoundError:
+            kwargs.tests = []
 
         return cls(basename(root), **kwargs)

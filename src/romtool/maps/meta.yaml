@@ -1,0 +1,6 @@
+# Example map metadata file
+
+slug: gamename
+name: Name of Game in No-Intro Database
+file: Filename of Game in No-Intro Database
+sha1: 1234567890abcdef1234567890abcdef12345678
