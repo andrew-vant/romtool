@@ -111,7 +111,9 @@ class TestKnownMaps(unittest.TestCase):
                 item = list(table)[idx]
                 value = item if not attr else getattr(item, attr)
                 emsg = f'expected {expected}, found {value}'
-                self.assertEqual(value, expected, emsg)
+                # The str here covers things like enums. Probably something
+                # will go horribly wrong with this eventually.
+                self.assertIn(expected, [value, str(value)], emsg)
 
     @classmethod
     def add_map_tests(cls):

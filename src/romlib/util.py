@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from itertools import chain
 from os.path import dirname, realpath
 from os.path import join as pathjoin
+from enum import IntEnum
 
 import yaml
 import asteval
@@ -148,6 +149,24 @@ class PrettifierMixin:
         for supercls, representer in representers.items():
             if issubclass(cls, supercls):
                 cls._PrettyDumper.add_representer(cls, representer)
+
+
+class RomEnum(IntEnum):
+    """ Enum variant for simpler dumping/loading """
+    def __str__(self):
+        return self._name_ # pylint: disable=no-member
+
+    @classmethod
+    def parse(cls, string):
+        try:
+            return cls[string]
+        except KeyError:
+            pass
+        try:
+            return cls(int(string, 0))
+        except ValueError:
+            pass
+        raise ValueError(f"not a valid {cls}: {string}")
 
 
 @contextlib.contextmanager

@@ -187,6 +187,12 @@ class StringField(Field):
 
 class IntField(Field):
     handles = ['int', 'uint', 'uintbe', 'uintle']
+    enums = {}
+
+    @property
+    def enum(self):
+        """ Get enum type for this field, if relevant, otherwise int"""
+        return self.enums.get(self.display)
 
     def read(self, obj, objtype=None, realtype=None):
         if obj is None:
@@ -195,15 +201,26 @@ class IntField(Field):
         i = getattr(view, (realtype or self.type)) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
             i = HexInt(i, len(view))
+        if self.enum:
+            i = self.enum(i)
         return i
 
     def write(self, obj, value, realtype=None):
+        if self.enum and isinstance(value, str):
+            value = self.enum[value]
         view = self.view(obj)
         value -= (self.arg or 0)
         setattr(view, (realtype or self.type), value)
 
     def parse(self, string):
-        return int(string, 0)
+        parser = self.enum.parse if self.enum else partial(int, base=0)
+        return parser(string)
+
+    @classmethod
+    def handle(cls, typename, enum=None):
+        super().handle(typename)
+        if enum:
+            cls.enums[typename] = enum
 
 
 class BytesField(Field):

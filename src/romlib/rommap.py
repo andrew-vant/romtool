@@ -17,6 +17,7 @@ import romlib.text as text
 from .structures import Structure, BitField, Table
 from .text import TextTable
 from .exceptions import RomtoolError, MapError
+from .types import IntField
 
 
 log = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class RomMap:
     structs: Mapping[str, Structure] = _adctfld()
     tables: Mapping[str, Table] = _adctfld()
     ttables: Mapping[str, TextTable] = _adctfld()
+    enums: Mapping[str, util.RomEnum] = _adctfld()
     tests: Sequence = list
     hooks: types.ModuleType = None
     meta: Mapping[str, str] = _adctfld()
@@ -113,6 +115,9 @@ class RomMap:
             yield from util.get_subfiles(None, folder, ext)
             yield from util.get_subfiles(root, folder, ext)
 
+        # TODO: lots of repetition here, can I function it out? args for
+        # subdir, description, loaderfunc?
+
         log.info("Loading text tables")
         kwargs.ttables = Dict()
         for name, path in files('texttables', '.tbl'):
@@ -142,6 +147,22 @@ class RomMap:
                 msg = f"Map bug in '{name}' structure: {ex}"
                 raise MapError(msg)
             kwargs.structs[name] = structcls
+
+        # Again for enums
+        kwargs.enums = Dict()
+        log.info("Loading enums")
+        for name, path in files('enums', '.yaml'):
+            rpath = relpath(path, root)
+            log.info("Loading enum '%s' from '%s'", name, rpath)
+            try:
+                with open(path) as f:
+                    espec = {v: k for k, v in util.loadyaml(f).items()}
+                ecls = util.RomEnum(name, espec)
+                IntField.handle(name, ecls)
+            except RomtoolError as ex:
+                msg = f"Map bug in '{name}' enum: {ex}"
+                raise MapError(msg)
+            kwargs.enums[name] = ecls
 
         # Now load the array definitions. Note that this doesn't instantiate
         # them, just stores the appropriate kwargs for use by the program.
