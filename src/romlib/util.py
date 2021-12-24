@@ -340,9 +340,17 @@ def writetsv(path, data, force=False, headers=None):
         for item in data:
             writer.writerow(item)
 
-def readtsv(path):
-    with open(path, newline='') as f:
-        return list(csv.DictReader(f, dialect='romtool'))
+def readtsv(infile):
+    """ Read in a tsv file
+
+    Accepts either a path or an open file object. Passed file objects should be
+    opened in text mode with newline=''.
+    """
+    try:
+        with open(infile, newline='') as f:
+            return list(csv.DictReader(f, dialect='romtool'))
+    except TypeError:
+        return list(csv.DictReader(infile, dialect='romtool'))
 
 def filesize(f):
     """ Get the size of a file """
