@@ -1,22 +1,22 @@
 id	fid	name	set	type	offset	count	stride	size	index	priority	display	comment
+spells			spells	spell	-0xC00000	61	12		spell_ptr			
+spellfuncs	func	Spell Routine?	spells	uintle	0x4B155	64	3				pointer	Table of pointers to spell behavior routines?
+spell_ptr	splptr	Spell Pointer	spells	uintle	0x523A	64	3				pointer	Spell index. This appears to be much longer (150+?) but the corresponding spell routine array isn't. I'm not sure the extra entries do anything useful.
+armor			armor	armor	-0xC00000	105	17		armor_ptr			
+armor_ptr	aptr	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	Armor index
 characters			characters	character	-0xC00000	8	18		char_ptr			
 cname_ptr	nmp	Name Pointer	characters	uintle	0x1ED25	8	3				pointer	Pointers to character names. This set is used for the default names during character creation, but there are other copies in ROM, not sure where or how they're used.
 charnames	name	Name	characters	strz	-0xC00000	8	12	12	cname_ptr	1	main	
 spellset			characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
 splvls			characters	splvls	-0xC00000	8	32		splvls_ptr			
-spells			spells	spell	-0xC00000	61	12		spell_ptr			
-itemstats			items	item	-0xC00000	100	9		item_ptr			
-weapons			weapons	weapon	-0xC00000	51			weapon_ptr			
-armor			armor	armor	-0xC00000	105	17		armor_ptr			
-monsters			monsters	monster	-0xC00000	98	42		mon_ptr			
-dropsets			dropsets	dropset	0x8A18	16	16					
-spellfuncs	func	Spell Routine?	spells	uintle	0x4B155	64	3				pointer	Table of pointers to spell behavior routines?
 char_ptr	cptr	Character Pointer	characters	uintle	0x4EF2	8	3				pointer	Character index
 spset_ptr	ssptr	Spellset Pointer	characters	uintle	0x4F0A	8	3				pointer	Spellset index
 splvls_ptr	slptr	Spell Levels Pointer	characters	uintle	0x4F22	8	3				pointer	Spell levels index
+dropsets			dropsets	dropset	0x8A18	16	16					
+itemstats			items	item	-0xC00000	100	9		item_ptr			
 item_ptr	iptr	Item Pointer	items	uintle	0x4F3A	100	3				pointer	Item index
-weapon_ptr	wptr	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	Weapon index
-armor_ptr	aptr	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	Armor index
+monsters			monsters	monster	-0xC00000	98	42		mon_ptr			
 mon_ptr	mptr	Monster Pointer	monsters	uintle	0x53FF	260	3				pointer	Monster index
-spell_ptr	splptr	Spell Pointer	spells	uintle	0x523A	64	3				pointer	Spell index. This appears to be much longer (150+?) but the corresponding spell routine array isn't. I'm not sure the extra entries do anything useful.
 script_ptr	sptr	Script Pointer	scripts	uintle	0x2146B	128	3				pointer	Length is an educated guess.
+weapons			weapons	weapon	-0xC00000	51			weapon_ptr			
+weapon_ptr	wptr	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	Weapon index

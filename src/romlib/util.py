@@ -83,6 +83,32 @@ class HexInt(int):
         return f'{sign}0x{abs(self):0{digits}X}'
 
 
+class IndexInt(int):
+    """ An int representing a table index
+
+    Dumps and parses as the name of the corresponding item in a given table.
+    """
+    def __new__(cls, table, value):
+        if isinstance(value, str):
+            try:
+                value = int(value, 0)
+            except ValueError:
+                value = table.locate(value)
+        self = int.__new__(cls, value)
+        self.table = table
+        return self
+
+    @property
+    def obj(self):
+        return self.table[self]
+
+    def __repr__(self):
+        return f"IndexInt({self.table.name} #{int(self)} ({self.name})"
+
+    def __str__(self):
+        return self.obj.name
+
+
 class RomObject(abc.ABC):
     """ Base class for rom objects that act as collections
 

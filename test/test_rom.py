@@ -107,12 +107,11 @@ class TestKnownMaps(unittest.TestCase):
             attr = d.attribute
             expected = d.value
             with self.subTest(f'{slug}:{tbl}[{idx}].{attr}=={expected}'):
-                table = rom.entities(tbl)
-                item = list(table)[idx]
+                item = rom.entities[tbl][idx]
                 value = item if not attr else getattr(item, attr)
-                emsg = f'expected {expected}, found {value}'
                 # The str here covers things like enums. Probably something
                 # will go horribly wrong with this eventually.
+                emsg = f'expected {expected}, found {value}'
                 self.assertIn(expected, [value, str(value)], emsg)
 
     @classmethod

@@ -6,14 +6,14 @@ pow	Power	5	2	uintle						stats
 grd	Guard	7	2	uintle						stats	
 mag	Magic	9	1	uintle						stats	
 spd	Speed	10	1	uintle						stats	
-sp0	Spell 0 Index	11	1	uintle						spells	
-sp1	Spell 1 Index	12	1	uintle						spells	
-sp2	Spell 2 Index	13	1	uintle						spells	
-sp3	Spell 3 Index	14	1	uintle						spells	
-sp4	Spell 4 Index	15	1	uintle						spells	
-sp5	Spell 5 Index	16	1	uintle						spells	
-sp6	Spell 6 Index	17	1	uintle						spells	
-sp7	Spell 7 Index	18	1	uintle						spells	
+sp0	Spell 0 Index	11	1	uintle					spells	spells	
+sp1	Spell 1 Index	12	1	uintle					spells	spells	
+sp2	Spell 2 Index	13	1	uintle					spells	spells	
+sp3	Spell 3 Index	14	1	uintle					spells	spells	
+sp4	Spell 4 Index	15	1	uintle					spells	spells	
+sp5	Spell 5 Index	16	1	uintle					spells	spells	
+sp6	Spell 6 Index	17	1	uintle					spells	spells	
+sp7	Spell 7 Index	18	1	uintle					spells	spells	
 ctc0	Spell 0 Chance	19	1	uintle						ai	
 ctc1	Spell 1 Chance	20	1	uintle						ai	
 ctc2	Spell 2 Chance	21	1	uintle						ai	
@@ -31,7 +31,7 @@ rvac	Death Resist	32	1	uintle						stats
 reff	Effect Resist	33	1	uintle						stats	
 gld	Gold/Exp	34	2	uintle						stats	Experience is always 2.201 * Gold
 drp	Dropset	36	1	uintle						misc	
-script	Script	37	1	uintle					script_ptr	misc	
+script	Script	37	1	uintle						misc	
 boss	Boss Flag	38	1	uintle						flag	Monster won't run, can't be run from, and is immune to effects.
 nmp	Name Pointer	39	3	uintle		pointer				pointer	
 name	Name	nmp-0xC00000	32	strz	root	main				name	

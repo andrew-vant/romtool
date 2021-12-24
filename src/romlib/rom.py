@@ -17,7 +17,7 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, Entity
+from .structures import Structure, Table, Entity, EntityList
 from .rommap import RomMap
 from .exceptions import RomError, ChangesetError
 
@@ -56,6 +56,15 @@ class Rom(NodeMixin, util.RomObject):
             log.debug("creating table: %s", spec['id'])
             setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
 
+        self.entities = Dict()
+        byset = lambda row: row.get('set')
+        tables = sorted(self.map.tables.values(), key=byset)
+        for tset, tspecs in groupby(tables, key=byset):
+            parts = {tspec.id: getattr(self, tspec.id) for tspec in tspecs}
+            log.debug("Creating entityset %s consisting of %s",
+                      tset, list(parts.keys()))
+            self.entities[tset] = EntityList(parts)
+
     def __str__(self):
         return f"Rom({self.name})"
 
@@ -67,24 +76,6 @@ class Rom(NodeMixin, util.RomObject):
     def tables(self):
         return {table['id']: getattr(self, table.id)
                 for table in self.map.tables.values()}
-
-    def entities(self, tset):
-        # FIXME: I think I probably need an EntityList class to zip tables
-        # together. I want lazy lookups and I need lookups of primitives to
-        # work the same as lookups of struct keys, and I don't see a way to
-        # accomplish that without a custom sequence type.
-
-        components = {}
-        for tspec in self.map.tables.values():
-            if tset in (tspec.id, tspec.set):
-                components[tspec.id] = getattr(self, tspec.id)
-        if not components:
-            raise ValueError(f"No such entity: {tset}")
-        lengths = set(len(table) for table in components.values())
-        if len(lengths) != 1:
-            raise Exception(f"MAP BUG: mismatched table lengths in table set '{tset}'")
-        for i in range(lengths.pop()):
-            yield Entity(i, components)
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
@@ -149,7 +140,7 @@ class Rom(NodeMixin, util.RomObject):
     def lookup(self, key):
         if key in self.map.sets:
             log.debug(f"set found for {key}")
-            return util.Searchable(self.entities(key))
+            return util.Searchable(self.entities[key])
         elif key in self.map.tables:
             return getattr(self, key)
         else:

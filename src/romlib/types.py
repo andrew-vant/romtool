@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from asteval import Interpreter
 
 from .io import Unit
-from .util import HexInt
+from .util import HexInt, IndexInt
 
 from romlib.exceptions import RomtoolError
 
@@ -99,6 +99,7 @@ class Field(ABC):
     - size     (8, 0xFF)
     - arg      (endian for bits, modifier for ints?)
     - display  (format spec (ints) or encoding (str), implement __format__ somewhere?)
+    - ref      (int is an index of a table entry)
     - order    (output order)
     - comment  (e.g. meaning of bits (but pretty sure I should use substruct for bitfields?))
     """
@@ -111,6 +112,7 @@ class Field(ABC):
     offset: FieldExpr = None
     size: FieldExpr = '1'
     arg: int = None
+    ref: str = None
     display: str = None
     order: int = 0
     comment: str = ''
@@ -257,6 +259,8 @@ class IntField(Field):
             i = HexInt(i, len(view))
         if self.enum:
             i = self.enum(i)
+        if self.ref:
+            i = IndexInt(obj.root.entities[self.ref], i)
         return i
 
     def write(self, obj, value, realtype=None):

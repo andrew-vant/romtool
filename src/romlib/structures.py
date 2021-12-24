@@ -46,7 +46,8 @@ class Entity:
         sa('tables', _dct)
 
     def __str__(self):
-        return f'Entity({list(self.tables)} #{self.index})'
+        tnames = [t.name for t in self.tables]
+        return f'Entity({tnames} #{self.index})'
 
     def _name(self):
         for key, table in self.tables.items():
@@ -105,6 +106,54 @@ class Entity:
 
     # TODO: add equivalent of Structure.__iter__, keys(), etc...so we can
     # get output headers in the right order more easily.
+
+
+class EntityList(Sequence):
+    """ Wrapper for parallel tables
+
+    Behaves as a list. Lookups on an EntityList return an Entity wrapping
+    corresponding items from the underlying tables.
+
+    Accepts either kwargs mapping names to tables, or a positional dictionary
+    argument describing the same.
+    """
+
+    def __init__(self, _dct, **tables):
+        if _dct is None:
+            _dct = {}
+        else:
+            _dct = _dct.copy()
+        _dct.update(tables)
+
+        lengths = {t.name: len(t) for t in _dct.values()}
+        if len(set(lengths.values())) != 1:
+            raise ValueError(f"Tables making up an EntityList must have "
+                             f"equal lengths {lengths}")
+        self.tables = _dct
+        log.debug("entitylist created, length: %s", len(self))
+
+    def __getitem__(self, idx):
+        if idx >= len(self):
+            raise IndexError("Entity index out of range")
+        return Entity(idx, self.tables)
+
+    def __len__(self):
+        lengths = set(len(t) for t in self.tables.values())
+        if len(lengths) != 1:
+            raise ValueError("EntityList table length mismatch introduced "
+                             "after creation")
+        return lengths.pop()
+
+    def locate(self, name):
+        """ Get the index of the entity with the given name """
+        try:
+            return next(i for i, e in enumerate(self)
+                        if e == name or e.name == name)
+        except AttributeError:
+            raise LookupError(f"Tried to look up {self.typename} by name, "
+                               "but they are nameless")
+        except StopIteration:
+            raise ValueError(f"No object with name: {name}")
 
 
 class Structure(Mapping, NodeMixin, RomObject):
@@ -271,6 +320,18 @@ class Structure(Mapping, NodeMixin, RomObject):
                 other[k] = v
 
     def load(self, tsv_row):
+        def stdparse(field):
+            """ helper that serves as both "normal" parser and fallback"""
+            key = field.name
+            value = field.parse(tsv_row[field.name])
+            old = str(self[key])
+            new = str(value)
+            if old != new:
+                log.debug("changed: %s:%s (%s -> %s)",
+                          type(self).__name__, key, old, new)
+            self[key] = value
+
+
         for field in self.fields:
             key = field.name
             if isinstance(self[key], BitField):
@@ -280,14 +341,29 @@ class Structure(Mapping, NodeMixin, RomObject):
                 if old != new:
                     log.debug("changed: %s:%s (%s -> %s)",
                               type(self).__name__, key, old, new)
+            elif field.ref:
+                etbl = self.root.entities[field.ref]
+                try:
+                    # FIXME: This is *extremely* expensive when loading all
+                    # possible structures from an edited dump. Probably this
+                    # whole operation needs to be done at the map level, with
+                    # caching of results.
+                    self[key] = etbl.locate(tsv_row[key])
+                except ValueError:
+                    try:
+                        stdparse(field)
+                    except ValueError:
+                        msg = ("{stnm}.{fid} must be either an index or a "
+                               "valid name from '{ref}'; '{val}' is neither")
+                        msg = msg.format(
+                                stnm=type(self).__name__,
+                                fid=field.id,
+                                ref=field.ref,
+                                val=tsv_row[key]
+                                )
+                        raise ValueError(msg)
             else:
-                value = field.parse(tsv_row[field.name])
-                old = str(self[key])
-                new = str(value)
-                if old != new:
-                    log.debug("changed: %s:%s (%s -> %s)",
-                              type(self).__name__, key, old, new)
-                self[key] = value
+                stdparse(field)
 
 
 class BitField(Structure):

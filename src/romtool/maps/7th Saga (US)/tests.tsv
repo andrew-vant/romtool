@@ -4,7 +4,7 @@ monsters	36	name	Hermit
 characters	2	name	Esuna
 armor	0	cost	80
 armor	104	cost	0
-armor	0	name	*AR_Xtri
+armor	0	name	*AR Xtri
 weapons	1	pow	2
 weapons	50	pow	85
-weapons	1	name	*SW_Tranq
+weapons	1	name	*SW Tranq
