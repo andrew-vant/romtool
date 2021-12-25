@@ -107,7 +107,6 @@ class RomMap:
         else:
             kwargs.hooks = hooks
 
-        # Find all tbl files in the texttables directory and register them.
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
@@ -115,54 +114,35 @@ class RomMap:
             yield from util.get_subfiles(None, folder, ext)
             yield from util.get_subfiles(root, folder, ext)
 
-        # TODO: lots of repetition here, can I function it out? args for
-        # subdir, description, loaderfunc?
+        def load_tt(name, f):
+            return text.add_tt(name, f)
 
-        log.info("Loading text tables")
-        kwargs.ttables = Dict()
-        for name, path in files('texttables', '.tbl'):
-            rpath = relpath(path, root)
-            log.info("Loading text table '%s' from %s", name, rpath)
-            with open(path) as f:
-                kwargs.ttables[name] = text.add_tt(name, f)
+        def load_enum(name, f):
+            espec = {v: k for k, v in util.loadyaml(f).items()}
+            ecls = util.RomEnum(name, espec)
+            IntField.handle(name, ecls)
+            return ecls
 
-        # Repeat for bitfields
-        kwargs.structs = Dict()
-        log.info("Loading bitfields")
-        for name, path in files('bitfields', '.tsv'):
-            rpath = relpath(path, root)
-            log.info("Loading bitfield '%s' from '%s'", name, rpath)
-            structcls = BitField.define_from_tsv(path)
-            kwargs.structs[name] = structcls
+        def load_struct(name, f):
+            return Structure.define_from_rows(name, util.readtsv(f))
 
-        # Repeat for structs.
-        kwargs.structs = Dict()
-        log.info("Loading structures")
-        for name, path in files('structs', '.tsv'):
-            rpath = relpath(path, root)
-            log.info("Loading structure '%s' from '%s'", name, rpath)
-            try:
-                structcls = Structure.define_from_tsv(path)
-            except RomtoolError as ex:
-                msg = f"Map bug in '{name}' structure: {ex}"
-                raise MapError(msg)
-            kwargs.structs[name] = structcls
+        def load_bf(name, f):
+            return BitField.define_from_rows(name, util.readtsv(f))
 
-        # Again for enums
-        kwargs.enums = Dict()
-        log.info("Loading enums")
-        for name, path in files('enums', '.yaml'):
-            rpath = relpath(path, root)
-            log.info("Loading enum '%s' from '%s'", name, rpath)
-            try:
+        loaders = [
+            ('text table', 'ttables', 'texttables', '.tbl',  load_tt),
+            ('enum',       'enums',   'enums',      '.yaml', load_enum),
+            ('bitfield',   'structs', 'bitfields',  '.tsv',  load_bf),
+            ('struct',     'structs', 'structs',    '.tsv',  load_struct),
+            ]
+
+        for otype, kwarg, parent, ext, loader in loaders:
+            log.info("Loading %s", parent)
+            for name, path in files(parent, ext):
+                rpath = relpath(path, root)
+                log.info("Loading %s '%s' from %s", otype, name, rpath)
                 with open(path) as f:
-                    espec = {v: k for k, v in util.loadyaml(f).items()}
-                ecls = util.RomEnum(name, espec)
-                IntField.handle(name, ecls)
-            except RomtoolError as ex:
-                msg = f"Map bug in '{name}' enum: {ex}"
-                raise MapError(msg)
-            kwargs.enums[name] = ecls
+                    kwargs[kwarg][name] = loader(name, f)
 
         # Now load the array definitions. Note that this doesn't instantiate
         # them, just stores the appropriate kwargs for use by the program.
