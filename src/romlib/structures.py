@@ -6,6 +6,8 @@ automagically turns the bits and bytes into integers, strings, etc.
 import logging
 from collections.abc import Mapping, Sequence
 from itertools import chain, combinations
+from functools import lru_cache
+from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
 
@@ -154,6 +156,26 @@ class EntityList(Sequence):
                                "but they are nameless")
         except StopIteration:
             raise ValueError(f"No object with name: {name}")
+
+    @contextmanager
+    def cached_searches(self):
+        """ Temporarily cache locate calls
+
+        This is supposed to help with the abysmal slowness of resolving
+        cross-references in tsv input files. I'm pretty sure this is a terrible
+        idea and will bite me at some point.
+
+        The cache will return stale results if the name of an entity changes
+        between cross-references. This *shouldn't* happen during changeset
+        loading, but could easily happen during other use, hence it not being
+        the default behavior.
+        """
+
+        self.locate = lru_cache(self.locate)
+        try:
+            yield self
+        finally:
+            del self.locate
 
 
 class Structure(Mapping, NodeMixin, RomObject):
@@ -344,10 +366,6 @@ class Structure(Mapping, NodeMixin, RomObject):
             elif field.ref:
                 etbl = self.root.entities[field.ref]
                 try:
-                    # FIXME: This is *extremely* expensive when loading all
-                    # possible structures from an edited dump. Probably this
-                    # whole operation needs to be done at the map level, with
-                    # caching of results.
                     self[key] = etbl.locate(tsv_row[key])
                 except ValueError:
                     try:

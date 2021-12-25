@@ -9,6 +9,7 @@ from itertools import groupby, chain
 from functools import reduce, partial
 from operator import itemgetter
 from collections.abc import Mapping
+from contextlib import ExitStack
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -159,18 +160,21 @@ class Rom(NodeMixin, util.RomObject):
                 log.warning('_idx field not present; assuming input order is correct')
             data[_set] = contents
 
-        for tspec in self.map.tables.values():
-            tspec = Dict(tspec)
-            log.info("Loading table '%s' from set '%s'", tspec.id, tspec.set)
-            table = getattr(self, tspec.id)
-            for i, (orig, new) in enumerate(zip(table, data[tspec.set])):
-                name = new.get('Name', 'nameless')
-                log.debug("Loading %s #%s (%s)", tspec.id, i, name)
-                with util.loading_context(tspec.id, name, i):
-                    if isinstance(orig, Structure):
-                        orig.load(new)
-                    else:
-                        table[i] = new[tspec['name']]
+        with ExitStack() as context:
+            for el in self.entities.values():
+                context.enter_context(el.cached_searches())
+            for tspec in self.map.tables.values():
+                tspec = Dict(tspec)
+                log.info("Loading table '%s' from set '%s'", tspec.id, tspec.set)
+                table = getattr(self, tspec.id)
+                for i, (orig, new) in enumerate(zip(table, data[tspec.set])):
+                    name = new.get('Name', 'nameless')
+                    log.debug("Loading %s #%s (%s)", tspec.id, i, name)
+                    with util.loading_context(tspec.id, name, i):
+                        if isinstance(orig, Structure):
+                            orig.load(new)
+                        else:
+                            table[i] = new[tspec['name']]
 
     def apply(self, changeset):
         """ Apply a dictionary of changes to a ROM
