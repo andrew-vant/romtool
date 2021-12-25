@@ -77,8 +77,10 @@ class Entity:
             item = table[self.index]
             if key == name:
                 table[self.index] = value
+                return
             elif isinstance(item, Structure) and key in item:
                 item[key] = value
+                return
         raise KeyError(f"no field with name '{key}'")
 
     def __getattr__(self, attr):
