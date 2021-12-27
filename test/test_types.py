@@ -278,14 +278,14 @@ class TestTable(unittest.TestCase):
         del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
-        array = Table(self.stream, 'uint', Index(0, 4, 1))
+        array = Table('t1', self.stream, 'uint', Index(0, 4, 1))
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
         for i in range(4):
             self.assertEqual(array[i], i)
 
     def test_structure_array_construction(self):
-        array = Table(self.stream, 'scratch', Index(0, 4, 1))
+        array = Table('t1', self.stream, 'scratch', Index(0, 4, 1))
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
@@ -293,13 +293,13 @@ class TestTable(unittest.TestCase):
             self.assertEqual(array[i].one, i)
 
     def test_indexed_table(self):
-        index = Table(self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
-        table = Table(self.stream, 'scratch', index)
+        index = Table('t1', self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
+        table = Table('t2', self.stream, 'scratch', index)
         for i in range(4):
             self.assertEqual(table[i].one, i)
 
     def test_primitive_table(self):
-        index = Table(self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
-        table = Table(self.stream, 'uint', index, size=1)
+        index = Table('t1', self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
+        table = Table('t2', self.stream, 'uint', index, size=1)
         for i in range(4):
             self.assertEqual(table[i], i)

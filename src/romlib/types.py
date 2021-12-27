@@ -264,8 +264,13 @@ class IntField(Field):
         return i
 
     def write(self, obj, value, realtype=None):
-        if self.enum and isinstance(value, str):
-            value = self.enum[value]
+        if isinstance(value, str):
+            if self.enum:
+                value = self.enum[value]
+            elif self.ref:
+                value = obj.root.entities[self.ref].locate(value)
+            else:
+                value = int(value, 0)
         view = self.view(obj)
         value -= (self.arg or 0)
         setattr(view, (realtype or self.type), value)
@@ -298,7 +303,11 @@ class StructField(Field):
         return obj.registry[realtype or self.type](view, obj)
 
     def write(self, obj, value, realtype=None):
-        value.copy(self.read(obj))
+        target = self.read(obj)
+        if isinstance(value, str):
+            target.parse(value)
+        else:
+            value.copy(target)
 
     def parse(self, string):
         raise NotImplementedError

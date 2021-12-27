@@ -5,11 +5,12 @@ automagically turns the bits and bytes into integers, strings, etc.
 """
 import logging
 from collections.abc import Mapping, Sequence
-from itertools import chain, combinations
-from functools import lru_cache
+from itertools import chain, combinations, groupby
+from functools import partial, lru_cache
 from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
+from abc import ABC
 
 import yaml
 from anytree import NodeMixin
@@ -23,7 +24,7 @@ from .exceptions import RomtoolError
 
 log = logging.getLogger(__name__)
 
-class Entity:
+class Entity(ABC):
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
@@ -36,80 +37,94 @@ class Entity:
     below won't match. Need another way to identify name tables.
     """
 
-    def __init__(self, _i, _dct=None, **tables):
-        if _dct is None:
-            _dct = {}
-        else:
-            _dct = _dct.copy()
-        _dct.update(tables)
+    class TableList(list):
+        """ Helper list
 
+        Has attributes to look up tables by id, name, field name (key) or field
+        id (attr).
+        """
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.byid = {t.id: t for t in self}
+            self.byname = {t.name: t for t in self}
+            self.bykey = {}
+            self.byattr = {}
+            for table in self:
+                sample = table[0]
+                if isinstance(sample, Structure):
+                    for field in sample.fields:
+                        self.byattr[field.id] = table
+                        self.bykey[field.name] = table
+                else:
+                    self.byattr[table.fid or table.id] = table
+                    self.bykey[table.name] = table
+
+
+    def __init_subclass__(cls, /, tables, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._tables = cls.TableList(tables)
+        log.debug(f"checking for bad attributes in {cls}: {list(cls._tables.byattr)}")
+        bad_attrs = sorted(f"{table.id}.{attr}"
+                           for attr, table
+                           in cls._tables.byattr.items()
+                           if hasattr(cls, attr))
+        if bad_attrs:
+            raise ValueError("forbidden field id(s): " + ", ".join(bad_attrs))
+
+    def __init__(self, index):
         sa = super().__setattr__
-        sa('index', _i)
-        sa('tables', _dct)
+        sa('index', index)
 
     def __str__(self):
-        tnames = [t.name for t in self.tables]
-        return f'Entity({tnames} #{self.index})'
+        tnm = self.__class__.__name__
+        inm = getattr(self, 'name', 'nameless')
+        return f'{tnm} #{self.index} ({inm})'
 
-    def _name(self):
-        for key, table in self.tables.items():
-            v = table[self.index]
-            if table.fid == 'name':
-                return v
-            try:
-                return v.name
-            except AttributeError:
-                pass
-        raise AttributeError(f"Tried to get name of {self}, but it is nameless")
+    def __iter__(self):
+        yield from iter(self._tables.bykey)
 
     def __getitem__(self, key):
-        for name, table in self.tables.items():
-            if key == name:
-                return table[self.index]
-            try:
-                return table[self.index][key]
-            except (KeyError, TypeError):
-                pass
-        raise KeyError(f"no field with name '{key}'")
+        table = self._tables.bykey[key]
+        item = table[self.index]
+        return item if not isinstance(item, Structure) else item[key]
 
     def __setitem__(self, key, value):
-        for name, table in self.tables.items():
-            item = table[self.index]
-            if key == name:
-                table[self.index] = value
-                return
-            elif isinstance(item, Structure) and key in item:
-                item[key] = value
-                return
-        raise KeyError(f"no field with name '{key}'")
+        table = self._tables.bykey[key]
+        item = table[self.index]
+        if isinstance(item, Structure):
+            item[key] = value
+        else:
+            table[self.index] = value
 
     def __getattr__(self, attr):
-        if attr == 'name':
-            return self._name()
-        if attr in self.tables:
-            return self.tables[attr][self.index]
-        for table in self.tables.values():
-            item = table[self.index]
-            if hasattr(item, attr):
-                return getattr(item, attr)
-        raise AttributeError(f"no field with id: '{attr}'")
+        table = self._tables.byattr[attr]
+        item = table[self.index]
+        return item if not isinstance(item, Structure) else getattr(item, attr)
 
     def __setattr__(self, attr, value):
-        if attr in self.tables:
-            self.tables[attr][self.index] = value
-            return
-        for table in self.tables.values():
-            if table.fid == attr:
-                table[self.index] = value
-                return
-            item = table[self.index]
-            if hasattr(item, attr):
-                setattr(item, attr, value)
-                return
-        raise AttributeError(f"no field with id: '{attr}'")
+        table = self._tables.byattr[attr]
+        item = table[self.index]
+        if isinstance(item, Structure):
+            setattr(item, attr, value)
+        else:
+            table[index] = value
 
-    # TODO: add equivalent of Structure.__iter__, keys(), etc...so we can
-    # get output headers in the right order more easily.
+    def update(self, other):
+        # Table item lookups are suprisingly expensive, so let's see if we
+        # can limit it to once per table
+        bytable = lambda k: self._tables.bykey[k].id
+        keys = [key for key in other if key in self._tables.bykey]
+        keys.sort(key=bytable)
+        for tid, keys in groupby(keys, key=bytable):
+            table = self._tables.byid[tid]
+            item = table[self.index]
+            if isinstance(item, Structure):
+                for k in keys:
+                    item[k] = other[k]
+            else:
+                table[self.index] = other[next(keys)]
+                if list(keys):
+                    raise Exception("can't happen?")
 
 
 class EntityList(Sequence):
@@ -122,27 +137,22 @@ class EntityList(Sequence):
     argument describing the same.
     """
 
-    def __init__(self, _dct, **tables):
-        if _dct is None:
-            _dct = {}
-        else:
-            _dct = _dct.copy()
-        _dct.update(tables)
-
-        lengths = {t.name: len(t) for t in _dct.values()}
-        if len(set(lengths.values())) != 1:
+    def __init__(self, name, tables):
+        lengths = set(len(t) for t in tables)
+        if len(lengths) == 0:
+            raise ValueError(f"Tried to create EntityList '{name}' with no underlying tables")
+        if len(lengths) != 1:
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
-        self.tables = _dct
-        log.debug("entitylist created, length: %s", len(self))
+        self.tables = tables
+        self.etype = type(name, (Entity,), {}, tables=tables)
+        self.entities = [self.etype(i) for i in range(len(self))]
 
-    def __getitem__(self, idx):
-        if idx >= len(self):
-            raise IndexError("Entity index out of range")
-        return Entity(idx, self.tables)
+    def __getitem__(self, i):
+        return self.entities[i]
 
     def __len__(self):
-        lengths = set(len(t) for t in self.tables.values())
+        lengths = set(len(t) for t in self.tables)
         if len(lengths) != 1:
             raise ValueError("EntityList table length mismatch introduced "
                              "after creation")
@@ -151,8 +161,7 @@ class EntityList(Sequence):
     def locate(self, name):
         """ Get the index of the entity with the given name """
         try:
-            return next(i for i, e in enumerate(self)
-                        if e == name or e.name == name)
+            return next(i for i, e in enumerate(self) if e.name == name)
         except AttributeError:
             raise LookupError(f"Tried to look up {self.typename} by name, "
                                "but they are nameless")
@@ -411,7 +420,7 @@ class Table(Sequence, NodeMixin, RomObject):
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
 
-    def __init__(self, view, typename, index, fid=None, name=None,
+    def __init__(self, id_, view, typename, index, fid=None, name=None,
                  offset=0, size=None, units=Unit.bytes, display=None,
                  parent=None):
         """ Create a Table
@@ -421,6 +430,7 @@ class Table(Sequence, NodeMixin, RomObject):
         cls:    The type of object contained in this table.
         """
 
+        self.id = id_
         self.fid = fid
         self.name = name
         self.view = view
@@ -532,6 +542,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
         # Filter out empty strings
         row = {k: v for k, v in row.items() if v}
+        tid = row['id']
         typename = row['type']
         offset = int(row.get('offset', '0'), 0)
         units = Unit[row.get('unit', 'bytes')]
@@ -540,12 +551,12 @@ class Table(Sequence, NodeMixin, RomObject):
         fid = row.get('fid', None)
         name = row.get('name', None)
         if 'index' in row:
-            index = getattr(parent, row['index'])
+            index = parent.tables[row['index']]
         else:
             count = int(row['count'], 0)
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
-        return Table(view, typename, index, fid, name,
+        return Table(tid, view, typename, index, fid, name,
                      offset, size, units, display, parent)
 
 

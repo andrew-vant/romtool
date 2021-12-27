@@ -52,19 +52,19 @@ class Rom(NodeMixin, util.RomObject):
         self.orig = Stream(ba.copy())
 
         self.map = rommap
+        self.tables = Dict()
         byidx = lambda row: row.get('index', '')
         for spec in sorted(self.map.tables.values(), key=byidx):
             log.debug("creating table: %s", spec['id'])
-            setattr(self, spec['id'], Table.from_tsv_row(spec, self, self.data))
+            self.tables[spec['id']] = Table.from_tsv_row(spec, self, self.data)
 
         self.entities = Dict()
         byset = lambda row: row.get('set')
         tables = sorted(self.map.tables.values(), key=byset)
         for tset, tspecs in groupby(tables, key=byset):
-            parts = {tspec.id: getattr(self, tspec.id) for tspec in tspecs}
-            log.debug("Creating entityset %s consisting of %s",
-                      tset, list(parts.keys()))
-            self.entities[tset] = EntityList(parts)
+            parts = [self.tables[tspec.id] for tspec in tspecs]
+            log.debug("Creating entityset %s consisting of %s", tset, parts)
+            self.entities[tset] = EntityList(tset, parts)
 
     def __str__(self):
         return f"Rom({self.name})"
@@ -72,11 +72,6 @@ class Rom(NodeMixin, util.RomObject):
     @property
     def data(self):
         return self.file
-
-    @property
-    def tables(self):
-        return {table['id']: getattr(self, table.id)
-                for table in self.map.tables.values()}
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
@@ -108,7 +103,7 @@ class Rom(NodeMixin, util.RomObject):
                         )
 
             for tspec in tspecs:
-                table = getattr(self, tspec.id)
+                table = self.tables[tspec.id]
                 fields = (Structure.registry[table.typename].fields
                           if table.typename in Structure.registry
                           else [tspec])
@@ -125,7 +120,7 @@ class Rom(NodeMixin, util.RomObject):
                 log.debug("Dumping %s #%s", tset, i)
                 record = {'_idx': i}
                 for tspec in tspecs:
-                    item = getattr(self, tspec.id)[i]
+                    item = self.tables[tspec.id][i]
                     if isinstance(item, Structure):
                         record.update(item.items())
                     else:
@@ -143,7 +138,7 @@ class Rom(NodeMixin, util.RomObject):
             log.debug(f"set found for {key}")
             return util.Searchable(self.entities[key])
         elif key in self.map.tables:
-            return getattr(self, key)
+            return self.map.tables[key]
         else:
             raise LookupError(f"no table or set with id '{key}'")
 
@@ -161,20 +156,17 @@ class Rom(NodeMixin, util.RomObject):
             data[_set] = contents
 
         with ExitStack() as context:
+            # Crossref resolution is slow. Cache results during load. FIXME: I
+            # am *sure* there's a better way to do this.
             for el in self.entities.values():
                 context.enter_context(el.cached_searches())
-            for tspec in self.map.tables.values():
-                tspec = Dict(tspec)
-                log.info("Loading table '%s' from set '%s'", tspec.id, tspec.set)
-                table = getattr(self, tspec.id)
-                for i, (orig, new) in enumerate(zip(table, data[tspec.set])):
+            for etype, elist in self.entities.items():
+                log.info("Loading %s %s", len(elist), etype)
+                for i, (orig, new) in enumerate(zip(elist, data[etype])):
                     name = new.get('Name', 'nameless')
-                    log.debug("Loading %s #%s (%s)", tspec.id, i, name)
-                    with util.loading_context(tspec.id, name, i):
-                        if isinstance(orig, Structure):
-                            orig.load(new)
-                        else:
-                            table[i] = new[tspec['name']]
+                    log.debug("Loading %s #%s (%s)", etype, i, name)
+                    with util.loading_context(etype, name, i):
+                        orig.update(new)
 
     def apply(self, changeset):
         """ Apply a dictionary of changes to a ROM
