@@ -79,59 +79,23 @@ class Rom(NodeMixin, util.RomObject):
         byset = lambda row: row.get('set', None) or row['id']
         tablespecs = sorted(self.map.tables.values(), key=byset)
 
-        for tset, tspecs in groupby(tablespecs, byset):
-            tspecs = [Dict(ts) for ts in tspecs]
-            ct_tables = len(tspecs)
-            ct_items = int(tspecs[0]['count'], 0)
-            log.info("Dumping dataset: %s (%s tables, %s items)",
-                     tset, ct_tables, ct_items)
-            path = pathjoin(folder, f'{tset}.tsv')
-
-            # Try to sort output columns intelligently. Name fields always come
-            # first. Pointers, unknowns, and flags go at the end.
-            header_ordering = {}
-            def ordering(field):
-                # This may get fed a "real" field, or a Dict of a table spec,
-                # so a fallback is necessary if the field properties aren't
-                # available.
-                return (
-                        'name' not in (field.id.lower(), field.name.lower()),
-                        field.display == 'pointer',
-                        'unknown' in field.name.lower(),
-                        field.is_flag or field.size == '1',
-                        field.order or 0,
-                        )
-
-            for tspec in tspecs:
-                table = self.tables[tspec.id]
-                fields = (Structure.registry[table.typename].fields
-                          if table.typename in Structure.registry
-                          else [tspec])
-                for field in fields:
-                    header_ordering[field.name] = ordering(field)
-            columns = [k for k, v
-                       in sorted(header_ordering.items(),
-                                 key=itemgetter(1))]
-            columns.append('_idx')
-
-            # Now turn the records themselves into dicts.
+        for name, elist in self.entities.items():
+            log.info("Dumping entities: %s x%s", len(elist))
             records = []
-            for i in range(ct_items):
-                log.debug("Dumping %s #%s", tset, i)
+            for i, entity in enumerate(elist):
+                log.debug("Dumping %s #%s", name, i)
                 record = {'_idx': i}
-                for tspec in tspecs:
-                    item = self.tables[tspec.id][i]
-                    if isinstance(item, Structure):
-                        record.update(item.items())
-                    else:
-                        record[tspec.name] = item
+                record.update(entity.items())
                 records.append(record)
-
+            cols = elist.etype.columns()
+            cols.append('_idx')
+            # sanity check
             keys = set(records[0].keys())
             for r in records:
                 assert not (set(r.keys()) - keys)
                 assert not (set(keys - r.keys()))
-            util.writetsv(path, records, force, columns)
+            path = pathjoin(folder, f'{name}.tsv')
+            util.writetsv(path, records, force, cols)
 
     def lookup(self, key):
         if key in self.map.sets:

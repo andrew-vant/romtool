@@ -59,7 +59,6 @@ class Entity(ABC):
                     self.byattr[table.fid or table.id] = table
                     self.bykey[table.name] = table
 
-
     def __init_subclass__(cls, /, tables, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._tables = cls.TableList(tables)
@@ -70,6 +69,40 @@ class Entity(ABC):
                            if hasattr(cls, attr))
         if bad_attrs:
             raise ValueError("forbidden field id(s): " + ", ".join(bad_attrs))
+
+    @classmethod
+    def columns(cls):
+        """ Get entity columns for output in an intelligent order """
+        def ordering(thing):
+            # ew
+            if isinstance(thing, Field):
+                return (
+                        not thing.is_name,
+                        thing.is_ptr,
+                        thing.is_unknown,
+                        thing.is_flag,
+                        thing.order or 0,
+                       )
+            elif isinstance(thing, Table):
+                return (
+                    not thing.fid == 'name',
+                    thing.display == 'pointer',
+                    'unknown' in thing.name.lower(),
+                    False,  # FIXME: how to do this right?
+                    0,
+                    )
+            else:
+                raise Exception("can't happen?")
+
+        fields = []
+        for table in cls._tables:
+            fields.extend(Structure.registry[table.typename].fields
+                          if table.typename in Structure.registry
+                          else [table])
+        fields.sort(key=ordering)
+        cols = [f.name for f in fields]
+        assert set(cols) == set(cls._tables.bykey)
+        return cols
 
     def __init__(self, index):
         sa = super().__setattr__
@@ -109,22 +142,58 @@ class Entity(ABC):
         else:
             table[index] = value
 
-    def update(self, other):
-        # Table item lookups are suprisingly expensive, so let's see if we
-        # can limit it to once per table
-        bytable = lambda k: self._tables.bykey[k].id
-        keys = [key for key in other if key in self._tables.bykey]
-        keys.sort(key=bytable)
+    @classmethod
+    def _keys_by_table(cls, filter_keys=None):
+        """ Group the entity keys by the underlying table id.
+
+        Helper method for use by update/asdict.
+        """
+        bytable = lambda k: cls._tables.bykey[k].id
+        keys = sorted(cls._tables.bykey, key=bytable)
         for tid, keys in groupby(keys, key=bytable):
-            table = self._tables.byid[tid]
+            if filter_keys is None:
+                keys = list(keys)
+            else:
+                keys = [k for k in keys if k in filter_keys]
+            if keys:
+                # Would prefer to yield the item itself, but then the caller
+                # can't set scalars in the underlying table.
+                yield cls._tables.byid[tid], keys
+
+    def update(self, other):
+        """ Update this entity from a dictionary-like object
+
+        Repeated setitem calls can get expensive. This provides a more
+        performant alternative. The input dictionary should be keyed by field
+        name. "extra" keys are ignored.
+        """
+        # Table item lookups are where most of the cost seems to be, so let's
+        # see if we can limit it to once per table
+        for table, keys in self._keys_by_table(other):
             item = table[self.index]
             if isinstance(item, Structure):
                 for k in keys:
                     item[k] = other[k]
             else:
-                table[self.index] = other[next(keys)]
+                table[self.index] = other[keys.pop()]
                 if list(keys):
                     raise Exception("can't happen?")
+
+    def items(self):
+        """ Get the field names and values in this entity
+
+        Repeated entity key lookups can get expensive. This provides a more
+        performant alternative; the underlying table lookups are only done
+        once.
+        """
+        for table, keys in self._keys_by_table():
+            item = table[self.index]
+            if isinstance(item, Structure):
+                for k in keys:
+                    yield (k, item[k])
+            else:
+                assert len(keys) == 1
+                yield (keys.pop(), item)
 
 
 class EntityList(Sequence):
