@@ -146,7 +146,7 @@ class Entity(ABC):
     def _keys_by_table(cls, filter_keys=None):
         """ Group the entity keys by the underlying table id.
 
-        Helper method for use by update/asdict.
+        Helper method for use by update/items.
         """
         bytable = lambda k: cls._tables.bykey[k].id
         keys = sorted(cls._tables.bykey, key=bytable)
