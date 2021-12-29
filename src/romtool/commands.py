@@ -74,6 +74,9 @@ def detect(romfile, maproot=None):
 
 def dump(args):
     """ Dump all known data from a ROM."""
+    if __debug__:
+        log.info("Optimizations disabled; dumping may be slow. "
+                 "Consider setting PYTHONOPTIMIZE=TRUE")
     if not args.map:
         try:
             args.map = detect(args.rom)
@@ -157,6 +160,10 @@ def build(args):
             except ChangesetError as ex:
                 raise ChangesetError(f"Error in '{path}': {ex}")
         elif os.path.isdir(path):
+            if __debug__:
+                log.info("Optimizations disabled; building from a "
+                         "directory may be slow. Consider setting "
+                         "PYTHONOPTIMIZE=TRUE")
             rom.load(path)
         else:
             raise ValueError(f"Don't know what to do with input file: {path}")

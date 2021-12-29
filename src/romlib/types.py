@@ -73,7 +73,20 @@ class FieldExpr:
         # using it.
         self.interpreter = Interpreter({}, minimal=True)
 
+        # NOTE: eval itself is pretty expensive, and the vast majority of
+        # these expressions are simple integers. Let's pre-calculate if
+        # possible.
+        try:
+            self.value = int(spec, 0)
+            self.static = True
+        except ValueError:
+            self.value = None
+            self.static = False
+
+
     def eval(self, parent):
+        if self.static:
+            return self.value
         self.interpreter.symtable = FieldContext(parent)
         result = self.interpreter.eval(self.spec)
         errs = self.interpreter.error

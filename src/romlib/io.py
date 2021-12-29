@@ -54,9 +54,12 @@ class BitArrayView(NodeMixin):
 
         self.name = name
         self.offset = offset or 0
+        self.abs_start = self.offset + (0 if not self.parent else self.parent.abs_start)
         self.length = (length if length
                        else (len(self.parent) - self.offset) if self.parent
                        else len(self.ba) - self.abs_start)
+        self.abs_end = self.abs_start + len(self)
+        self.abs_slice = slice(self.abs_start, self.abs_end)
         assert len(self.bits) == len(self), f"{len(self.bits)} != {len(self)}"
 
     def __len__(self):
@@ -143,18 +146,6 @@ class BitArrayView(NodeMixin):
     @property
     def ba(self):
         return self._ba or self.root.ba
-
-    @property
-    def abs_start(self):
-        return self.offset + sum(s.offset for s in self.ancestors)
-
-    @property
-    def abs_end(self):
-        return self.abs_start + len(self)
-
-    @property
-    def abs_slice(self):
-        return slice(self.abs_start, self.abs_end)
 
     #
     # TYPE INTERPRETATION PROPERTIES START HERE
