@@ -59,6 +59,10 @@ Romtool requires [Python 3.7 or later][py]. For now, you will also need
 [git][], although that requirement will go away in future. Install both
 before continuing.
 
+**NOTE**: For the most part the default installation options will work,
+but be sure you check "Install Pip" and "Add Python to environment
+variables" if you are installing python on Windows.
+
 Install romtool itself as follows:
 
 ```sh
