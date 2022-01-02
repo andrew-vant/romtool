@@ -206,7 +206,7 @@ class BitArrayView(NodeMixin):
 
 
     def strz_read(self, encoding):
-        encoding = 'ascii' if not encoding else encoding + '-clean'
+        encoding = 'ascii' if not encoding else encoding + '_clean'
         codec = codecs.lookup(encoding)
         # Evil way to figure out if we're using a default codec, like ascii.
         # The default codecs don't stop on nulls, but we probably want to.
@@ -218,7 +218,7 @@ class BitArrayView(NodeMixin):
         return data.decode(encoding)
 
     def strz_write(self, value, encoding):
-        encoding = 'ascii' if not encoding else encoding + '-clean'
+        encoding = 'ascii' if not encoding else encoding + '_clean'
         codec = codecs.lookup(encoding)
         b_old = (self.bytes if hasattr(codec, 'eos')
                  else self.bytes.partition(b'\0')[0])

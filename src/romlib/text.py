@@ -101,9 +101,9 @@ def add_tt(name, f):
     tt = TextTable(name, f)
     # Arguments to pass to tt.decode for each codec.
     args = {"":       (True, True, False),
-            "-std":   (True, True, False),
-            "-clean": (False, True, True),
-            "-raw":   (True, False, False)}
+            "_std":   (True, True, False),
+            "_clean": (False, True, True),
+            "_raw":   (True, False, False)}
 
     for subcodec, (include_eos, stop_on_eos, enforce_eos) in args.items():
         # There has got to be a cleaner way to do this...
