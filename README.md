@@ -17,7 +17,7 @@ but the act of digging that structure out and putting it in a form
 someone can use is universal. Reading a string is not fundamentally
 different from one game to another, either.
 
-romlib (and its command line interface, romtool) is an attempt to
+romlib (and its command-line interface, romtool) is an attempt to
 collect game-independent functionality into an API and a very basic
 patch-making tool. The idea is to make simple hacks possible for
 non-programmers, and provide a useful set of primitives for more complex
@@ -26,37 +26,233 @@ game-specific hacking tools.
 Here are some things you can do with it that might be useful:
 
 - Inspect ROM data tables, e.g. monster stats, dialogue strings, or
-  spell lists.
+  spell lists. This is useful for creating guides or just understanding
+  a game.
 - Edit the same in a spreadsheet, then make a patch implementing the
-  changes.
+  changes. This is useful for balance patches to RPGs and other
+  statistics-heavy games.
 - Version-control rom hacking projects. Romtool's dump format is TSV,
-  and it supports a textualized, commentable IPS-ish input format.
-  Both are quite friendly to version control tools.
-- Merge multiple existing patches together.
-- See what an existing patch actually changes.
+  and it can generate patches from several different text-based input
+  formats. All are friendly to version control tools.
+- Merge multiple existing patches together. Useful for players who want
+  to pick and choose features from several unrelated hacks.
+- See what an existing patch actually does. Useful for reverse
+  engineering patches from authors who didn't document them.
+- Examine and manipulate ROM headers. Useful for identifying or
+  organizing ROMs.
 
-Romlib does need to be told where to find the data it is going to
-extract or patch. For this it needs a "rom map", which at the moment is
-a set of .tsv files specifying the location and format of the data
-structures in the ROM. My hope is that maps for romlib can eventually
-serve as thorough, standardized, machine-readable documentation of how
-different games' internals are structured.
+Romlib isn't magic; it does need to be told where to find the data it is
+going to extract or patch. For this it needs a "rom map", which at the
+moment is a set of TSV files specifying the location and format of the
+data structures in the ROM, and the relationships between them. My hope
+is that maps for romlib can eventually serve as well-defined,
+machine-readable documentation of how different games' internals are
+structured.
 
-romlib and romtool are still very, very alpha. At the moment it mainly
-converts data tables from a rom into tsv files, which the user can edit
-in any spreadsheet program and then generate an IPS patch from their
-changes. This functionality is most likely to be useful for balance
-patches to RPGs and other statistics-heavy games. The program is smart
-enough to assemble multiple related data tables into joint objects, and
-also to attach the appropriate name strings to them, as long as the
-necessary locations and relations are included in the map.
+Romlib and romtool are late-alpha/early-beta. They're *probably* usable,
+but their behavior may still change before a 1.0 release. While the
+commands documented in this file work as described, other commands
+listed in `romtool --help` may not.
 
-Some additional features that have not been added yet, but that I want
-to support. This isn't a complete list, just the things that come to
-mind as I am writing:
+## Installation
+
+Romtool requires Python 3.7 or later. [Install that first][py].
+
+To install romtool itself, use pip:
+
+```sh
+pip install romtool
+```
+
+The installation process should place the `romtool` command somewhere in
+your PATH, but I don't trust this yet and would like feedback. If
+`romtool --help` prints usage instructions, you're good to go.
+
+## Tutorial
+
+**NOTE**: This tutorial uses *7th Saga* for its examples, because at
+time of writing it has the most complete support. If you want to follow
+along, you will need a copy of the *7th Saga* ROM, preferably in a
+directory by itself.
+
+### Identifying a ROM
+
+Before trying to do anything, you probably want to check that your ROM
+is supported. `romtool ident` will look at a ROM and print some
+identifying information about it:
+
+```console
+user@host:~$ romtool ident 7thsaga.smc
+name:       7th Saga, The (USA)
+file:       7thsaga.rom.smc
+type:       snes
+size:       1572864
+crc32:      B3ABDDE6
+sha1:       8d2b8aea636a2239805c99744bf48c0b4df8d96e
+md5:        a42772a0beaf71f9256a8e1998bfe6e3
+supported:  yes
+map:        /path/to/romtool/maps/7th Saga, The(US)
+```
+
+For now, the important fields here are `name`, `supported`, and `map`.
+
+The `name` field will tell you if romtool can correctly identify
+your ROM.
+
+The `supported` field indicates whether romtool can find a map of the
+ROM. A *map* is a set of files that tell romtool where to find things
+like monster data, spell data, text, and the like. If `supported` is
+*no*, only very basic commands will work. Romtool ships with maps for
+only a few games, so far, but it is possible to create your own.
+
+If a map is found, the `map` field will show where it is. This is useful
+if you want to see how maps work, or to create your own.
+
+For now, romtool ships with maps for only a few games. You can look in
+the parent of the `map` directory to see which games.
+
+### Dumping ROM data
+
+`romtool dump` extracts data tables from a ROM, and is usually the next
+thing you'll want to try. The following example will find all known data
+tables in `7thsaga.smc`, translate them into TSV files, and put those
+files in `mod_directory`:
+
+```console
+user@host:~$ romtool dump 7thsaga.smc mod_directory
+user@host:~$ ls mod_directory
+armor.tsv       dropsets.tsv  monsters.tsv  spells.tsv
+characters.tsv  items.tsv     scripts.tsv   weapons.tsv
+```
+
+In this example, the output files contain lists of the game's weapons,
+armor, monsters, items, etc.
+
+The files thus created are plain-text files of tab-separated values.
+They can be opened in any spreadsheet program. I use LibreOffice.
+
+### Modifying data tables
+
+**WARNING**: If possible, disable any auto-formatting or auto-correct
+features your spreadsheet program provides before proceeding. They
+*will* get in your way.
+
+You can now edit the files created in the previous section. Change a
+monster's HP, or a weapon's attack value, or a name. Note that there are
+usually limits to what you can change. For example, if a monster's attack
+power is stored in the ROM as a single byte, you cannot give it \>255
+attack (the maximum single-byte value). If you're lucky, romtool will
+notice the problem and complain. Not so lucky, and it will cheerfully
+make a patch that breaks the game.
+
+For the most part, as long as you limit any values you change to within
+the range of values used by the game, they should work.
+
+**WARNING**: When saving your changes, be sure you save them in-place,
+in .tsv format, *not* .xls, .ods, .csv, or anything else.
+
+When you're done making changes, do this to preview the patch:
+
+```console
+user@host:~$ romtool build 7thsaga.smc mod_directory
+PATCH
+006263:0001:FF
+006265:0001:FF
+006272:0002:B2C2
+0062FE:0008:01050E0C10221B15
+006307:0006:21161C1E1D23
+00630E:0000:000F:1
+EOF
+```
+
+This prints out a textual representation of an IPS patch. If you are not
+familiar with the IPS format, it will look like gibberish, but that's
+okay. The main thing you want to check is the output's length; if you
+made a small change but get a huge patch, something is probably wrong.
+
+If it looks okay, you can build the actual patch with:
+
+```console
+user@host:~$ romtool build 7thsaga.smc mod_directory --out 7thsaga.ips
+```
+
+That creates an IPS patch named `7thsaga.ips` implementing your changes.
+Give the patch the same name as the ROM, but with a .ips extension; this
+will allow some (most?) emulators to automatically make use of it,
+without physically modifying the original ROM.
+
+### Seeing Your Changes in Action
+
+Now you can fire up your emulator of choice and load the ROM. If the
+emulator supports implicit patching, and if your patch is named
+correctly, you should see your changes in-game.
+
+## Other Features
+
+### Changeset Files
+
+Editing spreadsheets isn't the only way to generate a patch. Romtool
+also accepts *changeset files* -- YAML or JSON formatted descriptions of
+changes to make.
+
+The main advantage of changeset files is self-documentation. You can
+tell at a glance what a they will do. In contrast, it's easy to lose
+track of changes you've made to a spreadsheet. Also, changesets can be
+written in a standard text editor, so you don't have to fight with
+spreadsheet autoformat "features".
+
+Their main disadvantage is the need to remember the names of object
+types and their properties. These are specified in the map files for
+each ROM. Also, you must understand YAML or JSON syntax to write
+changesets effectively.
+
+Here is a YAML example:
+
+```yaml
+# changeset.yaml
+characters:   # Top-level keys indicate the table to change
+  Esuna:      # Second-level keys are the name or table-index of an object
+    hp: 200   # Third level are the object properties to change
+    mp: 200
+    spd: 50   # This will make Esuna considerably stronger out the gate
+monsters:
+  Hermit:
+    hp: 500   # But so are the Hermit monsters found near the start
+```
+
+The preceding changeset can be supplied to `romtool build` instead of a
+directory. The resulting patch will do exactly what you expect:
+
+```console
+user@host:~$ romtool build 7thsaga.smc changeset.yaml
+PATCH
+006263:0001:C8
+006265:0001:C8
+00626A:0001:32
+0078DD:0002:F401
+EOF
+```
+
+### Viewing Patches
+
+IPS patches are binary, thus annoying to inspect. You can convert them
+to a readable text format like this:
+
+```console
+user@host:~$ romtool convert patch.ips patch.ipst
+```
+
+Romtool's `.ipst` format is a textual representation of IPS. You can
+read it in a standard text editor. If you are familiar with the IPS
+format, you can also change it and then convert it back.
+
+### Feature Wishlist
+
+Here are some additional features that have not been added yet, but that
+I want to support. This isn't a complete list, just the things that come
+to mind at time of writing:
 
 - ROM expansion
-- Header manipulation
 - Empty-space search
 - Game documentation generation
   - monster/item/equipment lists (for players)
@@ -69,100 +265,27 @@ mind as I am writing:
   - locating strings
   - locating data arrays
 
-## Installation
+## Supported Games
 
-Romlib requires Python 3.4 or later. Install that first.
-
-I haven't built pip or OS packages yet, mainly because I'm still not
-sure if I want to break it into multiple packages. For now you can
-install it using the provided setup.py script:
-
-```sh
-python setup.py install
-```
-
-If you want to fiddle with the code yourself, you should install in
-development mode. Consider forking the repo on github, then working from
-your fork:
-
-```sh
-git clone git@github.com:yourghname/romlib.git
-cd romlib
-python setup.py develop
-```
-
-The installation process should place the `romtool` command somewhere in
-your PATH, but I don't trust this yet and would like feedback.
-
-## Usage
-
-You can get help at any time with `romtool --help` or
-`romtool <subcommand> --help`. Trust the help output more than this
-section, because I may forget to update it from time to time.
-
-You can add `--verbose` to any of the commands below to show more
-information about what they're doing.
-
-The following command will extract all known data from the ROM named
-`some_game.smc`, and save it as .tsv files in `moddir`. Each file
-contains a list of entities; for example, there may be a monsters.tsv
-containing information about monsters, or a characters.tsv with
-character stats.
-
-```sh
-romtool dump some_game.rom moddir
-```
-
-Note that you do not usually need to specify which rom map to use;
-romtool will attempt to autodetect it. (for the time being, detection is
-based on the No-Intro rom sets) If autodetection fails, you can force
-romtool to use a map in a particular folder by appending `-m <mapdir>`
-to the command.
-
-After dumping is finished, make whatever changes you want to the files
-in `moddir`. Any spreadsheet application should do the job; I use
-LibreOffice, but Excel should also work. Be aware that you may have to
-turn off any auto-formatting features, especially if you plan to edit
-textual elements such as names.
-
-When saving your changes, be sure you save them in place in .tsv format,
-*not* .xls, .ods, .csv, or anything else. It's probably a good idea to
-turn off autocorrect or similar features, too.
-
-There are some limits to what you can change. For example, if a
-monster's attack power is stored in the ROM as a single byte, you cannot
-give it \>255 attack (the maximum single-byte value). If you're lucky,
-romtool will complain. Not so lucky, and it will cheerfully make a patch
-that breaks the game.
-
-When you're done making changes, do this to preview the patch:
-
-```sh
-romtool build moddir --rom some_game.rom
-```
-
-This prints out a textualized version of the IPS patch that will result
-from your changes. If you made a small change but get a huge patch,
-something is wrong.
-
-If it looks okay, you can build the actual patch with:
-
-```sh
-romtool build moddir --rom some_game.rom --out some_game.ips
-```
-
-That will create an IPS patch containing your changes. Give it the same
-name as the ROM, but with a .ips extension (this will probably be the
-default in future versions). The reason the name should match is that it
-will cause some emulators (ZSNES and SNES9x at least, probably others)
-to automatically make use of it, without physically modifying the
-original ROM.
-
-Now you can fire up an emulator and point it to the ROM. Assuming the
-emulator supports implicit patching and your patch is named correctly,
-you should see your changes in-game.
+You can see the maps that ship with romtool [here][maps]. Their
+completeness varies.
 
 ## Troubleshooting
+
+Note that you can get help at any time with `romtool --help` or `romtool
+{subcommand} --help`. Trust the help output more than this section,
+because I may forget to update it from time to time.
+
+You can add `--verbose` to any command to show more information about
+what is happening.
+
+Notes on specific common issues follow.
+
+**romtool: command not found (or not recognized, etc)**
+
+The directory romtool was installed to isn't in your PATH. You'll have
+to add it. On linux, this is probably `$HOME/.local/bin`. On windows, it
+is `%LOCALAPPDATA%\Programs\Python\PythonXY\Scripts`.
 
 **Q. ROM map detection failed. Why?**
 
@@ -223,15 +346,12 @@ romtool diff original.rom modified.rom -o patch.ips
 Do this:
 
 ```sh
-romtool merge patch.ips
+romtool convert patch.ips patch.ipst
 ```
 
-(yes, I know that doesn't make sense. It's taking advantage of the fact
-that the merge command accepts any number of patches, even just one; and
-that by default it prints the merged changes to stdout. Needs syntactic
-sugar.)
+## Writing New Maps
 
-## Map Files
+**TODO**
 
 Notes on creating map files properly go here...
 
@@ -240,15 +360,9 @@ not used by romlib. This is intentional; extensions or client
 applications can implement UI hints by looking for extra columns in the
 spec.
 
-(there probably needs to be a naming convention for app-specific columns
-vs extension columns vs official columns...)
-
-Maps in this repo that actually work:
-
-- 7th Saga works fine
-- FF1 works fine
-- Lufia 2 dumps okay but I would be surprised if it creates patches
-  okay.
-- I think SMRPG worked last time I checked, not sure if it still does
+(there probably needs to be a convention for app-specific columns vs
+extension columns vs official columns...)
 
 [lm]: http://fusoya.eludevisibility.org/lm/index.html
+[maps]: ./src/romtool/maps
+[py]: https://www.python.org/downloads/
