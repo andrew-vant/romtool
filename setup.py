@@ -15,6 +15,7 @@ dependencies = ["bitstring>=3.1.3",
                 "asteval",
                 "anytree",
                 "docopt",
+                "appdirs",
                 "addict>=2",
                 "pyyaml>=3.10"]
 scm_version_options = {
