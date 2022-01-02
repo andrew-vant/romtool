@@ -1,4 +1,4 @@
-# romtool/romlib
+# romtool
 
 A game-independent ROM-editing API.
 
@@ -17,11 +17,10 @@ but the act of digging that structure out and putting it in a form
 someone can use is universal. Reading a string is not fundamentally
 different from one game to another, either.
 
-romlib (and its command-line interface, romtool) is an attempt to
-collect game-independent functionality into an API and a very basic
-patch-making tool. The idea is to make simple hacks possible for
-non-programmers, and provide a useful set of primitives for more complex
-game-specific hacking tools.
+**romtool** is an attempt to collect game-independent functionality into
+an API and a very basic patch-making tool. The idea is to make simple
+hacks possible for non-programmers, and provide a useful set of
+primitives for more complex game-specific hacking tools.
 
 Here are some things you can do with it that might be useful:
 
@@ -41,18 +40,18 @@ Here are some things you can do with it that might be useful:
 - Examine and manipulate ROM headers. Useful for identifying or
   organizing ROMs.
 
-Romlib isn't magic; it does need to be told where to find the data it is
+Romtool isn't magic; it does need to be told where to find the data it is
 going to extract or patch. For this it needs a "rom map", which at the
 moment is a set of TSV files specifying the location and format of the
 data structures in the ROM, and the relationships between them. My hope
-is that maps for romlib can eventually serve as well-defined,
+is that maps for romtool can eventually serve as well-defined,
 machine-readable documentation of how different games' internals are
 structured.
 
-Romlib and romtool are late-alpha/early-beta. They're *probably* usable,
-but their behavior may still change before a 1.0 release. While the
-commands documented in this file work as described, other commands
-listed in `romtool --help` may not.
+Romtool is late-alpha/early-beta. It's *probably* usable, but its
+behavior may still change before a 1.0 release. While the commands
+documented in this file work as described, other commands listed in
+`romtool --help` may not.
 
 ## Installation
 
@@ -297,7 +296,7 @@ Possible causes:
    documentation for this process yet, but looking at the contents of
    the data/maps directory in the repo will probably be informative.
 2. You may have an SNES ROM with an SMC header. The header changes the
-   sha1 hash of the rom, which is what romlib uses to identify it.
+   sha1 hash of the rom, which is what romtool uses to identify it.
    Remove the header and try again (eventually romtool will be able to
    do this for you).
 3. The ROM may have been physically modified, perhaps by applying a
@@ -356,7 +355,7 @@ romtool convert patch.ips patch.ipst
 Notes on creating map files properly go here...
 
 Notes: the various map spec files may have any number of extra columns
-not used by romlib. This is intentional; extensions or client
+not used by romtool. This is intentional; extensions or client
 applications can implement UI hints by looking for extra columns in the
 spec.
 
