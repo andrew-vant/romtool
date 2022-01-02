@@ -4,13 +4,10 @@ import os
 import os.path
 from os.path import dirname, join
 from setuptools import setup, find_packages
-from pprint import pprint
+from pathlib import Path
 
 
-def read(relative_path):
-    with open(join(dirname(__file__), relative_path)) as f:
-        return f.read()
-
+readme = Path(__file__).parent / "README.md"
 dependencies = ["bitstring>=3.1.3",
                 "bitarray>=1.5.0",
                 "patricia-trie>=10",
@@ -19,12 +16,10 @@ dependencies = ["bitstring>=3.1.3",
                 "anytree",
                 "addict>=2",
                 "pyyaml>=3.10"]
-
 scm_version_options = {
         'write_to': 'src/romtool/version.py',
         'fallback_version': 'UNKNOWN',
         }
-
 classifiers = ["Development Status :: 3 - Alpha",
                "Intended Audience :: Developers",
                "Natural Language :: English",
@@ -43,7 +38,8 @@ setup(name="romtool",
       author="Andrew Vant",
       author_email="ajvant@gmail.com",
       description="Library and tool for manipulating video game ROMs.",
-      long_description=read("README.rst"),
+      long_description=readme.read_text()
+      long_description_content_type='text/markdown',
       classifiers=classifiers,
       zip_safe=False,
       keywords="rom roms snes",

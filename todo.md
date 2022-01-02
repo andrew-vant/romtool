@@ -1,3 +1,57 @@
+NOTE: for crossref interpretation during load, order matters. Changing
+the name of entity A breaks name-references to A from other entities.
+Probably referenced entities need to be loaded before those doing the
+referencing for names in the input to be consistent -- that is, if
+you're changing a name and referencing the new one in the same input
+data, the name-change must happen first or lookups will fail.
+
+
+* update this file
+* interpret crossreferences (DONE!)
+* enums (DONE!)
+* update docs
+* remove dead code
+* get rid of the registry singletons somehow -- they make testing a
+  pain.
+  * create metaclass for map-defined types that takes the map as an
+    argument, so the type registry(s) become map-local.
+  * Actual base structure is abstract
+* Better exception organization. Some RomError types should inherit
+  ValueError so VE handlers do the right thing.
+* Consider not using a monolithic hooks.py file. Each object or type to
+  be hooked gets its own file, e.g. codecname.py instead of
+  codecname.tbl. (what about fields? Do I need a `fields` directory?)
+
+TODO: how to deal with overlapping data? Indexed tables may have
+multiple entries pointing to the same address. Unions implemented as
+overlapping struct fields also point to the same address. "Smart"
+unions implemented as a single field are a pain to write.
+
+Thoughts:
+
+Overlapping fields: skip empty strings in incoming data. Would have
+to be implemented in struct.load; have it ignore empty strings. Then
+the user must delete the "wrong" overlapping field when making
+changes. Easy on the mapper, harder on the user.
+
+Smart unions: Requires implementation in the map module. Possibly
+ok, depends on how hard it turns out to be. Easier on the user,
+harder on the mapper. May be un-implementable if the data
+determining how the union is used is hard to access.
+
+Duplicate entries in index: Take the first one. Ignore duplicates
+that are identical to either the "original" data or the first-row
+"changed" data. Warn or error-out if a duplicate row differs from
+both.
+
+magic feature: map linter. Things worth checking for:
+
+* correct files w/correct columns
+* version mismatches?
+* multiple fields deterministically pointing to the same data? (might be
+  impossible to statically determine, but such a check on load for
+  changesets that hit the same address twice would be nice)
+
 For conf files: partial parse global opts first, check for conf opt, if it's
 there read the conf file. Splat the results into the remaining arg
 constructors like this: 
