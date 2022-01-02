@@ -55,12 +55,16 @@ documented in this file work as described, other commands listed in
 
 ## Installation
 
-Romtool requires Python 3.7 or later. [Install that first][py].
+Romtool requires [Python 3.7 or later][py]. For now, you will also need
+[git][], although that requirement will go away in future. Install both
+before continuing.
 
-To install romtool itself, use pip:
+Install romtool itself as follows:
 
 ```sh
-pip install romtool
+git clone https://github.com/andrew-vant/romtool.git
+cd romtool
+pip install .
 ```
 
 The installation process should place the `romtool` command somewhere in
@@ -365,3 +369,4 @@ extension columns vs official columns...)
 [lm]: http://fusoya.eludevisibility.org/lm/index.html
 [maps]: ./src/romtool/maps
 [py]: https://www.python.org/downloads/
+[git]: https://git-scm.com/downloads
