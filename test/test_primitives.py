@@ -1,7 +1,5 @@
 import unittest
 
-import bitstring
-
 import romlib.primitives as primitives
 
 @unittest.skip

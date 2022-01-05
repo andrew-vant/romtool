@@ -8,16 +8,23 @@ from pathlib import Path
 
 
 readme = Path(__file__).parent / "README.md"
-dependencies = ["bitstring>=3.1.3",
-                "bitarray>=1.5.0",
-                "patricia-trie>=10",
-                "parse",
-                "asteval",
-                "anytree",
-                "docopt",
-                "appdirs",
-                "addict>=2",
-                "pyyaml>=3.10"]
+# Keep these alphabetical, if possible
+deps = [
+        "addict>=2",
+        "anytree",
+        "appdirs",
+        "asteval",
+        "bitarray>=1.5.0",
+        "docopt",
+        "patricia-trie>=10",
+        "pyyaml>=3.10",
+        ]
+
+builddeps = [
+        'setuptools-scm>=3.3.0',
+        'wheel',
+        ]
+
 scm_version_options = {
         'write_to': 'src/romtool/version.py',
         'fallback_version': 'UNKNOWN',
@@ -33,8 +40,8 @@ setup(name="romtool",
       packages=find_packages("src") + ['romtool.maps'],
       package_dir={'': "src"},
       include_package_data=True,
-      install_requires=dependencies,
-      setup_requires=['setuptools-scm>=3.3.0'],
+      install_requires=deps,
+      setup_requires=builddeps,
       use_scm_version=scm_version_options,
       tests_require=['tox', 'pytest-subtests'],
       author="Andrew Vant",

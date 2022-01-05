@@ -3,8 +3,6 @@ from pprint import pprint
 from functools import partial
 from io import BytesIO
 
-from bitstring import BitArray
-
 from romlib.structures import Structure
 from romlib.types import IntField
 from romlib.io import Unit
