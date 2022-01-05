@@ -8,7 +8,7 @@ all : wheel
 wheel : dist/$(wheel)
 nointro : src/romtool/nointro.tsv
 
-dist/$(wheel) :
+dist/$(wheel) : $(nointro)
 	python3 setup.py bdist_wheel
 
 src/romtool/nointro.tsv : tools/dats.txt FORCE
