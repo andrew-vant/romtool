@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+""" Build supporting files for romtool
+
+At the moment this just turns the datomatic xml files into tsvs to put in the
+wheel.
+"""
+
 import csv
 import logging
 import os
@@ -11,6 +17,9 @@ from functools import partialmethod
 from argparse import ArgumentParser, FileType
 from os.path import splitext
 from itertools import chain
+from pathlib import Path
+
+from appdirs import AppDirs
 
 log = logging.getLogger()
 csv.register_dialect(
@@ -70,11 +79,18 @@ def cmd_datomatic(args):
     """ Build rom db from datomatic files """
     def load_infile(infile):
         log.info("reading %s", infile.name)
-        with infile:
-            dm = Datomatic(infile)
+        with open(infile, 'r') as f:
+            dm = Datomatic(f)
         for i, dr in enumerate(dm.roms):
             yield dr
         log.info("found %s rom definitions", i)
+
+    datpath = Path(AppDirs("romtool").user_data_dir, 'datomatic')
+    for line in args.file_list or []:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        args.infile.append(Path(datpath, line))
 
     log.debug("sorting output")
     data = sorted(chain.from_iterable(load_infile(f) for f in args.infile))
@@ -93,8 +109,10 @@ def main(argv=None):
     parser = CLIParser(description="build script helper")
     sp = parser.add_subparsers(dest='cmd')
     dom = parser.addsub(sp, cmd_datomatic, 'datomatic')
-    dom.addarg("infile", type=FileType('r'), nargs='*', default=[sys.stdin],
+    dom.addarg("infile", nargs='*',
                 help="input file(s) (default stdin)")
+    dom.addarg("-f", "--file-list", type=FileType('r'),
+                help="get infile arguments from file")
     dom.addarg("-o", "--outfile", type=FileType('w'), default=sys.stdout,
                 help="output file (default stdout)")
     for p in [parser, dom]:
@@ -110,6 +128,9 @@ def main(argv=None):
     log.debug("debug logging enabled")
     try:
         args.func(args)
+    except FileNotFoundError as ex:
+        log.error(ex)
+        sys.exit(2)
     except Exception as ex:  # pylint: disable=broad-except
         log.exception(ex)
         if not args.pdb:

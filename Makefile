@@ -11,10 +11,8 @@ nointro : src/romtool/nointro.tsv
 dist/$(wheel) :
 	python3 setup.py bdist_wheel
 
-src/romtool/nointro.tsv : FORCE
-	find resources/nointro \
-		-name '*.dat' \
-		-exec python3 tools/rtbuild.py datomatic -vo $@ {} + 
+src/romtool/nointro.tsv : tools/dats.txt FORCE
+	python3 tools/rtbuild.py datomatic -v -f $< -o $@
 
 deb :
 	mkdir -p dist
