@@ -7,9 +7,9 @@ from tempfile import TemporaryFile
 class TestTextTable(unittest.TestCase):
     def setUp(self):
         self.codec = 'test_text_main'
-        self.std = self.codec + '-std'
-        self.clean = self.codec + '-clean'
-        self.raw = self.codec + '-raw'
+        self.std = self.codec + '_std'
+        self.clean = self.codec + '_clean'
+        self.raw = self.codec + '_raw'
         self.ttfile = "src/romtool/maps/7th Saga (US)/texttables/main.tbl"
         with open(self.ttfile) as f:
             self.tbl = text.add_tt(self.codec, f)
@@ -53,4 +53,4 @@ class TestTextTable(unittest.TestCase):
     def test_eos_override(self):
         text = "Esuna[EOS]00"
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7, 0x00, 0x00])
-        self.assertEqual(text.encode(f'{self.codec}-raw'), binary)
+        self.assertEqual(text.encode(f'{self.codec}_raw'), binary)
