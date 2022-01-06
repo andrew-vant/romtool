@@ -1,4 +1,11 @@
+""" Test primitive types
+
+NOTE: primitive.py is defunct, but I might want to reference it before release
+so I haven't removed it yet. For now, always skip these tests.
+"""
 import unittest
+
+raise unittest.SkipTest("Skipping primitive tests (testing dead code)")
 
 import romlib.primitives as primitives
 
