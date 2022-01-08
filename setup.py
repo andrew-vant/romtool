@@ -5,41 +5,16 @@ import os.path
 from os.path import dirname, join
 from setuptools import setup, find_packages
 from pathlib import Path
-from warnings import warn
 
 
 readme = Path(__file__).parent / "README.md"
 # Keep these alphabetical, if possible
-
-def bapkg():
-    """ Figure out what bitarray dependency to use
-
-    Bitarray has no Windows wheels, and for end users, arranging matters so it
-    can install its C extensions is non-trivial. A third-party re-package
-    called `bitarray-hardbyte` is available, and works fine, but will conflict
-    with any other packages using the "real" bitarray.
-
-    For now I'm handling the problem by depending on bitarray-hardbyte iff
-    bitarray isn't pre-installed.
-    """
-    try:
-        import bitarray
-    except ModuleNotFoundError:
-        bitarray = None
-    if bitarray or os.name != 'nt':
-        return "bitarray"
-    warn("Due to issues installing one of romtool's dependencies (bitarray) "
-         "on Windows, the third-party bitarray-hardbyte package will be "
-         "used instead. This may cause conflicts in future if you install "
-         "another package that also uses bitarray. ")
-    return "bitarray-hardbyte"
-
 deps = [
-        f"{bapkg()}>=1.5.0",  # careful editing this
         "addict>=2",
         "anytree",
         "appdirs",
         "asteval",
+        "bitarray>=1.5.0",
         "docopt",
         "patricia-trie>=10",
         "pyyaml>=3.10",
