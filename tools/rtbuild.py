@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 import xml.etree.ElementTree as ET
+from configparser import ConfigParser
 from inspect import getdoc
 from dataclasses import dataclass, fields, asdict
 from functools import partialmethod
@@ -102,6 +103,14 @@ def cmd_datomatic(args):
         writer.writerow(asdict(item))
 
 
+def cmd_nsist(args):
+    from setuptools_scm import get_version
+    cfg = ConfigParser()
+    cfg.read(args.infile)
+    cfg['Application']['version'] = get_version()
+    cfg.write(args.outfile)
+
+
 def main(argv=None):
     """ build script helper """
     if argv is None:
@@ -115,7 +124,11 @@ def main(argv=None):
                 help="get infile arguments from file")
     dom.addarg("-o", "--outfile", type=FileType('w'), default=sys.stdout,
                 help="output file (default stdout)")
-    for p in [parser, dom]:
+    nst = parser.addsub(sp, cmd_nsist, 'nsis')
+    nst.addarg("infile", help="yaml metadata file")
+    nst.addarg("-o", "--outfile", type=FileType('w'), default=sys.stdout,
+                help="output file (default stdout)")
+    for p in [parser, dom, nst]:
         p.addflag("-v", "--verbose", help="verbose output")
         p.addflag("-D", "--debug", help="even more verbose output")
         p.addflag("--pdb", help="start debugger on crash")

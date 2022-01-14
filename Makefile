@@ -1,4 +1,4 @@
-.PHONY : all wheel venv clean test FORCE
+.PHONY : all wheel winpkg venv clean test FORCE
 
 version = $(shell python3 setup.py --version)
 wheel = romtool-$(version)-py2-none-any.whl
@@ -13,6 +13,19 @@ dist/$(wheel) : $(nointro)
 
 src/romtool/nointro.tsv : tools/dats.txt FORCE
 	python3 tools/rtbuild.py datomatic -v -f $< -o $@
+
+winpkg: pynsist.cfg
+	# Build the windows executable installer. I haven't figured out how
+	# to make this work from a linux devbox yet, so this target must be
+	# run on Windows for the time being. The Python version supplied to
+	# py.exe must be installed, and must match the version in
+	# pynsist.in.cfg. TODO: find a way to single-source that.
+	rm -rf build/wheels
+	py.exe -3.10.1 -m pip wheel -vw build/wheels .
+	pynsist $<
+
+pynsist.cfg : pynsist.in.cfg
+	py.exe tools/rtbuild.py nsis -vo $@ $<
 
 deb :
 	mkdir -p dist
