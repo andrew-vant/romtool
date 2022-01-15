@@ -55,21 +55,18 @@ documented in this file work as described, other commands listed in
 
 ## Installation
 
-Romtool requires [Python 3.7 or later][py]. For now, you will also need
-[git][], although that requirement will go away in future. Install both
-before continuing.
+There is a packaged installer available for Windows (FIXME: link here).
 
-**NOTE**: For the most part the default installation options will work,
-but be sure you check "Install Pip" and "Add Python to environment
-variables" if you are installing python on Windows.
+On Linux, for now, install from pip: `pip install romtool`. Be aware
+that you may need to have a C compiler installed for `pip install` to
+work, as romtool has at least one dependency (bitarray) that does not
+provide pre-built wheels.
 
-Install romtool itself as follows:
+Sometime before v1.0, I intend to arrange .deb and .rpm packages. The
+main blocker for this are dependencies that do not themselves provide
+packages.
 
-```sh
-git clone https://github.com/andrew-vant/romtool.git
-cd romtool
-pip install .
-```
+For development installs, see CONTRIBUTING.md.
 
 The installation process should place the `romtool` command somewhere in
 your PATH, but I don't trust this yet and would like feedback. If
