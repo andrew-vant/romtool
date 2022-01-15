@@ -1,30 +1,51 @@
-.PHONY : all wheel winpkg venv clean test FORCE
+.PHONY : all wheel nointro winpkg venv clean test FORCE
 
-version = $(shell python3 setup.py --version)
+# NOTE: Tabs for recipe indentation, spaces for logic indentation,
+# because WHYYYYYYYYYYYYYYYY?!?!???
+
+# Check whether we're on windows. Windows has a different python
+# executable and a different default target.
+ifdef OS
+  # The version given here must match the one given in pynsist.in.cfg,
+  # or things won't work. FIXME: find a way to single-source that. Also,
+  # py.exe won't accept a patch version and I'm not sure what will
+  # happen if it differs. Probably something bad.
+  python = py.exe -3.10
+  all = winpkg
+  $(info windows detected ($$OS: $(OS)))
+else
+  python = python3
+  all = wheel
+endif
+
+version = $(shell $(python) setup.py --version)
 wheel = romtool-$(version)-py2-none-any.whl
 deb = romtool_$(version)_all.deb
+nointro = src/romtool/nointro.tsv
 
-all : wheel
+all : $(all)
 wheel : dist/$(wheel)
-nointro : src/romtool/nointro.tsv
+nointro : $(nointro)
 
 dist/$(wheel) : $(nointro)
-	python3 setup.py bdist_wheel
+	$(python) setup.py bdist_wheel
 
 src/romtool/nointro.tsv : tools/dats.txt FORCE
-	python3 tools/rtbuild.py datomatic -v -f $< -o $@
+	$(python) tools/rtbuild.py datomatic -v -f $< -o $@
 
-winpkg: pynsist.cfg
-	# Build the windows executable installer. I haven't figured out how
-	# to make this work from a linux devbox yet, so this target must be
-	# run on Windows for the time being. The Python version supplied to
-	# py.exe must be installed, and must match the version in
-	# pynsist.in.cfg. TODO: find a way to single-source that.
-	rm -rf build/wheels
-	py.exe -3.10.1 -m pip wheel -vw build/wheels .
+# Build the windows executable installer. I haven't figured out how
+# to make this work from a linux devbox yet, so this target must be
+# run on Windows for the time being.
+# NOTE: the default makefile shell on windows appears to be cmd.exe.
+winpkg: pynsist.cfg $(nointro)
+	-rmdir /Q /S .\build\wheels
+	$(python) -m pip wheel -vw build\wheels .
 	pynsist $<
+	echo D | xcopy /y .\build\nsis\romtool_$(version).exe .\dist\
 
-pynsist.cfg : pynsist.in.cfg
+# Force is necessary because the recipe populates the current version,
+# which may change even if the infile doesn't.
+pynsist.cfg : pynsist.in.cfg FORCE
 	py.exe tools/rtbuild.py nsis -vo $@ $<
 
 deb :
