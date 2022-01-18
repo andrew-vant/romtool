@@ -2,6 +2,9 @@
 # datomatic no-intro dats and included in the wheel
 src/romtool/nointro.tsv
 
+# Also generated during build
+pynsist.cfg
+
 # Vim swapfiles.
 *.swp
 

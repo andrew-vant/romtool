@@ -1,0 +1,9 @@
+# dat files to include in nointro.tsv
+#
+# For now, I am relying on an explicit list to (try to) prevent
+# accidental removal from a given release. If any of these files are
+# missing, builds will fail. Extras are ignored. Files are looked for in
+# ~/.local/share/romtool/datomatic.
+
+Nintendo - Nintendo Entertainment System (Parent-Clone) (20211117-052703).dat
+Nintendo - Super Nintendo Entertainment System (Parent-Clone) (20211126-074155).dat

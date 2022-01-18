@@ -8,35 +8,46 @@ from pathlib import Path
 
 
 readme = Path(__file__).parent / "README.md"
-dependencies = ["bitstring>=3.1.3",
-                "bitarray>=1.5.0",
-                "patricia-trie>=10",
-                "parse",
-                "asteval",
-                "anytree",
-                "docopt",
-                "appdirs",
-                "addict>=2",
-                "pyyaml>=3.10"]
-scm_version_options = {
-        'write_to': 'src/romtool/version.py',
-        'fallback_version': 'UNKNOWN',
-        }
-classifiers = ["Development Status :: 3 - Alpha",
-               "Intended Audience :: Developers",
-               "Natural Language :: English",
-               "Operating System :: OS Independent",
-               "Programming Language :: Python :: 3",
-               "Topic :: Software Development :: Libraries :: Python Modules"]
+# Keep these alphabetical, if possible
+deps = [
+    "addict>=2",
+    "anytree",
+    "appdirs",
+    "asteval",
+    "bitarray>=1.5.0",
+    "docopt",
+    "patricia-trie>=10",
+    "pyyaml>=3.10",
+    ]
+bdeps = [
+    'setuptools-scm>=3.3.0',
+    'wheel',
+    ]
+tdeps = [
+    'pytest-subtests',
+    'tox',
+    ]
+scmver = {
+    'write_to': 'src/romtool/version.py',
+    'fallback_version': 'UNKNOWN',
+    }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+    ]
 
 setup(name="romtool",
       packages=find_packages("src") + ['romtool.maps'],
       package_dir={'': "src"},
       include_package_data=True,
-      install_requires=dependencies,
-      setup_requires=['setuptools-scm>=3.3.0'],
-      use_scm_version=scm_version_options,
-      tests_require=['tox', 'pytest-subtests'],
+      install_requires=deps,
+      setup_requires=bdeps,
+      tests_require=tdeps,
+      use_scm_version=scmver,
       author="Andrew Vant",
       author_email="ajvant@gmail.com",
       description="Library and tool for manipulating video game ROMs.",

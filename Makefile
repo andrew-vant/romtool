@@ -1,20 +1,52 @@
-.PHONY : all wheel venv clean test FORCE
+.PHONY : all wheel nointro winpkg venv clean test FORCE
 
-version = $(shell python3 setup.py --version)
+# NOTE: Tabs for recipe indentation, spaces for logic indentation,
+# because WHYYYYYYYYYYYYYYYY?!?!???
+
+# Check whether we're on windows. Windows has a different python
+# executable and a different default target.
+ifdef OS
+  # The version given here must match the one given in pynsist.in.cfg,
+  # or things won't work. FIXME: find a way to single-source that. Also,
+  # py.exe won't accept a patch version and I'm not sure what will
+  # happen if it differs. Probably something bad.
+  python = py.exe -3.10
+  all = winpkg
+  $(info windows detected ($$OS: $(OS)))
+else
+  python = python3
+  all = wheel
+endif
+
+version = $(shell $(python) setup.py --version)
 wheel = romtool-$(version)-py2-none-any.whl
 deb = romtool_$(version)_all.deb
+nointro = src/romtool/nointro.tsv
 
-all : wheel
+all : $(all)
 wheel : dist/$(wheel)
-nointro : src/romtool/nointro.tsv
+nointro : $(nointro)
 
-dist/$(wheel) :
-	python3 setup.py bdist_wheel
+dist/$(wheel) : $(nointro)
+	$(python) setup.py bdist_wheel
 
-src/romtool/nointro.tsv : FORCE
-	find resources/nointro \
-		-name '*.dat' \
-		-exec python3 tools/rtbuild.py datomatic -vo $@ {} + 
+src/romtool/nointro.tsv : tools/dats.txt FORCE
+	$(python) tools/rtbuild.py datomatic -v -f $< -o $@
+
+# Build the windows executable installer. I haven't figured out how
+# to make this work from a linux devbox yet, so this target must be
+# run on Windows for the time being.
+# NOTE: the default makefile shell on windows appears to be cmd.exe.
+winpkg: pynsist.cfg $(nointro)
+	-rmdir /Q /S .\build\wheels
+	$(python) -m pip wheel -vw build\wheels .
+	pynsist $<
+	echo D | xcopy /y .\build\nsis\romtool_$(version).exe .\dist\
+
+# Force is necessary because the recipe populates the current version,
+# which may change even if the infile doesn't.
+pynsist.cfg : pynsist.in.cfg FORCE
+	py.exe tools/rtbuild.py nsis -vo $@ $<
 
 deb :
 	mkdir -p dist

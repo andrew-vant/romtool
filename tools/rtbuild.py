@@ -1,16 +1,26 @@
 #!/usr/bin/python3
 
+""" Build supporting files for romtool
+
+At the moment this just turns the datomatic xml files into tsvs to put in the
+wheel.
+"""
+
 import csv
 import logging
 import os
 import sys
 import xml.etree.ElementTree as ET
+from configparser import ConfigParser
 from inspect import getdoc
 from dataclasses import dataclass, fields, asdict
 from functools import partialmethod
 from argparse import ArgumentParser, FileType
 from os.path import splitext
 from itertools import chain
+from pathlib import Path
+
+from appdirs import AppDirs
 
 log = logging.getLogger()
 csv.register_dialect(
@@ -70,11 +80,18 @@ def cmd_datomatic(args):
     """ Build rom db from datomatic files """
     def load_infile(infile):
         log.info("reading %s", infile.name)
-        with infile:
-            dm = Datomatic(infile)
+        with open(infile, 'r') as f:
+            dm = Datomatic(f)
         for i, dr in enumerate(dm.roms):
             yield dr
         log.info("found %s rom definitions", i)
+
+    datpath = Path(AppDirs("romtool").user_data_dir, 'datomatic')
+    for line in args.file_list or []:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        args.infile.append(Path(datpath, line))
 
     log.debug("sorting output")
     data = sorted(chain.from_iterable(load_infile(f) for f in args.infile))
@@ -86,6 +103,14 @@ def cmd_datomatic(args):
         writer.writerow(asdict(item))
 
 
+def cmd_nsist(args):
+    from setuptools_scm import get_version
+    cfg = ConfigParser()
+    cfg.read(args.infile)
+    cfg['Application']['version'] = get_version()
+    cfg.write(args.outfile)
+
+
 def main(argv=None):
     """ build script helper """
     if argv is None:
@@ -93,11 +118,17 @@ def main(argv=None):
     parser = CLIParser(description="build script helper")
     sp = parser.add_subparsers(dest='cmd')
     dom = parser.addsub(sp, cmd_datomatic, 'datomatic')
-    dom.addarg("infile", type=FileType('r'), nargs='*', default=[sys.stdin],
+    dom.addarg("infile", nargs='*',
                 help="input file(s) (default stdin)")
+    dom.addarg("-f", "--file-list", type=FileType('r'),
+                help="get infile arguments from file")
     dom.addarg("-o", "--outfile", type=FileType('w'), default=sys.stdout,
                 help="output file (default stdout)")
-    for p in [parser, dom]:
+    nst = parser.addsub(sp, cmd_nsist, 'nsis')
+    nst.addarg("infile", help="yaml metadata file")
+    nst.addarg("-o", "--outfile", type=FileType('w'), default=sys.stdout,
+                help="output file (default stdout)")
+    for p in [parser, dom, nst]:
         p.addflag("-v", "--verbose", help="verbose output")
         p.addflag("-D", "--debug", help="even more verbose output")
         p.addflag("--pdb", help="start debugger on crash")
@@ -110,6 +141,9 @@ def main(argv=None):
     log.debug("debug logging enabled")
     try:
         args.func(args)
+    except FileNotFoundError as ex:
+        log.error(ex)
+        sys.exit(2)
     except Exception as ex:  # pylint: disable=broad-except
         log.exception(ex)
         if not args.pdb:

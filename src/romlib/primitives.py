@@ -1,3 +1,9 @@
+""" Primitive types
+
+NOTE: primitive.py is defunct, but I might want to reference it before release
+so I'm leaving it in place for now.
+"""
+
 from abc import ABC, abstractmethod
 from collections import UserString
 
