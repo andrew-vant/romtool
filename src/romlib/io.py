@@ -58,6 +58,8 @@ class BitArrayView(NodeMixin):
         self.length = (length if length
                        else (len(self.parent) - self.offset) if self.parent
                        else len(self.ba) - self.abs_start)
+        if self.length < 0:
+            raise ValueError("View runs off the end of the underlying bitarray")
         self.abs_end = self.abs_start + len(self)
         self.abs_slice = slice(self.abs_start, self.abs_end)
         assert len(self.bits) == len(self), f"{len(self.bits)} != {len(self)}"

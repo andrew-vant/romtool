@@ -36,6 +36,7 @@ class HeaderError(RomFormatError):
 
 
 class Rom(NodeMixin, util.RomObject):
+    romtype = 'unknown'
     registry = {}
     extensions = []
 
@@ -226,7 +227,8 @@ class Rom(NodeMixin, util.RomObject):
                 return rom
             except RomFormatError as ex:
                 log.debug("Couldn't validate: %s", ex)
-        raise RomFormatError("Can't figure out what type of ROM this is")
+        log.info("Can't figure out what type of ROM this is, using base")
+        return Rom(romfile)
 
     def sanitize(self):
         """ Fix checksums, headers, etc as needed """
@@ -297,7 +299,16 @@ class SNESRom(Rom):
     def header(self):
         for offset in set(self.header_locations.values()):
             log.debug("Looking for header at 0x%X", offset)
-            hdr = headers['snes-hdr'](self.data[offset::Unit.bytes])
+            try:
+                hdr = headers['snes-hdr'](self.data[offset::Unit.bytes])
+                # NOTE: header lookup raises if the would-be header goes off
+                # the end of the file (e.g. identification attempt on something
+                # that isn't actually an SNES rom). Possibly in other cases
+                # too. I haven't decided on correct behavior; for now just
+                # continue and let HeaderError get raised at the bottom.
+            except ValueError as ex:
+                log.debug("No header at 0x%X (%s)", offset, ex)
+                continue
 
             # Mapping mode check
             if self.header_locations.get(hdr.mapmode, None) == offset:
