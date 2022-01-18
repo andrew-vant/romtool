@@ -197,14 +197,13 @@ def apply(args):
     """
     # Move the target to a backup name first to preserve its metadata, then
     # copy it back to its original name, then patch it there.
-    patch = Patch.load(args.patch)
-    tgt = args.target
-    _backup(args.target, args.nobackup)
-    log.info("Applying patch")
+    tgt = args.rom
+    _backup(args.rom, args.nobackup)
     with open(tgt, "r+b") as f:
-        patch.apply(f)
-    log.warning("Patch applied. Note: You may want to run `romtool "
-                    "sanitize` next, especially if this is a save file.")
+        for path in args.patches:
+            log.info("Applying patch: %s", path)
+            patch = Patch.load(path)
+            patch.apply(f)
 
 
 def sanitize(args):
