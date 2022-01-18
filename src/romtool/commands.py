@@ -113,7 +113,7 @@ def initchg(args):
     modification, what fields exist for the objects in those tables, and
     if possible provide minimal commented examples.
     """
-    raise NotImplementedError
+    raise NotImplementedError("`initchg` command not implemented yet")
 
 
 def build(args):
@@ -185,6 +185,10 @@ def diff(args):
         with open(args.modified, "rb") as changed:
             patch = Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
+
+def fix(args):
+    """ Fix header/checksum issues in a ROM """
+    raise NotImplementedError("`fix` command not implemented yet")
 
 def apply(args):
     """ Apply a patch to a file, such as a rom or a save.

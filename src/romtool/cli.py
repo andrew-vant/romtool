@@ -4,29 +4,27 @@ A tool for examining and modifying ROMs
 
 Usage:
     romtool --help
+    romtool ident [options] <roms>...
     romtool dump [options] <rom> <moddir> [<patches>...]
     romtool build [options] <rom> <input>...
-    romtool apply <rom> <patches>...
-    romtool diff <original> <modified>
-    romtool fix <rom>
-    romtool info <rom>
+    romtool convert [options] <infile> <outfile>
+    romtool apply [options] <rom> <patches>...
+    romtool diff [options] <original> <modified>
+    romtool fix [options] <rom>
     romtool charmap <rom> <strings>...
-    romtool convert <infile> <outfile>
     romtool initchg <rom> <filename>
-    romtool ident [options] <roms>...
     romtool dirs
 
 Commmands:
+    ident               Print information about a ROM file
     dump                Dump all known data from a ROM to `moddir`
     build               Construct a patch from input files
+    convert             Convert a patch from one format to another
     apply               Apply patches to a ROM
     diff                Construct a patch by diffing two ROMs
     fix                 Fix bogus headers and checksums
-    info                Print rom type information and metadata
     charmap             Generate a texttable from known strings
-    convert             Convert a patch from one format to another
     initchg             Generate a starter changeset file.
-    ident               Print information about a ROM file
     dirs                Print directory paths used by romtool
 
 Options:
@@ -131,7 +129,7 @@ def main(argv=None):
     initlog(args)
     util.debug_structure(args)
 
-    expected = (FileNotFoundError, RomtoolError) if not args.debug else ()
+    expected = (FileNotFoundError, NotImplementedError, RomtoolError) if not args.debug else ()
 
     try:
         getattr(commands, args.command)(args)
