@@ -1,6 +1,8 @@
 graft src
 graft docs
 graft test
-include README.rst
+include *.md
 include tox.ini
+include src/romtool/nointro.tsv
+include src/romtool/version.py
 global-exclude *.py[cod] __pycache__ *.so .~lock* .nfs*
