@@ -1,5 +1,5 @@
 import unittest
-from romlib import text
+from romtool import text
 from tempfile import TemporaryFile
 
 # FIXME: This should really use a dummy ROM rather than a real one.

@@ -3,10 +3,10 @@ from pprint import pprint
 from functools import partial
 from io import BytesIO
 
-from romlib.structures import Structure
-from romlib.types import IntField
-from romlib.io import Unit
-from romlib.util import HexInt
+from romtool.structures import Structure
+from romtool.types import IntField
+from romtool.io import Unit
+from romtool.util import HexInt
 
 
 class MonsterExtra(IntField):

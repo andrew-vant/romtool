@@ -3,8 +3,8 @@ from collections import OrderedDict
 from tempfile import TemporaryFile, NamedTemporaryFile
 from io import BytesIO, StringIO
 
-import romlib
-from romlib import patch
+import romtool
+from romtool import patch
 
 
 class TestPatch(unittest.TestCase):

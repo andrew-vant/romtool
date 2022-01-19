@@ -13,15 +13,15 @@ from textwrap import dedent
 from addict import Dict
 from appdirs import AppDirs
 
-import romlib
-import romlib.charset
-from romlib.rommap import RomMap
-from romlib.rom import Rom
-from romlib.patch import Patch
-from romtool.util import pkgfile, slurp, loadyaml
-from romlib.util import pipeline, readtsv
-from romlib.exceptions import ChangesetError
-from . import config
+import romtool
+from .. import charset
+from .. import config
+from ..rommap import RomMap
+from ..rom import Rom
+from ..patch import Patch
+from ..util import pkgfile, slurp, loadyaml
+from ..util import pipeline, readtsv
+from ..exceptions import ChangesetError
 
 
 log = logging.getLogger(__name__)
@@ -245,12 +245,12 @@ def charmap(args):
     maps = {s: [] for s in strings}
     for s in strings:
         log.debug("Searching for %s", s)
-        pattern = romlib.charset.Pattern(s)
+        pattern = romtool.charset.Pattern(s)
         for i in range(len(data) - len(s) + 1):
             chunk = view[i:i+len(s)]
             try:
                 cmap = pattern.buildmap(chunk)
-            except romlib.charset.NoMapping:
+            except romtool.charset.NoMapping:
                 continue
             log.debug("Found match for %s at %s", s, i)
             if cmap in maps[s]:
@@ -266,8 +266,8 @@ def charmap(args):
     charsets = []
     for m in itertools.product(*maps.values()):
         try:
-            merged = romlib.charset.merge(*m)
-        except romlib.charset.MappingConflictError:
+            merged = romtool.charset.merge(*m)
+        except romtool.charset.MappingConflictError:
             log.debug("Mapping conflict")
         else:
             log.info("Found consistent character map.")
@@ -289,9 +289,9 @@ def findblocks(args):
     # Most users likely use Windows, so I can't rely on them having sort, head,
     # etc or equivalents available, nor that they'll know how to use them.
     # Hence some extra args for sorting/limiting the output
-    args.byte = romlib.util.intify(args.byte, None)
-    args.num = romlib.util.intify(args.num, None)
-    args.min = romlib.util.intify(args.min, 16)
+    args.byte = romtool.util.intify(args.byte, None)
+    args.num = romtool.util.intify(args.num, None)
+    args.min = romtool.util.intify(args.min, 16)
 
     log.info("Loading rom")
     with open(args.rom, "rb") as rom:
@@ -331,8 +331,8 @@ def meta(args):
         log.info("Inspecting ROM: %s", filename)
         with open(filename, 'rb') as romfile:
             try:
-                rom = romlib.rom.Rom.make(romfile)
-            except romlib.rom.RomFormatError as e:
+                rom = romtool.rom.Rom.make(romfile)
+            except romtool.rom.RomFormatError as e:
                 log.error("Error inspecting %s: %s", filename, str(e))
                 continue
         header_data = {"File": filename}

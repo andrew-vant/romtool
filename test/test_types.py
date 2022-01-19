@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import yaml
 from addict import Dict
 
-from romlib.io import BitArrayView as Stream
-from romlib.types import Field
-from romlib.structures import Structure, BitField, Table, Index
-from romlib.util import bytes2ba
+from romtool.io import BitArrayView as Stream
+from romtool.types import Field
+from romtool.structures import Structure, BitField, Table, Index
+from romtool.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
     def setUp(self):
@@ -139,7 +139,7 @@ class TestStructure(unittest.TestCase):
 
     def test_overrun_warning(self):
         struct = self.scratch(Stream(self.data))
-        with self.assertLogs('romlib.io', logging.WARNING):
+        with self.assertLogs('romtool.io', logging.WARNING):
             struct.strz = 'abcdefg'
 
     def test_undersized_string(self):

@@ -12,8 +12,7 @@ import importlib.util
 
 from addict import Dict
 
-import romlib.util as util
-import romlib.text as text
+from . import util, text
 from .structures import Structure, BitField, Table
 from .text import TextTable
 from .exceptions import RomtoolError, MapError

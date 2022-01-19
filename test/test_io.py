@@ -3,7 +3,7 @@ from unittest import TestCase
 from bitarray import bitarray
 from bitarray.util import hex2ba, ba2hex
 
-from romlib.io import BitArrayView, Unit
+from romtool.io import BitArrayView, Unit
 
 class TestBAVBasics(TestCase):
     def setUp(self):

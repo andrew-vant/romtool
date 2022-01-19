@@ -4,12 +4,12 @@ import logging
 from pathlib import Path
 from functools import partialmethod
 
-import romlib.rom
-import romlib.rommap
-from romlib.rom import Rom, SNESRom
-from romlib.rommap import RomMap
-from romlib.structures import Structure, Table
-from romlib.types import Field
+import romtool.rom
+import romtool.rommap
+from romtool.rom import Rom, SNESRom
+from romtool.rommap import RomMap
+from romtool.structures import Structure, Table
+from romtool.types import Field
 from romtool.util import pkgfile
 
 
@@ -56,7 +56,7 @@ class TestRom(unittest.TestCase):
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
-        structs = {'snesheaders': romlib.rom.headers['snes-hdr']}
+        structs = {'snesheaders': romtool.rom.headers['snes-hdr']}
         tables = {'snesheaders':
                      {'id': 'snesheaders',
                       'name': 'Header',

@@ -7,7 +7,7 @@ import unittest
 
 raise unittest.SkipTest("Skipping primitive tests (testing dead code)")
 
-import romlib.primitives as primitives
+import romtool.primitives as primitives
 
 @unittest.skip
 class TestFlag(unittest.TestCase):

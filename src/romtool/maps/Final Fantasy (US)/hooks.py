@@ -1,7 +1,7 @@
 import logging
 
-from romlib.types import Field, IntField, StructField
-from romlib.structures import Structure
+from romtool.types import Field, IntField, StructField
+from romtool.structures import Structure
 
 
 _statusbits = 'dspbtlmc'

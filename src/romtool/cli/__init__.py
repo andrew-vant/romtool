@@ -64,9 +64,9 @@ from addict import Dict
 
 from romtool import util
 from romtool.version import version
-from romlib.exceptions import RomtoolError
+from ..exceptions import RomtoolError
 from . import commands
-from . import config
+from .. import config
 
 log = logging.getLogger(__name__)
 

@@ -2,9 +2,9 @@ import unittest
 from collections import OrderedDict
 from tempfile import TemporaryFile, NamedTemporaryFile
 
-import romlib
-from romlib import util
-from romlib.util import HexInt
+import romtool
+from romtool import util
+from romtool.util import HexInt
 
 
 class TestUtilFuncs(unittest.TestCase):
