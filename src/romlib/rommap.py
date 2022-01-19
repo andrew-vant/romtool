@@ -43,7 +43,7 @@ class RomMap:
     """
     _adctfld = partial(field, default_factory=Dict)
 
-    name: str = 'unknown'
+    name: str = None
     path: Path = None
     structs: Mapping[str, Structure] = _adctfld()
     tables: Mapping[str, Table] = _adctfld()

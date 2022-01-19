@@ -43,7 +43,6 @@ class Rom(NodeMixin, util.RomObject):
     def __init__(self, romfile, rommap=None):
         if rommap is None:
             rommap = RomMap()
-        self.name = romfile.name
 
         romfile.seek(0)
         ba = bitarray(endian='little')
@@ -68,7 +67,14 @@ class Rom(NodeMixin, util.RomObject):
             self.entities[tset] = EntityList(tset, parts)
 
     def __str__(self):
-        return f"Rom({self.name})"
+        return f"{self.name} (Unknown ROM type)"
+
+    @property
+    def name(self):
+        return (util.nointro().get(self.data.sha1)
+                or util.nointro().get(self.data.sha1)
+                or self.map.name
+                or "Unknown ROM")
 
     @property
     def data(self):
@@ -261,6 +267,9 @@ class INESRom(Rom):
         hcls = headers[self.romtype]
         self.header = hcls(self.file[:hsz])
 
+    def __str__(self):
+        return f'{self.name} (INES ROM)'
+
     @property
     def data(self):
         return self.file[self.sz_header * Unit.bytes:]
@@ -288,6 +297,10 @@ class SNESRom(Rom):
                         0x35: 0xFFC0}
 
     devid_magic = 0x33  # Indicates extended registration data available
+
+    def __str__(self):
+        wh = "headered" if self.smc else "unheadered"
+        return f'{self.name} (SNES ROM, {wh})'
 
     @property
     def data(self):

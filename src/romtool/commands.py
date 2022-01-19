@@ -343,15 +343,17 @@ def meta(args):
             writer.writeheader()
         writer.writerow(header_data)
 
-def ident(args):
-    nointro = {item['sha1']: item['name']
-               for item in readtsv(pkgfile('nointro.tsv'))}
 
+def ident(args):
+    # FIXME: assumes all input files actually *are* roms. They may not be (e.g.
+    # passing an ips patch, or something else entirely) Probably each rom class
+    # needs a checker, or something. Suggest use of `file` if romtool can't
+    # identify it.
     first = True
     for filename in args.roms:
         if first:
             first = False
-        else:
+        elif args.long:
             print("%%")
 
         try:
@@ -362,12 +364,8 @@ def ident(args):
         with open(filename, 'rb') as f:
             rom = Rom.make(f, rmap)
         info = Dict()
-        name = (nointro.get(rom.file.sha1)
-                or nointro.get(rom.data.sha1)
-                or rom.map.name
-                or 'unknown')
-        info.name = name
-        info.file = rom.name
+        info.name = rom.name
+        info.file = filename
         info.type = rom.romtype
         info.size = len(rom.file.bytes)
         info.crc32 = rom.file.crc32
@@ -375,8 +373,12 @@ def ident(args):
         info.md5 = rom.file.md5
         info.supported = 'yes' if rom.map.path else 'no'
         info.map = rom.map.path or '(no map found)'
-        for k, v in info.items():
-            print(f"{k+':':12}{v}")
+        if not args.long:
+            prefix = f"{filename}:\t" if len(args.roms) > 1 else ""
+            print(f"{prefix}{rom}")
+        else:
+            for k, v in info.items():
+                print(f"{k+':':12}{v}")
 
 
 def dirs(args):

@@ -8,6 +8,7 @@ import abc
 from collections import OrderedDict, Counter
 from collections.abc import Mapping, Sequence
 from itertools import chain
+from functools import lru_cache
 from os.path import dirname, realpath
 from os.path import join as pathjoin
 from enum import IntEnum
@@ -17,6 +18,7 @@ import asteval
 from bitarray import bitarray
 from bitarray.util import bits2bytes
 
+from romtool.util import pkgfile
 
 log = logging.getLogger(__name__)
 libroot = dirname(realpath(__file__))
@@ -411,6 +413,12 @@ def subregistry(cls):
     cls.registry = {}
     cls.__init_subclass__ = initsub
     return cls
+
+@lru_cache
+def nointro():
+    """ Get the nointro database as a dict """
+    return {item['sha1']: item['name']
+            for item in readtsv(pkgfile('nointro.tsv'))}
 
 class TSVLoader:
     """ Helper class for turning tsv rows into constructor arguments """

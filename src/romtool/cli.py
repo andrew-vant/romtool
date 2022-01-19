@@ -4,7 +4,7 @@ A tool for examining and modifying ROMs
 
 Usage:
     romtool --help
-    romtool ident [options] <roms>...
+    romtool ident [-l|--long] [options] <roms>...
     romtool dump [options] <rom> <moddir> [<patches>...]
     romtool build [options] <rom> <input>...
     romtool convert [options] <infile> <outfile>
@@ -43,6 +43,8 @@ Options:
     -q, --quiet         Quiet output
     -D, --debug         Even more verbose output
     --pdb               Start interactive debugger on crash
+
+    -l, --long          Print additional ROM information
 
 Examples:
     A simple modding session looks like this:
