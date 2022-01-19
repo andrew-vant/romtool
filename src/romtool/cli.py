@@ -72,9 +72,7 @@ from addict import Dict
 from appdirs import AppDirs
 from docopt import docopt
 
-import romtool
-from . import util
-from . import config
+from . import util, config, charset
 from .rommap import RomMap
 from .rom import Rom
 from .patch import Patch
@@ -299,12 +297,12 @@ def charmap(args):
     maps = {s: [] for s in strings}
     for s in strings:
         log.debug("Searching for %s", s)
-        pattern = romtool.charset.Pattern(s)
+        pattern = charset.Pattern(s)
         for i in range(len(data) - len(s) + 1):
             chunk = view[i:i+len(s)]
             try:
                 cmap = pattern.buildmap(chunk)
-            except romtool.charset.NoMapping:
+            except charset.NoMapping:
                 continue
             log.debug("Found match for %s at %s", s, i)
             if cmap in maps[s]:
@@ -320,8 +318,8 @@ def charmap(args):
     charsets = []
     for m in itertools.product(*maps.values()):
         try:
-            merged = romtool.charset.merge(*m)
-        except romtool.charset.MappingConflictError:
+            merged = charset.merge(*m)
+        except charset.MappingConflictError:
             log.debug("Mapping conflict")
         else:
             log.info("Found consistent character map.")
@@ -343,9 +341,9 @@ def findblocks(args):
     # Most users likely use Windows, so I can't rely on them having sort, head,
     # etc or equivalents available, nor that they'll know how to use them.
     # Hence some extra args for sorting/limiting the output
-    args.byte = romtool.util.intify(args.byte, None)
-    args.num = romtool.util.intify(args.num, None)
-    args.min = romtool.util.intify(args.min, 16)
+    args.byte = util.intify(args.byte, None)
+    args.num = util.intify(args.num, None)
+    args.min = util.intify(args.min, 16)
 
     log.info("Loading rom")
     with open(args.rom, "rb") as rom:
@@ -385,8 +383,8 @@ def meta(args):
         log.info("Inspecting ROM: %s", filename)
         with open(filename, 'rb') as romfile:
             try:
-                rom = romtool.rom.Rom.make(romfile)
-            except romtool.rom.RomFormatError as e:
+                rom = rom.Rom.make(romfile)
+            except rom.RomFormatError as e:
                 log.error("Error inspecting %s: %s", filename, str(e))
                 continue
         header_data = {"File": filename}
