@@ -1,0 +1,3 @@
+id	fid	name	set	type	offset	count	stride	size	index	priority	display	comment
+species			species	species	0x1FEC30	386	28	28				
+names	name	Name	species	strz	0x1F7184	386	11	11			main	
