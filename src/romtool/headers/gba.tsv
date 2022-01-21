@@ -1,0 +1,11 @@
+id	label	offset	size	unit	type	display	order	mod	info	comment
+title	Title	0	12		str	ascii			name	
+gid	Game ID	12	4		str	ascii				
+mid	Maker ID	16	2		str	ascii				
+magic	Magic Number	18	1		uint	hex				Always 0x96
+hw	Required Hardware	19	1		uint	hex				'Should be 0 for current GBA models' (what about others?)
+dtype	Device Type	20	1		uint					Usually zero (apparently set when using a hardware debugger?)
+reserved1	Reserved 1	21	7		bytes					Zero filled
+version	Game Version	28	1		uint					Usually zero
+chksum	Checksum	29	1		uint	hex				Pretty sure this is complement(sum(rom[0xA0:0xBD])), but test, examples online treat it as signed int.
+reserved2	Reserved 2	30	2		bytes					Zero filled

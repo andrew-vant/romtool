@@ -37,8 +37,10 @@ class HeaderError(RomFormatError):
 
 class Rom(NodeMixin, util.RomObject):
     romtype = 'unknown'
+    prettytype = "Unknown ROM type"
     registry = {}
     extensions = []
+    sz_min = 0  # Files smaller than this are assumed to not be of this type
 
     def __init__(self, romfile, rommap=None):
         if rommap is None:
@@ -47,6 +49,8 @@ class Rom(NodeMixin, util.RomObject):
         romfile.seek(0)
         ba = bitarray(endian='little')
         ba.fromfile(romfile)
+        if len(ba) // Unit.bytes < self.sz_min:
+            raise RomFormatError(f"Input is not a {type(self)} (too small)")
 
         self.file = Stream(ba)
         self.orig = Stream(ba.copy())
@@ -67,7 +71,7 @@ class Rom(NodeMixin, util.RomObject):
             self.entities[tset] = EntityList(tset, parts)
 
     def __str__(self):
-        return f"{self.name} (Unknown ROM type)"
+        return f"{self.name} ({self.prettytype})"
 
     @property
     def name(self):
@@ -257,18 +261,17 @@ class Rom(NodeMixin, util.RomObject):
 
 class INESRom(Rom):
     romtype = 'ines'
+    prettytype = "INES ROM"
     extensions = ['.nes', '.ines']
     hdr_ident = b"NES\x1a"
     sz_header = 16
+    sz_min = sz_header
 
     def __init__(self, romfile, rommap=None):
         super().__init__(romfile, rommap)
         hsz = self.sz_header * Unit.bytes
         hcls = headers[self.romtype]
         self.header = hcls(self.file[:hsz])
-
-    def __str__(self):
-        return f'{self.name} (INES ROM)'
 
     @property
     def data(self):
@@ -284,6 +287,7 @@ class INESRom(Rom):
 
 class SNESRom(Rom):
     romtype = 'snes'
+    prettytype = "SNES ROM"
     extensions = ['.sfc', '.smc']
     sz_smc = 0x200
     # FIXME: Pretty sure these are SNES addresses, not ROM addresses, will have
@@ -295,12 +299,18 @@ class SNESRom(Rom):
                         0x31: 0xFFC0,
                         0x32: 0x7FC0,
                         0x35: 0xFFC0}
+    sz_min = 0x10000
 
     devid_magic = 0x33  # Indicates extended registration data available
 
     def __str__(self):
         wh = "headered" if self.smc else "unheadered"
         return f'{self.name} (SNES ROM, {wh})'
+
+    @property
+    def prettytype(self):
+        wh = "headered" if self.smc else "unheadered"
+        return f'SNES ROM, {wh}'
 
     @property
     def data(self):
@@ -379,3 +389,34 @@ class SNESRom(Rom):
 
     def validate(self):
         return bool(self.header)
+
+
+class GBARom(Rom):
+    romtype = 'gba'
+    prettytype = "GBA ROM"
+    extensions = '.gba'
+    hdr_offset = 0xA0
+    hdr_sz = 32  # bytes
+    hdr_magic = 0x96
+    sz_min = hdr_offset + hdr_sz
+
+    def __init__(self, romfile, rommap=None):
+        super().__init__(romfile, rommap)
+        self.header = self._header()
+
+    def _header(self):
+        hcls = headers[self.romtype]
+        start = self.hdr_offset
+        end = start + self.hdr_sz
+        try:
+            return hcls(self.file[start:end:Unit.bytes])
+        except IndexError:
+            msg = "Header would be off the end of the data"
+            raise RomFormatError(msg)
+
+    def validate(self):
+        ev = self.hdr_magic      # Expected value
+        av = self.header.magic  # Actual value
+        if av != ev:
+            raise HeaderError(f"Bad magic number in header ({av} != {ev})")
+        return True

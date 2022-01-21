@@ -7,3 +7,4 @@
 
 Nintendo - Nintendo Entertainment System (Parent-Clone) (20211117-052703).dat
 Nintendo - Super Nintendo Entertainment System (Parent-Clone) (20211126-074155).dat
+Nintendo - Game Boy Advance (Parent-Clone) (20211127-100922).dat
