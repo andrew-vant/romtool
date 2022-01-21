@@ -1,0 +1,29 @@
+# I notice that SNES roms aren't identified by the `file` utility, while
+# iNES and a few other types are. Would be nice to send the author a
+# patch, but I need to figure out how to do complicated things with the
+# magic format first.
+#
+# The below is awful and almost certainly full of false positives, but
+# sort of works.
+#
+# The Right Thing is probably something like: mapmode byte matches its
+# location, name is in the ascii range, rom size byte matches, not sure
+# what else.
+
+0x7FD5	ubyte	0x20	SNES ROM image (LoROM, no SMC header)
+0x7FD5	ubyte	0x23	SNES ROM image (LoROM, no SMC header)
+0x7FD5	ubyte	0x30	SNES ROM image (LoROM, no SMC header)
+0x7FD5	ubyte	0x32	SNES ROM image (LoROM, no SMC header)
+
+0x81D5	ubyte	0x20	SNES ROM image (LoROM, with SMC header)
+0x81D5	ubyte	0x23	SNES ROM image (LoROM, with SMC header)
+0x81D5	ubyte	0x30	SNES ROM image (LoROM, with SMC header)
+0x81D5	ubyte	0x32	SNES ROM image (LoROM, with SMC header)
+
+0xFFD5	ubyte	0x21	SNES ROM image (HiROM, no SMC header)
+0xFFD5	ubyte	0x31	SNES ROM image (HiROM, no SMC header)
+0xFFD5	ubyte	0x35	SNES ROM image (HiROM, no SMC header)
+
+0x101D5	ubyte	0x21	SNES ROM image (HiROM, with SMC header)
+0x101D5	ubyte	0x31	SNES ROM image (HiROM, with SMC header)
+0x101D5	ubyte	0x35	SNES ROM image (HiROM, with SMC header)
