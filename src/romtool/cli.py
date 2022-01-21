@@ -408,23 +408,20 @@ def ident(args):
         elif args.long:
             print("%%")
 
-        try:
-            rmap = RomMap.load(detect(filename))
-        except RomDetectionError:
-            rmap = None
-
         with open(filename, 'rb') as f:
-            rom = Rom.make(f, rmap)
+            rom = Rom.make(f)
         info = Dict()
         info.name = rom.name
         info.file = filename
-        info.type = rom.romtype
+        info.type = rom.prettytype
         info.size = len(rom.file.bytes)
         info.crc32 = rom.file.crc32
         info.sha1 = rom.file.sha1
         info.md5 = rom.file.md5
-        info.supported = 'yes' if rom.map.path else 'no'
-        info.map = rom.map.path or '(no map found)'
+        try:
+            info.map = detect(filename)
+        except RomDetectionError:
+            info.map = "(no map found)"
         if not args.long:
             prefix = f"{filename}:\t" if len(args.roms) > 1 else ""
             print(f"{prefix}{rom}")
