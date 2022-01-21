@@ -394,7 +394,7 @@ class SNESRom(Rom):
 class GBARom(Rom):
     romtype = 'gba'
     prettytype = "GBA ROM"
-    extensions = '.gba'
+    extensions = ['.gba']
     hdr_offset = 0xA0
     hdr_sz = 32  # bytes
     hdr_magic = 0x96
