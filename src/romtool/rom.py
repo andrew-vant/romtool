@@ -91,7 +91,7 @@ class Rom(NodeMixin, util.RomObject):
         tablespecs = sorted(self.map.tables.values(), key=byset)
 
         for name, elist in self.entities.items():
-            log.info("Dumping entities: %s x%s", len(elist))
+            log.info("Dumping %s (%s items)", name, len(elist))
             records = []
             for i, entity in enumerate(elist):
                 log.debug("Dumping %s #%s", name, i)
