@@ -230,7 +230,7 @@ class Rom(NodeMixin, util.RomObject):
         for subcls in Rom.__subclasses__():
             log.debug("Trying: %s", subcls.romtype)
             try:
-                rom = subcls(romfile)
+                rom = subcls(romfile, rommap)
                 rom.validate()
                 msg = "%s loaded as a %s"
                 log.info(msg, basename(romfile.name), subcls.__name__)
