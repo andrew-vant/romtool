@@ -17,6 +17,7 @@ import yaml
 import asteval
 from bitarray import bitarray
 from bitarray.util import bits2bytes
+from itertools import tee
 
 log = logging.getLogger(__name__)
 libroot = dirname(realpath(__file__))
@@ -452,8 +453,16 @@ def slurp(path):
     with open(path) as f:
         return f.read()
 
+def chunk(seq, chunksize):
+    for i in range(0, len(seq), chunksize):
+        yield seq[i:i+chunksize]
 
 def debug_structure(data, loglevel=logging.DEBUG):
     """ yamlize a data structure and log it as debug """
     for line in yaml.dump(data).splitlines():
         log.log(loglevel, line)
+
+def pairwise(iterable):
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)

@@ -11,6 +11,7 @@ readme = Path(__file__).parent / "README.md"
 # Keep these alphabetical, if possible
 deps = [
     "addict>=2",
+    "alive-progress>=2",
     "anytree",
     "appdirs",
     "asteval",

@@ -13,6 +13,7 @@ Usage:
     romtool fix [options] <rom>
     romtool charmap <rom> <strings>...
     romtool initchg <rom> <filename>
+    romtool search index [options] <rom> <psize> <endian> <alignment> <count>
     romtool dirs
 
 Commmands:
@@ -42,6 +43,7 @@ Options:
     -v, --verbose       Verbose output
     -q, --quiet         Quiet output
     -D, --debug         Even more verbose output
+    -P, --progress      Display progress bar
     --pdb               Start interactive debugger on crash
 
     -l, --long          Print additional ROM information
@@ -67,17 +69,20 @@ import json
 from os.path import splitext
 from itertools import chain
 from textwrap import dedent
+from functools import partial
+from collections import namedtuple
 
 from addict import Dict
 from appdirs import AppDirs
 from docopt import docopt
+from alive_progress import alive_bar
 
 from . import util, config, charset
 from .rommap import RomMap
 from .rom import Rom
 from .patch import Patch
 from .util import pkgfile, slurp, loadyaml
-from .util import pipeline
+from .util import pipeline, HexInt
 from .version import version
 from .exceptions import RomtoolError, RomDetectionError, ChangesetError
 
@@ -122,6 +127,23 @@ def detect(romfile, maproot=None):
         name = line.split(maxsplit=1)[1].strip()
         log.info("ROM map found: %s", name)
         return os.path.join(maproot, name)
+
+
+def loadrom(romfile, mapdir=None):
+    """ Load a rom from a file with an appropriate map
+
+    Helper function to reduce command boilerplate
+    """
+    if not mapdir:
+        try:
+            mapdir = detect(romfile)
+        except RomDetectionError as ex:
+            ex.log()
+            sys.exit(2)
+    rmap = RomMap.load(mapdir)
+    with open(romfile, 'rb') as f:
+        rom = Rom.make(f, rmap)
+    return rom
 
 
 def dump(args):
@@ -428,6 +450,87 @@ def ident(args):
         else:
             for k, v in info.items():
                 print(f"{k+':':12}{v}")
+
+
+def _matchlength(values, maxdiff, alignment):
+    """ Get prospective pointer-index length
+
+    Look for offsets that are no further separated than the underlying
+    array, and relatively aligned with the stride of the array.
+    """
+    minv = maxv = values[0]
+    if minv in (0, 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF):
+        return 0
+    for i, v in enumerate(values, 1):
+        if (v - minv) % alignment:
+            return i
+        if v < minv:
+            minv = v
+        if v > maxv:
+            maxv = v
+        if maxv - minv > maxdiff:
+            return i
+    return i
+
+
+def search(args):
+    rom = loadrom(args.rom, args.map)
+    log.info("searching for %s-byte %s-endian pointer index for table '%s'",
+             args.psize, args.endian, args.table)
+    ptr_bytes = int(args.psize, 0)
+    align = int(args.alignment, 0)
+    count = int(args.count, 0)
+    endian = args.endian
+    coverage = align * count
+    threshold = count // 2
+    # calling the progress bar counter is surprisingly expensive. Do so at
+    # intervals. 701 eyeballed as a prime number ending in 01, which should
+    # 'look like' it's counting up smoothly.
+    prg_interval = 701
+    data = rom.data.bytes
+    log.info("creating pointers")
+    cm = partial(alive_bar, disable=not args.progress, title_length=25)
+    with cm(len(data), title='generating pointers') as progress:
+        def mkptrs(data, sz_ptr):
+            for i, c in enumerate(util.chunk(data, sz_ptr)):
+                yield int.from_bytes(c, endian)
+                if not i % prg_interval:
+                    progress(prg_interval)
+            progress(i % prg_interval)
+        pointers = {i: tuple(mkptrs(data[i:], ptr_bytes))
+                    for i in range(ptr_bytes)}
+
+    hits = []
+    Hit = namedtuple('Hit', 'offset ml head')
+    with cm(len(data), title='searching') as progress:
+        for offset, ptrs in pointers.items():
+            log.info("looking for hits at starting offset %s", offset)
+            for i in range(len(ptrs)):
+                ml = _matchlength(
+                        ptrs[i:i+count*2],
+                        coverage,
+                        align
+                        )
+                if ml > threshold and len(set(ptrs[i:i+ml])) > threshold:
+                    abs_start = HexInt(offset + i * ptr_bytes)
+                    log.info("reasonable match found at 0x%X (%s length)",
+                             abs_start, ml)
+                    head = ', '.join(str(HexInt(p, ptr_bytes*8))
+                                     for p in ptrs[i:i+5])
+                    hits.append(Hit(abs_start, ml, head))
+                if not i % prg_interval:
+                    progress(prg_interval)
+            progress(i % prg_interval)
+    if not hits:
+        print("no apparent indexes found")
+        sys.exit(2)
+
+    print("possible index starts:")
+    fmt = "{}\t{} items\t[{}...]"
+    print(fmt.format(*hits[0]))
+    for a, b in util.pairwise(hits):
+        if b.ml > a.ml or b.offset != a.offset + ptr_bytes:
+            print(fmt.format(*b))
 
 
 def dirs(args):
