@@ -150,7 +150,7 @@ class Field(ABC):
 
     @property
     def is_flag(self):
-        return self.size.spec == '1'
+        return self.size.spec == '1' and self.unit == Unit.bits
 
     @property
     def is_ptr(self):
@@ -159,6 +159,11 @@ class Field(ABC):
     @property
     def is_unknown(self):
         return 'unknown' in self.name.lower()
+
+    @property
+    def is_slop(self):
+        slop_names = ['padding', 'reserved']
+        return self.name.lower() in slop_names
 
     @property
     def identifiers(self):

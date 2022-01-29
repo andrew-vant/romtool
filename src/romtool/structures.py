@@ -79,6 +79,7 @@ class Entity(ABC):
             if isinstance(thing, Field):
                 return (
                         not thing.is_name,
+                        thing.is_slop,
                         thing.is_ptr,
                         thing.is_unknown,
                         thing.is_flag,
@@ -87,6 +88,7 @@ class Entity(ABC):
             elif isinstance(thing, Table):
                 return (
                     not thing.fid == 'name',
+                    0,
                     thing.display == 'pointer',
                     'unknown' in thing.name.lower(),
                     False,  # FIXME: how to do this right?
