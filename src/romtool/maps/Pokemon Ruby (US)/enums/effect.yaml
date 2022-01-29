@@ -1,0 +1,204 @@
+0: "None"
+1: Inflict Sleep
+2: Poison On Hit
+3: Drain HP
+4: Burn On Hit
+5: Inflict Freeze
+6: Paralyze On Hit
+7: Self-Destruct
+8: Drain Sleeping Target
+9: Mirror Move
+10: Raise Attack
+11: Raise Defense
+13: Raise Atk/SpAtk
+16: Raise Evasion
+17: Always Hits
+18: Lower Attack
+19: Lower Defense
+20: Lower Speed (more)
+23: Lower Accuracy
+24: Lower Evasion
+25: Reset Stats
+26: Charged Counter
+27: Attack+Self-Confuse?
+28: Force Flee
+29: Multihit
+30: Change Type
+31: Inflict Flinch (31)
+32: Recover Half HP
+33: Inflict Poison (worse)
+34: Money Bonus
+35: Resist Specials
+36: Inflict Random Ailment?
+37: Sleep and Heal
+38: Instant KO
+39: Charge Attack
+40: Half Target HP
+41: Fixed Damage (40)
+42: Damage Trap
+43: Critical Bonus
+44: Double Hit
+45: Self-Demi on Miss
+46: Debuff Resist
+47: Raise Crit
+48: Recoil Damage (48)
+49: Inflict Confuse (49)
+50: Raise Attack (more)
+51: Raise Defense (more)
+52: Raise Speed (more)
+53: Raise SpAtk (more)
+54: Raise SpDef (more)
+57: Imitate Target
+58: Reduce Attack (more)
+59: Reduce Defense (more)
+60: Reduce Speed (more)
+62: Reduce SpDef (more)
+65: Resist Physical
+# These next few seem odd. The low bits are the same as the (identical?)
+# items earlier in the list. Are the high bits actually something else?
+66: Inflict Poison
+67: Inflict Paralyze
+68: Lower Attack On Hit
+69: Lower Defense On Hit
+70: Lower Speed On Hit
+71: Lower SpAtk On Hit
+72: Lower SpDef On Hit
+73: Lower Accuracy On Hit
+75: Charge Attack (75)
+76: Inflict Confuse (76)
+77: Double Hit + Poison
+78: Always Hits (78)
+79: Create Substitute
+80: Requires Recharge
+81: Raise Attack When Struck
+82: Copy Move
+83: Random Move
+84: Continuous Drain
+85: No Effect
+86: Disable Last Used
+87: Level Damage (Fixed)
+88: Level Damage (Random)
+89: Counter Physicals
+90: Force Repeat
+91: Equalize HP
+92: Sleeping Attack (Flinch)
+93: Resist Previous Move Type
+94: Cannot Miss (1 Turn)
+95: Copy Last Move
+97: Sleeping Attack (Random)
+98: Attackers Faint With Target
+99: Stronger When Damaged
+100: "Reduce Last Move's PP"
+101: Cannot Cause Faint
+102: Cure All Status
+103: Attack First
+104: Triple Hit With Bonus
+105: Steal Held Item
+106: Prevent Flee
+107: Inflict Nightmare
+108: Raise Evasion + Minify
+109: Ghost Curse
+111: Protection
+112: Entry Hazard (Damage)
+113: Negate Boosted Evasion
+114: Delayed KO
+115: Invoke Weather (Sandstorm)
+116: Resist KO
+117: Damage Over Time (Increasing)
+118: Confuse + Raise Attack
+119: Repeat Bonus
+120: Inflict Infatuate
+121: Friendship Bonus
+122: Random Gift
+123: Friendship Malus
+124: Status Protection
+125: Thaw User and Burn Target
+126: Randomized Power
+127: Switch With Status
+128: Bonus vs Switching
+129: Escapes Binding
+130: Fixed Damage (20)
+# These next three effects are associated with morning sun, synthesis,
+# and moonlight, but according to bulbapedia they all do exactly the
+# same thing. I'm not sure why they have three different effect
+# routines.
+132: Weather Heal (132)
+133: Weather Heal (133)
+134: Weather Heal (134)
+135: Vary By IVs
+136: Invoke Weather (Rain)
+137: Invoke Weather (Sunlight)
+138: May Raise Defense
+139: May Raise Attack
+140: May Raise All Stats
+142: Sacrifice HP to Max Attack
+143: Copy Stat Bonuses
+144: Return Last Damage x2
+145: Raise Def and Charge Attack
+146: Flinch On hit
+147: Power Bonus vs. Underground
+148: Delayed Hit
+149: Power Bonus vs. Flying
+150: Inflict Flinch (150)
+151: Charge Attack (151)
+152: Inflict Paralyze (152)
+153: Flee Battle
+154: Party Joins Attack
+155: Charge Attack (Typed?)
+156: Raise Defense + Roll Bonus
+157: Heal (half)
+158: Flinch on Hit (turn 1 only)
+159: Initiate Uproar
+160: Stockpile Energy
+161: Consume Stockpile to Attack
+162: Consume Stockpile to Heal
+164: Invoke Weather (Hail)
+165: Prevent Move Spam
+166: Confuse + Raise SpAtk
+167: Inflict Burn
+168: Sacrifice Self to Reduce Atk/SpAtk
+169: Power Bonus When Afflicted
+170: Interruptible
+171: Punish Status (paralyze)
+172: Inflict Center of Attention
+173: Terrain Move
+174: Boost Electric Damage
+175: Disable Status Moves
+176: Damage Boost
+177: Switch Held Items
+178: Copy Ability
+179: Delayed Heal (half)
+180: "Use Ally's Move"
+181: Trap and Regenerate
+182: "Reduce Caster's Atk/Def"
+183: Reflect Ailments
+184: Regain Item
+185: Damage Bonus When Struck
+186: Removes Defenses
+187: Inflict Drowsy
+188: Disable Held Item
+189: "Reduce Target's HP to Caster's"
+190: Power Based on Health
+191: Exchange Ability
+192: Lock Known Moves
+193: Cure Poison/Paralyze/Burn
+194: Consume KO PP
+195: Steal Next Move
+196: Bonus vs. Heavy
+197: Terrain Status
+198: Recoil Damage (198)
+199: Confuse Adjacent
+200: Crit Bonus; Burn on Hit
+201: Resist Electric (all)
+202: Poison On Hit (worse)
+203: Weather Move
+204: Reduce Caster SpAtk (more)
+205: Reduce Atk/Def
+206: Raise Def/SpDef
+207: Hits Flying Targets
+208: Raise Atk/Def
+209: Crit Bonus; Poison on Hit
+210: Resist Fire
+211: Raise SpAtk/SpDef
+212: Raise Atk/Spd
+213: Change Caster Type (terrain)
