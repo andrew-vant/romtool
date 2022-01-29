@@ -67,7 +67,9 @@ class Rom(NodeMixin, util.RomObject):
         tables = sorted(self.map.tables.values(), key=byset)
         for tset, tspecs in groupby(tables, key=byset):
             parts = [self.tables[tspec.id] for tspec in tspecs]
-            log.debug("Creating entityset %s consisting of %s", tset, parts)
+            # FIXME: add format dunder to types involved?
+            pdesc = ', '.join(p.name or p.id for p in parts)
+            log.debug("Creating entityset '%s' from table(s) [%s]", tset, pdesc)
             self.entities[tset] = EntityList(tset, parts)
 
     def __str__(self):

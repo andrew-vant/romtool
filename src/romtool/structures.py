@@ -62,7 +62,8 @@ class Entity(ABC):
     def __init_subclass__(cls, /, tables, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._tables = cls.TableList(tables)
-        log.debug(f"checking for bad attributes in {cls}: {list(cls._tables.byattr)}")
+        attrs = ','.join(list(cls._tables.byattr))
+        log.debug(f"checking for bad attributes in {cls}: [{attrs}]")
         bad_attrs = sorted(f"{table.id}.{attr}"
                            for attr, table
                            in cls._tables.byattr.items()
