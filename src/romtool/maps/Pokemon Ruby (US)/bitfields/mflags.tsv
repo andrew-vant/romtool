@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+contact	Contact	bits	0	1	uint	T
+protect	Protect	bits	1	1	uint	P
+coat	Magic Coat	bits	2	1	uint	C
+snatch	Snatch	bits	3	1	uint	S
+mirror	Mirror Move	bits	4	1	uint	M
+rock	King's Rock	bits	5	1	uint	R
+unk1	Unused 1	bits	6	1	uint	X
+unk2	Unused 2	bits	7	1	uint	X

@@ -1,0 +1,10 @@
+id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
+effect	Effect	0	1		uint							
+power	Base Power	1	1		uint							
+tp	Type	2	1		uint		ptype					
+acc	Accuracy	3	1		uint							
+pp	PP	4	1		uint							
+eacc	Effect Accuracy	5	1		uint							
+target	Targeting	6	1		targeting							
+pri	Priority	7	1		int							
+flags	Move Flags	8	1		mflags							
