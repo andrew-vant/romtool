@@ -8,6 +8,7 @@ from functools import partial
 from dataclasses import dataclass, field
 from os.path import relpath, basename
 from pathlib import Path
+from hashlib import sha1
 import importlib.util
 
 from addict import Dict
@@ -55,6 +56,17 @@ class RomMap:
     @property
     def sets(self):
         return set(t['set'] for t in self.tables.values())
+
+    def find(self, top):
+        """ Find the ROM corresponding to this map under top """
+        for parent, dirs, files in os.walk(top):
+            for filename in files:
+                if filename == self.meta.file:
+                    path = Path(parent, filename)
+                    with open(path, 'rb') as f:
+                        if sha1(f.read()).hexdigest() == self.meta.sha1:
+                            return path
+        raise FileNotFoundError(f"no matching rom for {self.name}")
 
     @classmethod
     def load(cls, root):

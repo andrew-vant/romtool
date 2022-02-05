@@ -94,7 +94,7 @@ class TestKnownMaps(unittest.TestCase):
         rmap = RomMap.load(str(maproot))
         self.assertTrue(rmap.meta, f"metadata missing for {rmap.name}")
         try:
-            with open(self._find_rom(rmap), 'rb') as f:
+            with open(rmap.find(self.rom_dir), 'rb') as f:
                 rom = Rom.make(f, rmap)
         except FileNotFoundError as ex:
             self.skipTest(ex)
