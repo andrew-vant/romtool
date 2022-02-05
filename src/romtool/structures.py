@@ -50,9 +50,8 @@ class Entity(ABC):
             self.bykey = {}
             self.byattr = {}
             for table in self:
-                sample = table[0]
-                if isinstance(sample, Structure):
-                    for field in sample.fields:
+                if table._struct:
+                    for field in table._struct.fields:
                         self.byattr[field.id] = table
                         self.bykey[field.name] = table
                 else:
@@ -173,7 +172,12 @@ class Entity(ABC):
         # Table item lookups are where most of the cost seems to be, so let's
         # see if we can limit it to once per table
         for table, keys in self._keys_by_table(other):
-            item = table[self.index]
+            try:
+                item = table[self.index]
+            except IndexError as ex:
+                log.warning(f"can't set %s[%s]{keys}  ({ex})",
+                            table.id, self.index)
+                continue
             if isinstance(item, Structure):
                 for k in keys:
                     item[k] = other[k]
@@ -190,7 +194,12 @@ class Entity(ABC):
         once.
         """
         for table, keys in self._keys_by_table():
-            item = table[self.index]
+            try:
+                item = table[self.index]
+            except IndexError as ex:
+                log.warning(f"can't get %s[%s]{keys}  ({ex})",
+                            table.id, self.index)
+                item = None
             if isinstance(item, Structure):
                 for k in keys:
                     yield (k, item[k])
