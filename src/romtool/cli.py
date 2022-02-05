@@ -14,6 +14,8 @@ Usage:
     romtool charmap <rom> <strings>...
     romtool initchg <rom> <filename>
     romtool search index [options] <rom> <psize> <endian> <alignment> <count>
+    romtool search strings [options] <rom> <encoding>
+    romtool search values [options] <rom> <size> <endian> <expected>...
     romtool dirs
 
 Commmands:
@@ -66,6 +68,8 @@ import shutil
 import itertools
 import csv
 import json
+import re
+import codecs
 from os.path import splitext
 from itertools import chain
 from textwrap import dedent
@@ -472,8 +476,17 @@ def _matchlength(values, maxdiff, alignment):
             return i
     return i
 
-
 def search(args):
+    if args.index:
+        search_index(args)
+    elif args.strings:
+        search_strings(args)
+    elif args.values:
+        search_values(args)
+    else:
+        raise Exception("don't know how to search for that")
+
+def search_index(args):
     rom = loadrom(args.rom, args.map)
     log.info("searching for %s-byte %s-endian pointer index for table '%s'",
              args.psize, args.endian, args.table)
@@ -531,6 +544,46 @@ def search(args):
     for a, b in util.pairwise(hits):
         if b.ml > a.ml or b.offset != a.offset + ptr_bytes:
             print(fmt.format(*b))
+
+def search_strings(args):
+    rom = loadrom(args.rom, args.map)
+    log.info(f"searching for valid strings using encoding '{args.encoding}'")
+    data = rom.data.bytes
+    codec = codecs.lookup(args.encoding + '_clean')
+    offset = 0
+    vowels = re.compile('[AEIOUaeiou]')
+    binary = re.compile('\[\$[ABCDEF1234567890]+\]')
+    cm = partial(alive_bar, disable=not args.progress, enrich_print=False)
+    with cm(len(data), title='searching for strings') as progress:
+        while offset < len(data):
+            # Not a great way to do this, breaks strings at 20 chars because
+            # passing the whole thing is dog-slow and it's unclear why. This is
+            # good enough to eyeball the results to get string table offsets,
+            # though.
+            s, consumed = codec.decode(data[offset:offset+20])
+            if len(s) > 3 and vowels.search(s) and not binary.search(s):
+                print(f"0x{offset:X}\t{s}")
+            offset += consumed
+            progress(consumed)
+
+
+def search_values(args):
+    rom = loadrom(args.rom, args.map)
+    data = rom.data.bytes
+    size = int(args.size, 0)
+    endian = args.endian
+    expected = [int(v, 0) for v in args.expected]
+    cm = partial(alive_bar, disable=not args.progress, enrich_print=False)
+
+    def value(offset):
+        return int.from_bytes(data[offset:offset+size], endian)
+
+    with cm(len(data)) as progress:
+        for offset in range(len(data)):
+            actual = (value(offset+i*size) for i in range(len(expected)))
+            if all(e == a for e, a in zip(expected, actual)):
+                print(f"0x{offset:X}")
+            progress()
 
 
 def dirs(args):
