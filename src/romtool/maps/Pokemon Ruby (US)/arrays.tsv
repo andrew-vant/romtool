@@ -6,3 +6,4 @@ moves			moves	move	0x1FB144	355	12	9
 mnames	name	Name	moves	strz	0x1F8338	355	13	13			main	
 mdesc_ptr	dptr	Description Pointer	moves	uintle	0x3C09F0	355	4	4			pointer	
 mdesc	desc	Description	moves	strz	-0x8000000	355		255	mdesc_ptr		main	
+evo			species	evolutions	0x203B80	412	40	40				
