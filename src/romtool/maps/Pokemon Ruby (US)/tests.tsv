@@ -1,1 +1,15 @@
 table	item	attribute	value
+species	0	name	??????????
+species	25	name	PIKACHU
+species	25	hp	35
+species	25	tp1	Electric
+pokedex	0	cat	UNKNOWN
+pokedex	1	cat	SEED
+pokedex	1	pweight	69
+moves	0	name	-
+moves	1	name	POUND
+moves	1	power	40
+moves	2	name	KARATE CHOP
+moves	2	power	50
+moves	3	power	15
+species	1	et1	IVYSAUR
