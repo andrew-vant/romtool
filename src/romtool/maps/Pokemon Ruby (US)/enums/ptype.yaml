@@ -17,3 +17,5 @@
 15: Ice
 16: Dragon
 17: Dark
+254: START_REMOVABLE  # Used as a marker in the type table
+255: END              # Used as a marker in the type table
