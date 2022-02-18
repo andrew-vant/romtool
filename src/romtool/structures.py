@@ -226,6 +226,7 @@ class EntityList(Sequence):
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
         self.tables = tables
+        self.name = name
         self.etype = type(name, (Entity,), {}, tables=tables)
         self.entities = [self.etype(i) for i in range(len(self))]
 
