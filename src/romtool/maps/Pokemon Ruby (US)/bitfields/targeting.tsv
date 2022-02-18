@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+select	Select	bits	0	1	uint	S
+depend	Depends	bits	1	1	uint	D
+x	Unused	bits	2	1	uint	X
+random	Random	bits	3	1	uint	R
+foes	Foes	bits	4	1	uint	F
+user	User	bits	5	1	uint	U
+others	Others	bits	6	1	uint	O
+last	Last?	bits	7	1	uint	L

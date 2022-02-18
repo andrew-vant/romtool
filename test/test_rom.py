@@ -1,16 +1,19 @@
+import abc
 import os
 import unittest
 import logging
 from pathlib import Path
-from functools import partialmethod
+from os.path import basename
 
 import romtool.rom
 import romtool.rommap
-from romtool.rom import Rom, SNESRom
+import romtool.text
+import codecs
+from romtool.rom import Rom
 from romtool.rommap import RomMap
-from romtool.structures import Structure, Table
+from romtool.structures import Structure
 from romtool.types import Field
-from romtool.util import pkgfile
+from romtool.util import pkgfile, IndexInt
 
 
 romenv = 'ROMLIB_TEST_ROM'
@@ -45,7 +48,7 @@ class TestRom(unittest.TestCase):
 
     @unittest.skip
     def test_print_rom_header(self):
-        with open(self.rom, 'rb') as f:
+        with open(self.file, 'rb') as f:
             rom = Rom.make(f)
         print(rom.header)
         try:
@@ -76,63 +79,77 @@ class TestRomMap(unittest.TestCase):
         self.assertEqual(len(self.rmap.ttables), 0)
 
 
-class TestKnownMaps(unittest.TestCase):
+class TestKnownMapBase(abc.ABC, unittest.TestCase):
     known_map_roots = [p for p
                        in Path(pkgfile('maps')).iterdir()
                        if p.is_dir()
                        and Path(p, 'meta.yaml').exists()]
     rom_dir = Path('~/.local/share/romtool/roms').expanduser()
-
-    def _find_rom(self, rmap):
-        for parent, dirs, files in os.walk(self.rom_dir):
-            for filename in files:
-                if filename == rmap.meta.file:
-                    return Path(parent, filename)
-        raise FileNotFoundError(f"no matching rom for {rmap.name}")
-
-    def _test_map(self, maproot):
-        rmap = RomMap.load(str(maproot))
-        self.assertTrue(rmap.meta, f"metadata missing for {rmap.name}")
-        try:
-            with open(self._find_rom(rmap), 'rb') as f:
-                rom = Rom.make(f, rmap)
-        except FileNotFoundError as ex:
-            self.skipTest(ex)
-
-        self.assertIsInstance(rom, Rom)
-        for d in rmap.tests:
-            slug = rmap.meta.slug
-            tbl = d.table
-            idx = d.item
-            attr = d.attribute
-            expected = d.value
-            with self.subTest(f'{slug}:{tbl}[{idx}].{attr}=={expected}'):
-                item = rom.entities[tbl][idx]
-                value = item if not attr else getattr(item, attr)
-                # The str here covers things like enums. Probably something
-                # will go horribly wrong with this eventually.
-                emsg = f'expected {expected}, found {value}'
-                self.assertIn(expected, [value, str(value)], emsg)
+    codec_cache_tainted = False
 
     @classmethod
-    def add_map_tests(cls):
-        """ Dynamically add a test for each map in the builtin map directory """
-        for root in cls.known_map_roots:
-            # Kludgy way to get a usable identifier for each test
-            with open(Path(root, 'meta.yaml')) as f:
-                slug = next(line.split(':')[-1].strip()
-                            for line in f
-                            if line.startswith('slug:'))  # ew
-            method = partialmethod(cls._test_map, root)
-            name = f"test_map_{slug}"
-            setattr(cls, name, method)
+    def setUpClass(cls):
+        cls.std_struct_registry = Structure.registry.copy()
+        cls.std_field_handlers = Field.handlers.copy()
+        assert 'monster' not in Field.handlers
+        cls.rmap = RomMap.load(str(cls.maproot))
+        assert cls.rmap.meta, f"metadata missing for {cls.rmap.name}"
+        try:
+            with open(cls.rmap.find(cls.rom_dir), 'rb') as f:
+                cls.rom = Rom.make(f, cls.rmap)
+        except FileNotFoundError as ex:
+            cls.tearDownClass()
+            raise unittest.SkipTest(str(ex))
+
+    @classmethod
+    def tearDownClass(cls):
+        Structure.registry = cls.std_struct_registry
+        Field.handlers = cls.std_field_handlers
+        assert 'monster' not in Field.handlers
+        # FIXME: String tests fail if different maps have codecs with the same
+        # name. Unfortunately the ability to un-register codecs was only added
+        # in 3.10, so for now, treat all runs after the first as tainted.
+        if hasattr(codecs, 'unregister'):
+            romtool.text.clear_tt_codecs()
+        else:
+            TestKnownMapBase.codec_cache_tainted = True
+
+    def __init_subclass__(cls, maproot, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.maproot = maproot
+        for t in RomMap.get_tests(maproot):
+            tbl = t.table
+            idx = t.item
+            attr = t.attribute
+            expected = t.value
+            desc = f'{tbl}[{idx}].{attr}=={expected}'
+            name = f'{basename(maproot)}::{desc}'
+            testfunc = cls.makeTest(tbl, idx, attr, expected)
+            setattr(cls, f"test_{name}", testfunc)
+
+    @staticmethod
+    def makeTest(table, idx, attr, expected):
+        def testfunc(self):
+            item = self.rom.entities[table][idx]
+            value = item if not attr else getattr(item, attr)
+            stringlike = isinstance(value, str) or isinstance(value, IndexInt)
+            if stringlike and self.codec_cache_tainted:
+                self.skipTest("string tests broken in python <3.10")
+            # The str here covers things like enums. Probably something
+            # will go horribly wrong with this eventually.
+            emsg = f"expected '{expected}', found '{value}'"
+            self.assertIn(expected, [value, str(value)], emsg)
+        return testfunc
+
+
+    @classmethod
+    def add_known_map_test_cases(cls):
+        for i, root in enumerate(cls.known_map_roots):
+            clsname = f"TestKnownMap{i}"
+            subcls = type(clsname, (cls,), {}, maproot=root)
+            globals()[clsname] = subcls
 
     def setUp(self):
-        self.std_struct_registry = Structure.registry.copy()
-        self.std_field_handlers = Field.handlers.copy()
+        self.assertIsInstance(self.rom, Rom)
 
-    def tearDown(self):
-        Structure.registry = self.std_struct_registry
-        Field.handlers = self.std_field_handlers
-
-TestKnownMaps.add_map_tests()
+TestKnownMapBase.add_known_map_test_cases()

@@ -276,7 +276,10 @@ class IntField(Field):
         if self.display in ('hex', 'pointer'):
             i = HexInt(i, len(view))
         if self.enum:
-            i = self.enum(i)
+            try:
+                i = self.enum(i)
+            except ValueError:
+                pass
         if self.ref:
             i = IndexInt(obj.root.entities[self.ref], i)
         return i
@@ -284,7 +287,10 @@ class IntField(Field):
     def write(self, obj, value, realtype=None):
         if isinstance(value, str):
             if self.enum:
-                value = self.enum[value]
+                try:
+                    value = self.enum[value]
+                except KeyError:
+                    value = int(value, 0)
             elif self.ref:
                 value = obj.root.entities[self.ref].locate(value)
             else:

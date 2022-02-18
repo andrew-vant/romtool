@@ -1,26 +1,33 @@
 id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
-hp	HP	0	1		uint							
-atk	Attack	1	1		uint							
-def	Defense	2	1		uint							
-spd	Speed	3	1		uint							
-satk	Sp Attack	4	1		uint							
-sdef	Sp Defense	5	1		uint							
-tp1	Type 1	6	1		uint							
-tp2	Type 2	7	1		uint							
+hp	Base HP	0	1		uint							
+atk	Base Attack	1	1		uint							
+def	Base Defense	2	1		uint							
+spd	Base Speed	3	1		uint							
+satk	Base Sp Atk	4	1		uint							
+sdef	Base Sp Def	5	1		uint							
+tp1	Type 1	6	1		uint		ptype					
+tp2	Type 2	7	1		uint		ptype					
 catch	Catch Rate	8	1		uint							
 xp	Base XP Yield	9	1		uint							
-ev	Effort Values	10	2		bin							Two bits per stat; break into substruct?
+ey_hp	HP EV	80	2	bits	uint							
+ey_atk	Attack EY	82	2	bits	uint							
+ey_def	Defense EY	84	2	bits	uint							
+ey_spd	Speed EY	86	2	bits	uint							
+ey_satk	Sp Atk EY	88	2	bits	uint							
+ey_sdef	Sp Def EY	90	2	bits	uint							
+ey_unk1	Unused EY 1	92	2	bits	uint							
+ey_unk2	Unused EY 2	94	2	bits	uint							
 item1	Item 1	12	2		uintle							
 item2	Item 2	14	2		uintle							
 gender	Gender Threshold	16	1		uint							From zero (always male) to 254 (always female). 255 is Unknown.
-ec	Incubation Period	17	1		uint							
-fs	Friendship	18	1		uint							
-gt	Growth Type	19	1		uint							Pretty sure this is an enum
-group1	Egg Group 1	20	1		uint							
-group2	Egg Group 2	21	1		uint							
+ec	Egg Cycles	17	1		uint							
+fs	Base Friendship	18	1		uint							
+gtype	Growth Type	19	1		uint		growth					Pretty sure this is an enum
+group1	Egg Group 1	20	1		uint		pgroup					
+group2	Egg Group 2	21	1		uint		pgroup					
 ability1	Ability 1	22	1		uint							
 ability2	Ability 2	23	1		uint							
 szf	Safari Zone Flee Rate	24	1		uint							
-cf	Color	200	7	bits	uint							Break this down
+color	Color	200	7	bits	uint		color					Break this down
 flip	Flip	207	1	bits	uint							
 pad	Padding	26	2		uintbe		hex					

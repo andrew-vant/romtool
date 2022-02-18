@@ -8,6 +8,7 @@ from functools import partial
 from dataclasses import dataclass, field
 from os.path import relpath, basename
 from pathlib import Path
+from hashlib import sha1
 import importlib.util
 
 from addict import Dict
@@ -55,6 +56,17 @@ class RomMap:
     @property
     def sets(self):
         return set(t['set'] for t in self.tables.values())
+
+    def find(self, top):
+        """ Find the ROM corresponding to this map under top """
+        for parent, dirs, files in os.walk(top):
+            for filename in files:
+                if filename == self.meta.file:
+                    path = Path(parent, filename)
+                    with open(path, 'rb') as f:
+                        if sha1(f.read()).hexdigest() == self.meta.sha1:
+                            return path
+        raise FileNotFoundError(f"no matching rom for {self.name}")
 
     @classmethod
     def load(cls, root):
@@ -161,11 +173,19 @@ class RomMap:
                 kwargs.tables[record['id']] = Dict(record)
         # we should check that tables in the same set are the same length
 
-        path = root + "/tests.tsv"
+        kwargs.tests = cls.get_tests(root)
+        return cls(basename(root), **kwargs)
+
+    @classmethod
+    def get_tests(cls, root):
+        """ Get the list of tests for a map
+
+        Broken out to allow tests to be loaded without loading the map itself
+        (which pollutes various global-ish classvars)
+        """
+        path = Path(root, "tests.tsv")
         try:
             log.info("Loading test specs from %s", path)
-            kwargs.tests = [MapTest(**row) for row in util.readtsv(path)]
+            return [MapTest(**row) for row in util.readtsv(path)]
         except FileNotFoundError:
-            kwargs.tests = []
-
-        return cls(basename(root), **kwargs)
+            return []

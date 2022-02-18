@@ -104,7 +104,7 @@ class IndexInt(int):
         return self.table[self]
 
     def __repr__(self):
-        return f"IndexInt({self.table.name} #{int(self)} ({self.name})"
+        return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
         return self.obj.name
@@ -166,7 +166,7 @@ class PrettifierMixin:
     def pretty(self):
         return yaml.dump(self, Dumper=self._PrettyDumper)
 
-    def __init_subclass__(cls, /, **kwargs):
+    def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
         representers = {
@@ -413,7 +413,7 @@ def subregistry(cls):
     cls.__init_subclass__ = initsub
     return cls
 
-@lru_cache
+@lru_cache()
 def nointro():
     """ Get the nointro database as a dict """
     return {item['sha1']: item['name']

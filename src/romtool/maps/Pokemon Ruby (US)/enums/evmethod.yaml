@@ -1,0 +1,16 @@
+0: "None"
+1: Friendship              # Friendship threshold always 220?
+2: Friendship (Day)
+3: Friendship (Night)
+4: Level
+5: Trade (No Item)
+6: Trade (With Item)
+7: Item Use
+8: Atk > Def
+9: Atk == Def
+10: Atk < Def
+11: Personality 1          # (personality >> 16) % 10 <= 4
+12: Personality 2          # (personality >> 16) % 10 > 4
+13: Spawn 1                # May spawn extra if space permits
+14: Spawn 2                # Spawned if space permits
+15: Beauty
