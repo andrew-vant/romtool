@@ -441,9 +441,17 @@ def ident(args):
         info.file = filename
         info.type = rom.prettytype
         info.size = len(rom.file.bytes)
-        info.crc32 = rom.file.crc32
-        info.sha1 = rom.file.sha1
-        info.md5 = rom.file.md5
+
+        hashalgs = ['crc32', 'sha1', 'md5']
+        for alg in hashalgs:
+            h_file = getattr(rom.file, alg)
+            h_data = getattr(rom.data, alg)
+            if h_file == h_data:
+                info[alg] = h_file
+            else:
+                info[alg + ' (file)'] = h_file
+                info[alg + ' (data)'] = h_data
+
         try:
             info.map = detect(filename)
         except RomDetectionError:
@@ -453,7 +461,7 @@ def ident(args):
             print(f"{prefix}{rom}")
         else:
             for k, v in info.items():
-                print(f"{k+':':12}{v}")
+                print(f"{k+':':16}{v}")
 
 
 def _matchlength(values, maxdiff, alignment):
