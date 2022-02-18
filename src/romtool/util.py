@@ -104,7 +104,7 @@ class IndexInt(int):
         return self.table[self]
 
     def __repr__(self):
-        return f"IndexInt({self.table.name} #{int(self)} ({self.name})"
+        return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
         return self.obj.name
