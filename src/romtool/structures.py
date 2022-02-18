@@ -58,7 +58,7 @@ class Entity(ABC):
                     self.byattr[table.fid or table.id] = table
                     self.bykey[table.name] = table
 
-    def __init_subclass__(cls, /, tables, **kwargs):
+    def __init_subclass__(cls, tables, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._tables = cls.TableList(tables)
         attrs = ','.join(list(cls._tables.byattr))
