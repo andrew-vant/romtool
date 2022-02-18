@@ -173,11 +173,19 @@ class RomMap:
                 kwargs.tables[record['id']] = Dict(record)
         # we should check that tables in the same set are the same length
 
-        path = root + "/tests.tsv"
+        kwargs.tests = cls.get_tests(root)
+        return cls(basename(root), **kwargs)
+
+    @classmethod
+    def get_tests(cls, root):
+        """ Get the list of tests for a map
+
+        Broken out to allow tests to be loaded without loading the map itself
+        (which pollutes various global-ish classvars)
+        """
+        path = Path(root, "tests.tsv")
         try:
             log.info("Loading test specs from %s", path)
-            kwargs.tests = [MapTest(**row) for row in util.readtsv(path)]
+            return [MapTest(**row) for row in util.readtsv(path)]
         except FileNotFoundError:
-            kwargs.tests = []
-
-        return cls(basename(root), **kwargs)
+            return []
