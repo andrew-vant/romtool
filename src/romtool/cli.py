@@ -16,6 +16,7 @@ Usage:
     romtool search index [options] <rom> <psize> <endian> <alignment> <count>
     romtool search strings [options] <rom> <encoding>
     romtool search values [options] <rom> <size> <endian> <expected>...
+    romtool findblocks [options] <rom> [<byte>] [<size>] [<limit>]
     romtool dirs
 
 Commmands:
@@ -39,6 +40,8 @@ Options:
     -m, --map PATH      Manually specify rom map
     -S, --sanitize      Include internal checksum updates in patches
     -N, --nobackup      Don't create backup when patching files
+    --sort              Sort tabular output
+    --noheaders         Omit tabular headers
 
     -h, --help          Print this help
     -V, --version       Print version and exit
@@ -71,7 +74,7 @@ import json
 import re
 import codecs
 from os.path import splitext
-from itertools import chain
+from itertools import chain, groupby
 from textwrap import dedent
 from functools import partial
 from collections import namedtuple
@@ -367,37 +370,32 @@ def findblocks(args):
     # Most users likely use Windows, so I can't rely on them having sort, head,
     # etc or equivalents available, nor that they'll know how to use them.
     # Hence some extra args for sorting/limiting the output
-    args.byte = util.intify(args.byte, None)
-    args.num = util.intify(args.num, None)
-    args.min = util.intify(args.min, 16)
+    byte = util.intify(args.byte, None)
+    min_size = util.intify(args.size, 0x100)
+    limit = util.intify(args.limit, None)
 
     log.info("Loading rom")
     with open(args.rom, "rb") as rom:
         data = rom.read()
 
     log.debug("rom length: %s bytes", len(data))
-    log.info("Starting search")
-
+    log.info("Searching for %s%s-byte blocks of %s",
+             '' if not limit else 'up to {limit} ',
+             min_size,
+             'any byte' if byte is None else hex(byte))
     blocks = []
-    blocklen = 1
-    last = None
-    for i, byte in enumerate(data):
-        if last is not None and byte != last:
-            # End of block. Add to the list if it's long enough to care. If the
-            # user specified a byte to search for and this isn't it, skip it.
-            if blocklen > args.min:
-                if args.byte is None or last == args.byte:
-                    log.debug("Noting block at %s", i-blocklen)
-                    blocks.append((blocklen, i-blocklen, last))
-            blocklen = 1
-            last = None
-        else:
-            blocklen += 1
-            last = byte
-
-    blocks.sort(reverse=True)
-    print("offset\tblkbyte\tlength\thexlen")
-    for length, offset, byte in blocks[0:args.num]:
+    offset = 0
+    for value, block in groupby(data):
+        block = list(block)
+        if len(block) >= min_size and byte in (None, value):
+            log.debug("Noting block at %s", offset)
+            blocks.append((len(block), offset, value))
+        offset += len(block)
+    if args.sort:
+        blocks.sort(reverse=True)
+    if not args.noheaders:
+        print("offset\tbyte\tlength\thexlen")
+    for length, offset, byte in blocks[0:limit]:
         fmt = "{:06X}\t0x{:02X}\t{}\t{:X}"
         print(fmt.format(offset, byte, length, length))
 
