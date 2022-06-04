@@ -318,6 +318,7 @@ def diff(args):
 
     Options:
         -o, --out FILE      Output filename
+        -R, --reverse       Reverse diff
 
         -h, --help          Print this help
         -q, --quiet         Quiet output
@@ -329,8 +330,11 @@ def diff(args):
     If someone has been making their changes in-place, they can use this
     to get a patch.
     """
-    with open(args.original, "rb") as original:
-        with open(args.modified, "rb") as changed:
+    fn_base = args.original if not args.reverse else args.modified
+    fn_modded = args.modified if not args.reverse else args.original
+
+    with open(fn_base, "rb") as original:
+        with open(fn_modded, "rb") as changed:
             patch = Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
 
