@@ -86,9 +86,9 @@ is supported. `romtool ident` will look at a ROM and print some
 identifying information about it:
 
 ```console
-user@host:~$ romtool ident 7thsaga.smc
+user@host:~$ romtool ident --long 7thsaga.rom.sfc
 name:       7th Saga, The (USA)
-file:       7thsaga.rom.smc
+file:       7thsaga.rom.sfc
 type:       snes
 size:       1572864
 crc32:      B3ABDDE6
@@ -111,9 +111,6 @@ only a few games, so far, but it is possible to create your own.
 
 If a map is found, the `map` field will show where it is. This is useful
 if you want to see how maps work, or to create your own.
-
-For now, romtool ships with maps for only a few games. You can look in
-the parent of the `map` directory to see which games.
 
 ### Dumping ROM data
 

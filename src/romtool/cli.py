@@ -577,30 +577,44 @@ def ident(args):
     Usage: romtool ident [--help] [options] <roms>...
 
     Command options:
-        -l, --long          Print all available ROM metadata
+        -F, --format FORMAT   Output format
+        -s, --short           Alias for --format short
+        -l, --long            Alias for --format long
 
     Common options:
-        -h, --help          Print this help
-        -V, --version       Print version and exit
-        -q, --quiet         Quiet output
-        -v, --verbose       Verbose output
-        -D, --debug         Even more verbose output
-        --pdb               Start interactive debugger on crash
+        -h, --help            Print this help
+        -V, --version         Print version and exit
+        -q, --quiet           Quiet output
+        -v, --verbose         Verbose output
+        -D, --debug           Even more verbose output
+        --pdb                 Start interactive debugger on crash
 
-    By default, this command attempts to identify one or more ROMs and
-    prints their canonical name(s) and type information (based on the
-    no-intro rom set), one file per line. If --long is given, it prints
-    some additional useful metadata about each ROM, such as file hashes.
+    Attempt to identify one or more ROMs and prints information about them.
+    There are two output formats available. The `short` format prints the
+    canonical name and type information for the rom. The `long` format prints
+    everything romtool can figure out about it.
+
+    By default, long format is used when a single filename is supplied.
+    Otherwise, short format is used.
     """
     # FIXME: assumes all input files actually *are* roms. They may not be (e.g.
     # passing an ips patch, or something else entirely) Probably each rom class
     # needs a checker, or something. Suggest use of `file` if romtool can't
     # identify it.
+    if (args.format or 'auto') not in ('short', 'long', 'auto'):
+        raise RomtoolError(f"invalid output format: '{args.format}'")
+    if sum(1 for arg in [args.long, args.short, args.format] if arg) > 1:
+        raise RomtoolError("multiple output formats specified")
+    longfmt = (True if args.long or args.format == 'long'
+               else False if args.short or args.format == 'short'
+               else False if len(args.roms) > 1
+               else True)
+
     first = True
     for filename in args.roms:
         if first:
             first = False
-        elif args.long:
+        elif longfmt:
             print("%%")
 
         with open(filename, 'rb') as f:
@@ -625,7 +639,7 @@ def ident(args):
             info.map = detect(filename)
         except RomDetectionError:
             info.map = "(no map found)"
-        if not args.long:
+        if not longfmt:
             prefix = f"{filename}:\t" if len(args.roms) > 1 else ""
             print(f"{prefix}{rom}")
         else:
