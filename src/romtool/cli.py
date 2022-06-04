@@ -1,57 +1,34 @@
-"""romtool
+"""A toolset for examining and modifying ROMs
 
-A tool for examining and modifying ROMs
+Usage: romtool [--help] [options] <command> [<args>...]
 
-Usage:
-    romtool --help
-    romtool ident [-l|--long] [options] <roms>...
-    romtool dump [options] <rom> <moddir> [<patches>...]
-    romtool build [options] <rom> <input>...
-    romtool convert [options] <infile> <outfile>
-    romtool apply [options] <rom> <patches>...
-    romtool diff [options] <original> <modified>
-    romtool fix [options] <rom>
-    romtool charmap <rom> <strings>...
-    romtool initchg <rom> <filename>
-    romtool search index [options] <rom> <psize> <endian> <alignment> <count>
-    romtool search strings [options] <rom> <encoding>
-    romtool search values [options] <rom> <size> <endian> <expected>...
-    romtool findblocks [options] <rom> [<byte>] [<size>] [<limit>]
-    romtool dirs
+To see command-specific help, run `romtool <command> --help`
 
-Commmands:
-    ident               Print information about a ROM file
+Commands:
+    ident               Identify a ROM
     dump                Dump all known data from a ROM to `moddir`
-    build               Construct a patch from input files
-    convert             Convert a patch from one format to another
+    build               Build a patch
+    diff                Build a patch by diffing two ROMs
     apply               Apply patches to a ROM
-    diff                Construct a patch by diffing two ROMs
-    fix                 Fix bogus headers and checksums
+    convert             Convert a patch from one format to another
+    findblocks          Find blocks of unused space in a ROM
+    search              Search a rom for strings, indexes, etc.
     charmap             Generate a texttable from known strings
     initchg             Generate a starter changeset file.
+    fix                 Fix bogus headers and checksums
     dirs                Print directory paths used by romtool
 
 Options:
-    -i, --interactive   Prompt for confirmation on destructive operations
-    -n, --dryrun        Show what would be done, but don't do it
-    -f, --force         Never ask for confirmation
+    -V, --version       Print version and exit
 
-    -o, --out PATH      Output file or directory. Detects type by extension
-    -m, --map PATH      Manually specify rom map
-    -S, --sanitize      Include internal checksum updates in patches
-    -N, --nobackup      Don't create backup when patching files
-    --sort              Sort tabular output
-    --noheaders         Omit tabular headers
+    The following options are accepted by (almost) all commands:
 
     -h, --help          Print this help
-    -V, --version       Print version and exit
-    -v, --verbose       Verbose output
     -q, --quiet         Quiet output
+    -v, --verbose       Verbose output
     -D, --debug         Even more verbose output
-    -P, --progress      Display progress bar
     --pdb               Start interactive debugger on crash
 
-    -l, --long          Print additional ROM information
 
 Examples:
     A simple modding session looks like this:
@@ -78,6 +55,7 @@ from itertools import chain, groupby
 from textwrap import dedent
 from functools import partial
 from collections import namedtuple
+from inspect import getdoc
 
 from addict import Dict
 from appdirs import AppDirs
@@ -154,10 +132,35 @@ def loadrom(romfile, mapdir=None):
 
 
 def dump(args):
-    """ Dump all known data from a ROM."""
+    """ Dump all known data from a ROM
+
+    Usage: romtool dump [--help] [options] <rom> <moddir> [<patches>...]
+
+    Arguments:
+        rom       The ROM file to dump
+        outdir    Output directory
+        patches   Patches to apply to the ROM data before dumping
+
+    Options:
+        -m, --map PATH      Specify path to ROM map
+        -f, --force         Overwrite existing output files
+
+        -h, --help          Print this help
+        -v, --verbose       Verbose output
+        -q, --quiet         Quiet output
+        -D, --debug         Even more verbose output
+
+    If <patches>... are given, they will be applied to the ROM in-memory before
+    dumping. This is intended to allow examining a patch's effects without
+    physically modifying the rom.
+    """
+
+
     if __debug__:
         log.info("Optimizations disabled; dumping may be slow. "
                  "Consider setting PYTHONOPTIMIZE=TRUE")
+    if args.patches:
+        raise NotImplementedError("Pre-patching of dumps not yet implemented")
     if not args.map:
         try:
             args.map = detect(args.rom)
@@ -165,10 +168,6 @@ def dump(args):
             e.log()
             sys.exit(2)
 
-    # This gets awkward since we want to open ROM always but open SAVE
-    # only sometimes. I suspect this means the design needs some work.
-    # Can't they be loaded separately? (maybe not, saves may have
-    # pointers to stuff in the rom that need dereferencing?)
     rmap = RomMap.load(args.map)
     log.info("Opening ROM file: %s", args.rom)
     with open(args.rom, "rb") as f:
@@ -190,9 +189,13 @@ def dump(args):
 def initchg(args):
     """ Generate a starter changeset file
 
+    Usage: romtool initchg <rom> <filename>
+
     The generated file should indicate what tables are available for
     modification, what fields exist for the objects in those tables, and
     if possible provide minimal commented examples.
+
+    NOTE: not implemented yet
     """
     raise NotImplementedError("`initchg` command not implemented yet")
 
@@ -200,7 +203,32 @@ def initchg(args):
 def build(args):
     """ Build patches from a data set containing changes.
 
-    Intended to be applied to a directory created by the dump subcommand.
+    Usage: romtool build [--help] [options] <rom> <input>...
+
+    Positional arguments:
+        rom     ROM to generate a patch against
+        input   directories or patch files
+
+    Options:
+        -m, --map PATH      Manually specify rom map
+        -o, --out FILE      Output filename (default stdout)
+
+        -S, --sanitize      Include corrected checksums in patches
+
+        -h, --help          Print this help
+        -v, --verbose       Verbose output
+        -q, --quiet         Quiet output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    <input>... may be any number of mod directories (as produced by the 'dump'
+    command), changeset files, or patch files in any supported format. Input
+    files are applied to the rom data in command-line order; the result is
+    diffed against the original ROM to generate the patch.
+
+    By default, the ouput patch will be printed in .ipst format to stdout for
+    examination. If `--out FILE` is given, the file's extension will be used to
+    determine the intended format.
     """
     # FIXME: Optionally, generate a changelog along with the patch. Changes
     # should specify a table, name, key, and value, in most cases. Changelog
@@ -212,6 +240,9 @@ def build(args):
 
     # FIXME: I'd like to print a warning if overlapping changes occur, but
     # I'm not sure how to detect that
+
+    if args.sanitize:
+        raise NotImplementedError("--sanitize option not yet implemented")
 
     if not args.map:
         try:
@@ -252,15 +283,51 @@ def build(args):
 
 
 def convert(args):
-    """ Convert one patch format to another. """
+    """ Convert a patch from one format to another
+
+    Usage: romtool convert [--help] [options] <infile> [<outfile>]
+
+    Arguments:
+        infile    input filename
+        outfile   output filename
+
+    Options:
+        -h, --help          Print this help
+        -q, --quiet         Quiet output
+        -v, --verbose       Verbose output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    At present, the input and output formats are detected by filename,
+    and only .ips and .ipst are supported. If <outfile> is omitted, the patch
+    will be printed to stdout as .ipst.
+    """
+    # FIXME: Support stdin/stdout with -I and -O for in/out format
     patch = Patch.load(args.infile)
-    patch.save(args.outfile)
+    _writepatch(patch, args.outfile)
+
 
 def diff(args):
     """ Build a patch by diffing two roms.
 
-    If someone has been making their changes in-place, they can use this to get
-    a patch.
+    Usage: romtool diff [--help] [options] <original> <modified>
+
+    Arguments:
+        original        Original ROM file
+        modified        Modified ROM file
+
+    Options:
+        -o, --out FILE      Output filename
+
+        -h, --help          Print this help
+        -q, --quiet         Quiet output
+        -v, --verbose       Verbose output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+
+    If someone has been making their changes in-place, they can use this
+    to get a patch.
     """
     with open(args.original, "rb") as original:
         with open(args.modified, "rb") as changed:
@@ -268,13 +335,39 @@ def diff(args):
     _writepatch(patch, args.out)
 
 def fix(args):
-    """ Fix header/checksum issues in a ROM """
+    """ Fix header/checksum issues in a ROM
+
+    Usage: romtool fix [--help] [options] <rom>
+
+    Not implemented yet.
+    """
     raise NotImplementedError("`fix` command not implemented yet")
 
 def apply(args):
-    """ Apply a patch to a file, such as a rom or a save.
+    """ Apply patches to a file
 
-    By default this makes a backup of the existing file at filename.bak.
+    Usage: romtool apply [--help] [options] <rom> <patches>...
+
+    Positional arguments:
+        rom     file to patch
+        input   directories or patch files
+
+    Options:
+        -m, --map PATH      Manually specify rom map
+        -N, --nobackup      Don't create backup when patching files
+
+        -h, --help          Print this help
+        -v, --verbose       Verbose output
+        -q, --quiet         Quiet output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    'input' may be any number of mod directories (as produced by the 'dump'
+    command) or patch files in any supported format. Input files are applied to
+    the rom in order.
+
+    By default, a backup of the rom will be created at <rom>.bak. This behavior
+    can be suppressed with --nobackup.
     """
     # Move the target to a backup name first to preserve its metadata, then
     # copy it back to its original name, then patch it there.
@@ -310,6 +403,31 @@ def sanitize(args):
 
 
 def charmap(args):
+    """ Generate a texttable from known strings
+
+    Usage: romtool charmap <rom> <strings>...
+
+    Arguments:
+        rom         ROM file to examine
+        strings     Some strings known to be in the ROM
+
+    Options:
+        -h, --help          Print this help
+        -q, --quiet         Quiet output
+        -v, --verbose       Verbose output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    Attempts to guess the character encoding of the ROM and generate a text
+    table. For best results, supply several strings of a few words each that
+    are known to be present in the ROM, and that do not contain newlines,
+    special characters, or common strings that may be compressed (e.g.
+    character names).
+
+    NOTE: If you can view the character-set tiles directly, do that instead.
+    The charmap command is extremely slow and not terribly good at what it
+    does.
+    """
     # FIXME: Much of this should probably be moved into the text module or
     # something.
     log.info("Loading strings")
@@ -366,13 +484,42 @@ def charmap(args):
             print("{:02X}={}".format(byte, char))
 
 def findblocks(args):
-    """ Search for unused blocks in a rom """
+    """ Search for unused blocks in a rom
+
+    Usage: romtool findblocks [--help] [options] <rom>
+
+    Arguments:
+        rom     ROM to search for empty blocks
+
+    Options:
+        -b, --byte BYTE   Specify byte to search for
+        -s, --size N      Minimum block size to report
+        -l, --limit N     Maximum number of blocks to report
+        -S, --sort        Sort block list by size
+        -H, --noheaders   Omit output headers
+
+        -h, --help        Print this help
+        -q, --quiet       Quiet output
+        -v, --verbose     Verbose output
+        -D, --debug       Even more verbose output
+        --pdb             Start interactive debugger on crash
+
+    Searches a ROM for blocks of potentially-unused space. By default,
+    space is considered unused if it contains consecutive repetitions of an
+    identical value for at least 256 bytes. The results are printed as a
+    tab-separated table of block offsets and lengths.
+
+    Basic sorting and filtering options are provided for convenience.
+    If --sort is given, blocks will be sorted in descending order by
+    size. If `--limit N` is given, only N blocks will be reported. Any
+    sorting occurs before the limit is applied.
+    """
     # Most users likely use Windows, so I can't rely on them having sort, head,
     # etc or equivalents available, nor that they'll know how to use them.
     # Hence some extra args for sorting/limiting the output
-    byte = util.intify(args.byte, None)
-    min_size = util.intify(args.size, 0x100)
-    limit = util.intify(args.limit, None)
+    byte = int(args.byte, 0) if args.byte else None
+    min_size = int(args.size, 0) if args.size else 0x100
+    limit = int(args.limit, 0) if args.limit else None
 
     log.info("Loading rom")
     with open(args.rom, "rb") as rom:
@@ -421,6 +568,26 @@ def meta(args):
 
 
 def ident(args):
+    """ Print identifying information for a ROM
+
+    Usage: romtool ident [--help] [options] <roms>...
+
+    Command options:
+        -l, --long          Print all available ROM metadata
+
+    Common options:
+        -h, --help          Print this help
+        -V, --version       Print version and exit
+        -q, --quiet         Quiet output
+        -v, --verbose       Verbose output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    By default, this command attempts to identify one or more ROMs and
+    prints their canonical name(s) and type information (based on the
+    no-intro rom set), one file per line. If --long is given, it prints
+    some additional useful metadata about each ROM, such as file hashes.
+    """
     # FIXME: assumes all input files actually *are* roms. They may not be (e.g.
     # passing an ips patch, or something else entirely) Probably each rom class
     # needs a checker, or something. Suggest use of `file` if romtool can't
@@ -483,6 +650,29 @@ def _matchlength(values, maxdiff, alignment):
     return i
 
 def search(args):
+    """ Search a rom for...things.
+
+    NOTE: The search command is experimental, slow, poorly documented, and of
+    dubious use. It was written to help me locate data table elements when
+    writing maps, not for general use. If it breaks -- which is quite
+    likely -- enjoy both pieces.
+
+    Usage:
+        romtool search index [options] <rom> <psize> <endian> <alignment> <count>
+        romtool search strings [options] <rom> <encoding>
+        romtool search values [options] <rom> <size> <endian> <expected>...
+        romtool search -h | --help
+
+    Options:
+        -m, --map           Specify ROM map
+        -P, --progress      Display progress bar
+
+        -h, --help          Print this help
+        -q, --quiet         Quiet output
+        -v, --verbose       Verbose output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+    """
     if args.index:
         search_index(args)
     elif args.strings:
@@ -494,8 +684,8 @@ def search(args):
 
 def search_index(args):
     rom = loadrom(args.rom, args.map)
-    log.info("searching for %s-byte %s-endian pointer index for table '%s'",
-             args.psize, args.endian, args.table)
+    log.info("searching for %s-byte %s-endian pointer index",
+             args.psize, args.endian)
     ptr_bytes = int(args.psize, 0)
     align = int(args.alignment, 0)
     count = int(args.count, 0)
@@ -593,6 +783,14 @@ def search_values(args):
 
 
 def dirs(args):
+    """ Print romtool directory paths
+
+    Usage: romtool dirs [--help]
+
+    Romtool keeps its configuration, data files, and logs in user directories
+    that vary between platforms. This command prints the directories used on
+    your current platform.
+    """
     ad = AppDirs("romtool")
     out = f"""
         config:     {ad.user_config_dir}
@@ -637,6 +835,7 @@ def _writepatch(patch, outfile):
         patch.to_ipst(sys.stdout)
     log.info("There were %s changes.", len(patch.changes))
 
+
 class Args(Dict):
     """ Convenience wrapper for the docopt dict
 
@@ -665,11 +864,6 @@ class Args(Dict):
         key = self._realkey(key)
         super().__setitem__(key, value)
 
-    @property
-    def command(self):
-        return next(k for k, v in self.items()
-                    if k.isalnum() and v)
-
 
 def initlog(args):
     key = ('debug' if args.debug
@@ -682,15 +876,22 @@ def initlog(args):
 
 def main(argv=None):
     """ Entry point for romtool."""
-
-    args = Args(docopt(__doc__, argv, version=version))
+    args = Args(docopt(__doc__.strip(), argv, version=version, options_first=True))
     initlog(args)
     util.debug_structure(args)
+    util.debug_structure(dict(args.items()))
 
-    expected = (FileNotFoundError, NotImplementedError, RomtoolError) if not args.debug else ()
+    expected = () if args.debug else (FileNotFoundError, NotImplementedError, RomtoolError)
 
     try:
-        globals()[args.command](args)
+        cmd = globals().get(args.command)
+        if not cmd:
+            log.critical("'%s' is not a valid command; see romtool --help",
+                         args.command);
+            sys.exit(1);
+        args = Args(docopt(getdoc(cmd), argv, version=version))
+        initlog(args)  # because log opts may come before or after the command
+        cmd(args)
     except KeyboardInterrupt as ex:
         log.error(f"keyboard interrupt; aborting")
         sys.exit(2)
