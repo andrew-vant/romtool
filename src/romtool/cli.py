@@ -580,6 +580,8 @@ def ident(args):
         -F, --format FORMAT   Output format
         -s, --short           Alias for --format short
         -l, --long            Alias for --format long
+        -n, --name            Always echo filename in short format
+        -N, --no-name         Never echo filename in short format
 
     Common options:
         -h, --help            Print this help
@@ -640,7 +642,9 @@ def ident(args):
         except RomDetectionError:
             info.map = "(no map found)"
         if not longfmt:
-            prefix = f"{filename}:\t" if len(args.roms) > 1 else ""
+            prefix = (f"{filename}:\t"
+                      if args.name or not args['no-name'] and len(args.roms) > 1
+                      else "")
             print(f"{prefix}{rom}")
         else:
             for k, v in info.items():
