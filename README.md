@@ -367,7 +367,24 @@ spec.
 (there probably needs to be a convention for app-specific columns vs
 extension columns vs official columns...)
 
+## Useful Tools
+
+* [fasm][], with an accompanying [macro set][fm], can translate 6502
+  (NES) assembly snippets into something you can put in a patch.
+* [fasmg][], its successor, also has macro sets for a number of
+  languages, including [6502][fgm].
+
+TODO: give romtool a way to take an asm file, pass it to fasm, and
+produce a patch inserting the result at a given offset.
+
+TODO: detect and optionally download external tools. No installable
+packages for fasmg (yet) or the macro sets (probably ever).
+
 [lm]: http://fusoya.eludevisibility.org/lm/index.html
 [maps]: ./src/romtool/maps
 [py]: https://www.python.org/downloads/
 [git]: https://git-scm.com/downloads
+[fasm]: https://flatassembler.net/download.php
+[fasmg]: https://flatassembler.net/download.php
+[fm]: https://board.flatassembler.net/topic.php?t=16366
+[fgm]: https://board.flatassembler.net/topic.php?t=19389
