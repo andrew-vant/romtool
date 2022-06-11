@@ -1,0 +1,18 @@
+{#-
+  Expected context:
+    rom: rom object
+    tbl_structs: data structure tables, as html (FIXME: find better way)
+#}
+{%- extends "base.html" %}
+{%- from "macros.jinja" import tsvtable %}
+{%- block body %}
+<article>
+  <h1>{{ rom.name }}</h1>
+  <section>
+    <h2>Data Structures</h2>
+    {%- for table in tbl_structs %}
+    {{ table|indent(4)}}
+    {%- endfor %}
+  </section>
+</article>
+{%- endblock %}

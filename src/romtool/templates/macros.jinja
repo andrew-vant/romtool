@@ -1,0 +1,23 @@
+{%- macro tsvtable(caption, headers, rows) %}
+<table>
+  {%- if caption is defined and caption %}
+  <caption>{{ caption }}</caption>
+  {%- endif %}
+  <thead>
+    <tr>
+      {%- for header in headers %}
+      <td>{{ header }}</td>
+      {%- endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {%- for row in rows %}
+    <tr>
+      {%- for value in row %}
+      <td>{{ value }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
