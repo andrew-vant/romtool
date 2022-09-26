@@ -1,10 +1,10 @@
 id	fid	name	set	type	source	offset	count	stride	size	index	priority	display	comment
-classes			classes	class	rom	0x3040	6	16					
-monsters			monsters	monster	rom	0x030520	128	20					
-weapons			weapons	weapon	rom	0x030000	40	8					
-armor			armor	armor	rom	0x030140	40	4					
-spells			spells	spell	rom	0x0301E0	64	8					
-specials			specials	special	rom	0x0303F0	26	8					
+classes		Classes	classes	class	rom	0x3040	6	16					
+monsters		Monsters	monsters	monster	rom	0x030520	128	20					
+weapons		Weapons	weapons	weapon	rom	0x030000	40	8					
+armor		Armor	armor	armor	rom	0x030140	40	4					
+spells		Spells	spells	spell	rom	0x0301E0	64	8					
+specials		Specials	specials	special	rom	0x0303F0	26	8					
 mnames	name	Name	monsters	strz	rom	0x24000	128		12	mname_ptrs		names	String lengths differ
 cnames	name	Name	classes	strz	rom	0x20000	6	8	12	cname_ptrs		names	
 anames	name	Name	armor	strz	rom	0x20000	40		12	aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
@@ -20,5 +20,5 @@ splname_ptrs	nmp	Name Pointer	spells	uintle	rom	0x02B860	64	2				pointer
 wp_price	price	Price	weapons	uintle	rom	0x037C38	40	2					
 a_price	price	Price	armor	uintle	rom	0x037C88	40	2					
 m_price	price	Price	spells	uintle	rom	0x037D60	64	2					
-characters			characters	character	save	0x500	4	64					Character stats
-magic			characters	magic	save	0x700	4	64					Character spell data
+characters		Characters	characters	character	save	0x500	4	64					Character stats
+magic		Magic	characters	magic	save	0x700	4	64					Character spell data
