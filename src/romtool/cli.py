@@ -15,6 +15,7 @@ Commands:
     search              Search a rom for strings, indexes, etc.
     charmap             Generate a texttable from known strings
     initchg             Generate a starter changeset file.
+    document            Generate documentation from rom
     fix                 Fix bogus headers and checksums
     dirs                Print directory paths used by romtool
 
@@ -50,7 +51,7 @@ import csv
 import json
 import re
 import codecs
-from os.path import splitext
+from os.path import splitext, basename
 from itertools import chain, groupby
 from textwrap import dedent
 from functools import partial
@@ -512,6 +513,7 @@ def document(args):
         -v, --verbose       Verbose output
         -q, --quiet         Quiet output
         -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
 
     The built documentation includes the following:
 
@@ -521,18 +523,28 @@ def document(args):
         * data table contents (optional, slow)
     """
     rom = _init_rom(args.rom, args.map, args.patches)
-    tbl_structs = []
+    structures = {}
     for name, path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
+        log.info("Generating doc table for %s", path)
+        name = splitext(basename(name))[0]
         try:
-            log.info("Generating doc table for %s", path)
             with open(path) as f:
-                html = util.tsv2html(f)
-                tbl_structs.append(html)
+                structures[name] = util.tsv2html(f, name)
         except jinja2.TemplateSyntaxError as ex:
             log.critical("Error while documenting %s structure: [%s:%s] %s",
                          name, ex.name, ex.lineno, ex.message)
             sys.exit(2)
-    print(util.jrender('monolithic.html', rom=rom, tbl_structs=tbl_structs))
+    path = os.path.join(rom.map.path, "arrays.tsv")
+    log.info("Documenting data tables")
+    indexes = {t.index: rom.map.tables[t.index]
+               for t in rom.map.tables.values()}
+    tables = {tid: table for tid, table in rom.tables.items()
+              if tid not in indexes}
+    print(util.jrender('monolithic.html',
+                       rom=rom,
+                       tables=tables,
+                       indexes=indexes,
+                       structures=structures))
 
 
     #     rom.document(args.outdir, args.force)

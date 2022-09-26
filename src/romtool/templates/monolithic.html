@@ -1,17 +1,30 @@
 {#-
   Expected context:
     rom: rom object
-    tbl_structs: data structure tables, as html (FIXME: find better way)
+    indexes: dict of indexes
+    tables: dict of tables
+    structures: rom structure registry
 #}
 {%- extends "base.html" %}
-{%- from "macros.jinja" import tsvtable %}
+{%- from "macros.jinja" import datatable %}
+
+{%- block head %}
+<style type="text/css">
+{%- include "style.css" %}
+</style>
+{%- endblock %}
+
 {%- block body %}
 <article>
   <h1>{{ rom.name }}</h1>
-  <section>
-    <h2>Data Structures</h2>
-    {%- for table in tbl_structs %}
-    {{ table|indent(4)}}
+  <section class="data-tables">
+    <h2>Data Structure Types and Formats</h2>
+    {%- for name, spec in structures.items() %}
+    {{ spec }}
+    {%- endfor %}
+    <h2>ROM Data Table Contents</h2>
+    {%- for table in tables.values() %}
+    {{ datatable(table) }}
     {%- endfor %}
   </section>
 </article>

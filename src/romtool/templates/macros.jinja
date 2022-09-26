@@ -1,3 +1,55 @@
+{%- macro datatable(table) %}
+{%- set index = table.index %}
+{%- set stride = table.size or index.stride or null %}
+<h3>{{ table.name }}</h3>
+<p>
+{{ table.comment }}
+{{ table | length }}
+{% if stride %}{{ stride }}-byte{% endif %}
+items of type <span class='type'>{{ table.typename }}</span>.
+{%- if table.has_index %}
+{%- set endian = 'little-endian' if index.typename.endswith('le')
+                 else 'big-endian' if index.typename.endswith('be')
+                 else '' %}
+The table index begins at <span class='offset'>{{ index.offset }}</span>;
+index entries are {{ index.index.stride }}-byte {{ endian }}
+integer offsets relative to <span class='offset'>{{ table.offset }}</span>.
+{%- else %}
+First item starts at <span class='offset'>{{ table.offset }}</span>.
+{%- endif %}
+</p>
+{%- if table[0] is mapping %}
+{{ tbl2html(table) }}
+{%- endif %}
+{%- endmacro %}
+
+{%- macro tbl2html(rows, caption) %}
+{%- set headers = rows[0] | list %}
+<table>
+  {%- if caption is defined and caption %}
+  <caption>{{ caption }}</caption>
+  {%- endif %}
+  <thead>
+    <tr>
+      <td>#</td>
+      {%- for header in headers %}
+      <td>{{ header }}</td>
+      {%- endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {%- for row in rows %}
+    <tr>
+      <td>{{ loop.index0 }}</td>
+      {%- for header in headers %}
+      <td>{{ row[header] }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
 {%- macro tsvtable(caption, headers, rows) %}
 <table>
   {%- if caption is defined and caption %}

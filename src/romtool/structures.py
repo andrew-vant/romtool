@@ -520,7 +520,7 @@ class Table(Sequence, NodeMixin, RomObject):
         self.index = index
         self.units = units
         self.typename = typename
-        self.offset = offset
+        self.offset = util.HexInt(offset)
         self.size = size
         self.display = display
 
@@ -594,6 +594,10 @@ class Table(Sequence, NodeMixin, RomObject):
         except StopIteration:
             raise ValueError(f"No object with name: {name}")
 
+    @property
+    def has_index(self):
+        return isinstance(self.index, Table)
+
     def __setitem__(self, i, v):
         if str(v) != str(self[i]):
             log.debug("difference detected: %r != %r", v, self[i])
@@ -657,7 +661,7 @@ class Index(Sequence):
         elif i >= self.count:
             raise IndexError("Index doesn't extend that far")
         else:
-            return self.offset + i * self.stride
+            return util.HexInt(self.offset + i * self.stride)
 
     def __repr__(self):
         return f"Index({self.offset}, {self.count}, {self.stride})"

@@ -1,0 +1,27 @@
+article {
+	max-width: 100ch;
+	margin-left: 10em;
+}
+
+table {
+	border: 1px solid;
+	border-collapse: collapse;
+	margin: 5em 0;
+}
+
+caption {
+	padding-bottom: 8px;
+	font-weight: bold;
+}
+
+thead {
+	font-weight: bold;
+}
+
+td {
+	padding: 4px;
+	border: 1px solid grey;
+}
+
+.offset {color: green;}
+.type   {color: darkgreen;}
