@@ -1,6 +1,15 @@
+body {
+	display: grid;
+	gap: 4em;
+	grid:
+		"sidebar content" 100vh
+		/ auto 1fr;
+}
+#sidebar {grid-area: sidebar;}
+main {grid-area: content; overflow: auto}
+
 article {
 	max-width: 100ch;
-	margin-left: 10em;
 }
 
 table {
@@ -18,6 +27,7 @@ thead {
 	font-weight: bold;
 }
 
+th { padding: 4px; }
 td {
 	padding: 4px;
 	border: 1px solid grey;

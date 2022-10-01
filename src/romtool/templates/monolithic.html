@@ -4,28 +4,45 @@
     indexes: dict of indexes
     tables: dict of tables
     structures: rom structure registry
+
+  (desired context: just the ROM, get everything else from there)
 #}
 {%- extends "base.html" %}
-{%- from "macros.jinja" import datatable %}
+{%- from "macros.jinja" import datatable, mappingtable %}
 
 {%- block head %}
 <style type="text/css">
 {%- include "style.css" %}
+{%- include "tables.css" %}
 </style>
 {%- endblock %}
 
 {%- block body %}
-<article>
-  <h1>{{ rom.name }}</h1>
-  <section class="data-tables">
-    <h2>Data Structure Types and Formats</h2>
+<nav id="sidebar" class="toc">
+<ol>
+  <li><a href="#structs">Data Structure Formats</a></li>
+  <li><a href="#dump">Data Dump - Collated</a></li>
+  <li><a href="#raw">Data Dump - Raw</a></li>
+</ol>
+</nav>
+<main>
+  <article id="content">
+    <h1 id="top">{{ rom.name }}</h1>
+    <h2 id="structs">Data Structure Formats</h2>
     {%- for name, spec in structures.items() %}
     {{ spec }}
     {%- endfor %}
-    <h2>ROM Data Table Contents</h2>
+
+    <h2 id="dump">Data Dump - Collated</h2>
+    {%- for name, dataset in rom.entities.items() %}
+    <h3>{{ name }}</h3>
+    {{ mappingtable(dataset, ["scroll"]) }}
+    {%- endfor %}
+
+    <h2 id="raw">Data Dump - Raw</h2>
     {%- for table in tables.values() %}
     {{ datatable(table) }}
     {%- endfor %}
-  </section>
-</article>
-{%- endblock %}
+  </article>
+  {%- endblock %}
+</main>

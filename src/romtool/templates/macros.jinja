@@ -1,3 +1,26 @@
+{%- macro mappingtable(table, classes) %}
+<table class="{{ ' '.join(classes) }}">
+{%- for item in table %}
+{%- if loop.first %}
+<thead><tr>
+  <th>#</th>
+  {%- for key in item.keys() %}
+  <th>{{ key }}</th>
+  {%- endfor %}
+</tr></thead>
+<tbody>
+{%- endif -%}
+<tr>
+<td>{{ loop.index0 }}</td>
+{%- for v in item.values() %}
+<td>{{ v }}</td>
+{%- endfor %}
+</tr>
+{%- endfor %}
+</tbody>
+</table>
+{%- endmacro %}
+
 {%- macro datatable(table) %}
 {%- set index = table.index %}
 {%- set stride = table.size or index.stride or null %}
@@ -21,7 +44,7 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
 {%- if table[0] is mapping %}
 {{ tbl2html(table) }}
 {%- else %}
-<table>
+<table class="scroll">
 <thead><tr><td>#</td><td>Value</td></tr></thead>
 <tbody>
 {%- for item in table %}
