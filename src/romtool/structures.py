@@ -102,7 +102,7 @@ class Entity(Mapping):
                           if table.typename in Structure.registry
                           else [table])
         fields.sort(key=ordering)
-        cols = [f.iname if isinstance(f, Table) else f.name
+        cols = [f.iname or f.name if isinstance(f, Table) else f.name
                 for f in fields]
         assert set(cols) == set(cls._tables.bykey)
         return cols
@@ -146,7 +146,7 @@ class Entity(Mapping):
         if isinstance(item, Structure):
             setattr(item, attr, value)
         else:
-            table[index] = value
+            table[self.index] = value
 
     @classmethod
     def _keys_by_table(cls, filter_keys=None):

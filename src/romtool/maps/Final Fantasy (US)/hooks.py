@@ -12,7 +12,7 @@ _save_checksum_offset = 0xFD
 log = logging.getLogger(__name__)
 
 
-class SpellArgument(Field):
+class SpellArgument(IntField):
     """ Field used for spell effect arguments
 
     The effectivity field may be either a bitfield (representing either
