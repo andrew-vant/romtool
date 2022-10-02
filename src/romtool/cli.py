@@ -527,6 +527,7 @@ def document(args):
     for name, path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
         log.info("Generating doc table for %s", path)
         name = splitext(basename(name))[0]
+        name = name[0].upper() + name[1:]
         try:
             with open(path) as f:
                 structures[name] = util.tsv2html(f, name)
