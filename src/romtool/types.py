@@ -144,6 +144,28 @@ class Field(ABC):
             msg = f"'{self.id}' field missing required offset property"
             raise RomtoolError(msg)
 
+    def _sort_for_readability(self):
+        """ Get an ordering key for this field
+
+        It's often useful to order fields for readability rather than the
+        typical (in specs) offset order. This orders name fields first, pushes
+        opaque or unknown fields towards the end, and otherwise orders
+        according to the sort order given in the spec.
+
+        Sorting an iterable of fields directly will use this key.
+        """
+        return (
+                not self.is_name,
+                self.is_slop,
+                self.is_ptr,
+                self.is_unknown,
+                self.is_flag,
+                self.order or 0,
+               )
+
+    def __lt__(self, other):
+        return self._sort_for_readability() < other._sort_for_readability()
+
     @property
     def is_name(self):
         return 'name' in (self.id.lower(), self.name.lower())

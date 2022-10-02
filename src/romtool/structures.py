@@ -24,7 +24,7 @@ from .exceptions import RomtoolError
 
 log = logging.getLogger(__name__)
 
-class Entity(ABC):
+class Entity(Mapping):
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
@@ -56,7 +56,7 @@ class Entity(ABC):
                         self.bykey[field.name] = table
                 else:
                     self.byattr[table.fid or table.id] = table
-                    self.bykey[table.name] = table
+                    self.bykey[table.iname or table.name] = table
 
     def __init_subclass__(cls, tables, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -102,7 +102,8 @@ class Entity(ABC):
                           if table.typename in Structure.registry
                           else [table])
         fields.sort(key=ordering)
-        cols = [f.name for f in fields]
+        cols = [f.iname if isinstance(f, Table) else f.name
+                for f in fields]
         assert set(cols) == set(cls._tables.bykey)
         return cols
 
@@ -110,13 +111,16 @@ class Entity(ABC):
         sa = super().__setattr__
         sa('index', index)
 
+    def __len__(self):
+        return len(self.keys())
+
     def __str__(self):
         tnm = self.__class__.__name__
         inm = getattr(self, 'name', 'nameless')
         return f'{tnm} #{self.index} ({inm})'
 
     def __iter__(self):
-        yield from iter(self._tables.bykey)
+        yield from self.columns()
 
     def __getitem__(self, key):
         table = self._tables.bykey[key]
@@ -339,7 +343,9 @@ class Structure(Mapping, NodeMixin, RomObject):
                    for field in cls.fields)
 
     def __iter__(self):
-        return (f.name for f in self.fields)
+        # Keys are technically unordered, but in many places it's very
+        # convenient for the name to come 'first'.
+        return (f.name for f in sorted(self.fields))
 
     def __len__(self):
         return len(self.fields)
@@ -503,8 +509,8 @@ class Table(Sequence, NodeMixin, RomObject):
     # object has to maintain tables and their names, connect indexes, etc.
 
     def __init__(self, id_, view, typename, index, fid=None, name=None,
-                 offset=0, size=None, units=Unit.bytes, display=None,
-                 parent=None):
+                 iname=None, offset=0, size=None, units=Unit.bytes,
+                 display=None, parent=None):
         """ Create a Table
 
         view:   The underlying bitarray view
@@ -515,6 +521,7 @@ class Table(Sequence, NodeMixin, RomObject):
         self.id = id_
         self.fid = fid
         self.name = name
+        self.iname = iname
         self.view = view
         self.parent = parent
         self.index = index
@@ -636,6 +643,7 @@ class Table(Sequence, NodeMixin, RomObject):
         display = row.get('display', None)
         fid = row.get('fid', None)
         name = row.get('name', None)
+        iname = row.get('iname', None)
         if 'index' in row:
             index = parent.tables[row['index']]
         else:
@@ -643,7 +651,7 @@ class Table(Sequence, NodeMixin, RomObject):
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
         return Table(tid, view, typename, index, fid, name,
-                     offset, size, units, display, parent)
+                     iname, offset, size, units, display, parent)
 
 
 class Index(Sequence):
