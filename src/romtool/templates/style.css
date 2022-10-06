@@ -1,12 +1,27 @@
 body {
+	margin: 0;
+	padding: 0;
 	display: grid;
 	gap: 4em;
 	grid:
 		"sidebar content" 100vh
 		/ auto 1fr;
 }
-#sidebar {grid-area: sidebar;}
-main {grid-area: content; overflow: auto}
+#sidebar {
+	grid-area: sidebar;
+	background: linear-gradient(
+		to right,
+		rgba(240,240,240,0),
+		rgba(240,240,240,.8),
+		rgba(240,240,240,1)
+		);
+	padding: 4em;
+}
+
+main {
+	grid-area: content;
+	overflow: auto;
+}
 
 article {
 	max-width: 100ch;
