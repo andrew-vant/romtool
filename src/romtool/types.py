@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, asdict
 from io import BytesIO
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -83,6 +83,8 @@ class FieldExpr:
             self.value = None
             self.static = False
 
+    def __str__(self):
+        return self.spec
 
     def eval(self, parent):
         if self.static:
@@ -250,6 +252,9 @@ class Field(ABC):
             raise RomtoolError(f"'{kwargs['type']}' is not a known field type")
         cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
+
+    def asdict(self):
+        return {f.name: getattr(self, f.name) or '' for f in fields(self)}
 
     @classmethod
     def handle(cls, typename):

@@ -653,6 +653,21 @@ class Table(Sequence, NodeMixin, RomObject):
         return Table(tid, view, typename, index, fid, name,
                      iname, offset, size, units, display, parent)
 
+    def asdict(self):
+        return {'id': self.id,
+                'fid': self.fid,
+                'name': self.name or '',
+                'iname': self.iname or '',
+                'type': self.typename,
+                'units': self.units,
+                'offset': self.offset,
+                'count': len(self),
+                'stride': self.size or '',
+                'size': self.size or '',
+                'index': self.index.id if self.has_index else '',
+                'display': self.display,
+                'comment': self.comment}
+
 
 class Index(Sequence):
     def __init__(self, offset, count, stride):

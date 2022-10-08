@@ -479,6 +479,7 @@ def jinja_env():
         ])
     return jinja2.Environment(
             loader=tpl_loader,
+            extensions=['jinja2.ext.do'],
             )
 
 def tsv2html(infile, caption=None):
