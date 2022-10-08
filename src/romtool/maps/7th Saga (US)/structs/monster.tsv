@@ -1,5 +1,5 @@
 id	name	offset	size	type	origin	display	order	arg	ref	info	comment
-lvl	Level	0	1	uintle						stats	Does nothing of importance? 
+lvl	Level	0	1	uintle						stats	Only(?) used in chance-to-run calculation
 hp	HP	1	2	uintle						stats	
 mp	MP	3	2	uintle						stats	
 pow	Power	5	2	uintle						stats	
