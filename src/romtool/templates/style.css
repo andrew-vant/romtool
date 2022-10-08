@@ -15,13 +15,15 @@ body {
 		rgba(240,240,240,.8),
 		rgba(240,240,240,1)
 		);
-	padding: 4em;
+	padding: 2em;
 }
 
 main {
 	grid-area: content;
 	overflow: auto;
 }
+
+h1,h2,h3 { scroll-margin-top: 4em; }
 
 article {
 	max-width: 100ch;
@@ -30,7 +32,7 @@ article {
 table {
 	border: 1px solid;
 	border-collapse: collapse;
-	margin: 5em 0;
+	margin: 2em 0;
 }
 
 caption {
@@ -47,6 +49,10 @@ td {
 	padding: 4px;
 	border: 1px solid grey;
 }
+
+#sidebar > ol > ol { list-style-type: lower-roman; }
+li { margin: 2px; }
+
 
 .offset {color: green;}
 .type   {color: darkgreen;}

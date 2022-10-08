@@ -1,3 +1,11 @@
+{%- macro toclist(dct, prefix) %}
+<ol>
+  {%- for key, item in dct|dictsort%}
+  <li><a href="#{{ prefix }}-{{ key }}">{{ item.name or key }}</a></li>
+  {%- endfor %}
+</ol>
+{%- endmacro %}
+
 {%- macro mappingtable(table, classes) %}
 <table class="{{ ' '.join(classes) }}">
 {%- for item in table %}
@@ -21,10 +29,26 @@
 </table>
 {%- endmacro %}
 
+{%- macro structtable(struct, classes) %}
+{%- set content = [] %}
+{%- for field in struct.fields %}
+{%- do content.append(field.asdict()) %}
+{%- endfor %}
+{{ mappingtable(content, classes) }}
+{%- endmacro %}
+
+{%- macro tablespecs(tables, classes) %}
+{%- set content = [] %}
+{%- for table in tables %}
+{%- do content.append(table.asdict()) %}
+{%- endfor %}
+{{ mappingtable(content, classes) }}
+{%- endmacro %}
+
 {%- macro datatable(table) %}
 {%- set index = table.index %}
 {%- set stride = table.size or index.stride or null %}
-<h3>{{ table.name }}</h3>
+<h3 id="table-{{ table.id }}">{{ table.name }}</h3>
 <p>
 {{ table.comment }}
 {{ table | length }}

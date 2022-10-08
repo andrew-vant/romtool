@@ -8,7 +8,8 @@
   (desired context: just the ROM, get everything else from there)
 #}
 {%- extends "base.html" %}
-{%- from "macros.jinja" import datatable, mappingtable %}
+{%- from "macros.jinja" import datatable, mappingtable, structtable,
+toclist, tablespecs %}
 
 {%- block head %}
 <style type="text/css">
@@ -20,26 +21,31 @@
 {%- block body %}
 <nav id="sidebar" class="toc">
 <ol>
-  <li><a href="#structs">Data Structure Formats</a></li>
-  <li><a href="#dump">Data Dump - Collated</a></li>
-  <li><a href="#raw">Data Dump - Raw</a></li>
+  <li><a href="#tables">Data Tables</a></li>
+  <li><a href="#structs">Structure Type Formats</a></li>
+  {{ toclist(rom.map.structs, 'struct') }}
+  <li><a href="#dump">Data Dump by Entity</a></li>
+  {{ toclist(rom.entities, 'entities') }}
+  <li><a href="#raw">Data Dump by Table</a></li>
+  {{ toclist(tables, 'table') }}
 </ol>
 </nav>
 <main>
   <article id="content">
     <h1 id="top">{{ rom.name }}</h1>
-    <h2 id="structs">Data Structure Formats</h2>
-    {%- for name, spec in structures.items() %}
-    {{ spec }}
+    <h2 id="tables">Data Tables</h2>
+    {{ mappingtable(rom.map.tables.values(), ["scroll"]) }}
+    <h2 id="structs">Structure Type Formats</h2>
+    {%- for name, struct in rom.map.structs.items() %}
+    <h3 id="struct-{{ name }}">{{ name }}</h3>
+    {{ structtable(struct, ["scroll"]) }}
     {%- endfor %}
-
-    <h2 id="dump">Data Dump - Collated</h2>
+    <h2 id="dump">Data Dump by Entity</h2>
     {%- for name, dataset in rom.entities.items() %}
-    <h3>{{ name }}</h3>
+    <h3 id="entities-{{ name }}">{{ name }}</h3>
     {{ mappingtable(dataset, ["scroll"]) }}
     {%- endfor %}
-
-    <h2 id="raw">Data Dump - Raw</h2>
+    <h2 id="raw">Data Dump by Table</h2>
     {%- for table in tables.values() %}
     {{ datatable(table) }}
     {%- endfor %}
