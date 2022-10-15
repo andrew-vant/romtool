@@ -1,22 +1,22 @@
 id	fid	name	iname	set	type	offset	count	stride	size	index	priority	display	comment
-spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr			
-spellfuncs	func	Spell Script Index?	Spell Script Pointer	spells	uintle	0x4B155	64	3				pointer	Table of pointers to spell behavior routines?
-spell_ptr	splptr	Spell Pointers	Spell Pointer	spells	uintle	0x523A	64	3				pointer	Spell index. This appears to be much longer (150+?) but the corresponding spell routine array isn't. I'm not sure the extra entries do anything useful.
-armor		Armor	Armor	armor	armor	-0xC00000	105	17		armor_ptr			
-armor_ptr	aptr	Armor Pointers	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	Armor index
-characters		Characters	Character	characters	character	-0xC00000	8	18		char_ptr			
-cname_ptr	nmp	Character Name Pointers	Name Pointer	characters	uintle	0x1ED25	8	3				pointer	Pointers to character names. This set is used for the default names during character creation, but there are other copies in ROM, not sure where or how they're used.
-charnames	name	Character Names	Name	characters	strz	-0xC00000	8	12	12	cname_ptr	1	main	
-spellset		Spellsets	Spells Learned	characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
-splvls		Spell Levels	Spell Levels	characters	splvls	-0xC00000	8	32		splvls_ptr			
-char_ptr	cptr	Character Index	Character Pointer	characters	uintle	0x4EF2	8	3				pointer	
-spset_ptr	ssptr	Spellset Index	Spellset Pointer	characters	uintle	0x4F0A	8	3				pointer	
-splvls_ptr	slptr	Spell Levels Index	Spell Levels Pointer	characters	uintle	0x4F22	8	3				pointer	Spell levels index
-dropsets		Dropsets	Dropset	dropsets	dropset	0x8A18	16	16					
-itemstats		Item Stats	Item Stats	items	item	-0xC00000	100	9		item_ptr			
-item_ptr	iptr	Item Stats Index	Statblock Pointer	items	uintle	0x4F3A	100	3				pointer	Item index
-monsters		Monsters	Monster	monsters	monster	-0xC00000	98	42		mon_ptr			
-mon_ptr	mptr	Monster Index	Monster Pointer	monsters	uintle	0x53FF	260	3				pointer	Monster index
+spellfuncs	func	Spell Script Index?	Spell Script Pointer	spells	uintle	0x4B155	64	3				pointer	Possibly pointers to spell behavior routines.
+char_ptr	cptr	Character Stats Index	Character Pointer	characters	uintle	0x4EF2	8	3				pointer	
+spset_ptr	ssptr	Character Spells Index	Spellset Pointer	characters	uintle	0x4F0A	8	3				pointer	
+splvls_ptr	slptr	Character Spell Levels Index	Spell Levels Pointer	characters	uintle	0x4F22	8	3				pointer	
+item_ptr	iptr	Item Stats Index	Statblock Pointer	items	uintle	0x4F3A	100	3				pointer	
+weapon_ptr	wptr	Weapon Index	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	
+armor_ptr	aptr	Armor Index	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	
+spell_ptr	splptr	Spell Index	Spell Pointer	spells	uintle	0x523A	64	3				pointer	The spell-data index appears to be much longer than stated (150+ entries?), but the corresponding spell routine array is much shorter. The extra entries may not do anything.
+mon_ptr	mptr	Monster Index	Monster Pointer	monsters	uintle	0x53FF	260	3				pointer	
+cname_ptr	nmp	Character Name Index	Name Pointer	characters	uintle	0x1ED25	8	3				pointer	This table is used for the default names during character creation, but there are other copies in the ROM; I'm not sure where or how they're used.
 script_ptr	sptr	AI Script Index	AI Script ID	scripts	uintle	0x2146B	128	3				pointer	Length is an educated guess.
+charnames	name	Character Names	Name	characters	strz	-0xC00000	8	12	12	cname_ptr	1	main	
+characters		Character Stats	Character	characters	character	-0xC00000	8	18		char_ptr			
+spellset		Character Spells	Spells Learned	characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
+splvls		Character Spell Levels	Spell Levels	characters	splvls	-0xC00000	8	32		splvls_ptr			
 weapons		Weapons	Weapon	weapons	weapon	-0xC00000	51			weapon_ptr			
-weapon_ptr	wptr	Weapons Index	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	Weapon index
+armor		Armor	Armor	armor	armor	-0xC00000	105	17		armor_ptr			
+spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr			
+itemstats		Item Stats	Item Stats	items	item	-0xC00000	100	9		item_ptr			
+monsters		Monsters	Monster	monsters	monster	-0xC00000	98	42		mon_ptr			
+dropsets		Dropsets	Dropset	dropsets	dropset	0x8A18	16	16					
