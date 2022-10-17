@@ -199,6 +199,34 @@ class RomEnum(IntEnum):
         raise ValueError(f"not a valid {cls}: {string}")
 
 
+class SequenceView:
+    """ View of a subset of sequence items
+
+    Usually produced by slicing a table. Item lookups against the view are
+    relative to the slice. As with dictionary views, changes to the underlying
+    object are visible in the view.
+    """
+    def __init__(self, sequence, sl):
+        self.sequence = sequence
+        self.slice = sl
+        self.indices = sl.indices(len(sequence))
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return type(self)(self, i)
+        return self.sequence[self.indices[i]]
+
+    def __setitem__(self, i, v):
+        if isinstance(i, slice):
+            for i, v in zip(i.indices(len(self)), v):
+                self[i] = v
+        else:
+            self.sequence[self.indices[i]] = v
+
+
 @contextlib.contextmanager
 def loading_context(listname, name, index=None):
     """ Context manager for loading lists or files.

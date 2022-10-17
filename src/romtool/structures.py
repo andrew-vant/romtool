@@ -17,7 +17,7 @@ from anytree import NodeMixin
 
 from .types import Field, StructField
 from . import util
-from .util import RomObject
+from .util import RomObject, SequenceView
 from .io import Unit
 from .exceptions import RomtoolError
 
@@ -588,10 +588,9 @@ class Table(Sequence, NodeMixin, RomObject):
         offset = util.HexInt(self.index.offset)
         return f'Table({tp}*{ct}@{offset})'
 
-
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return TableView.from_slice(self, i)
+            return SequenceView(self, i)
         elif i >= len(self):
             raise IndexError("Table index out of range")
         elif self._struct:
@@ -691,35 +690,6 @@ class Table(Sequence, NodeMixin, RomObject):
                 'index': self.index.id if self.has_index else '',
                 'display': self.display,
                 'comment': self.comment}
-
-
-class TableView:
-    """ View of a subset of table items
-
-    Usually produced by slicing a table. Acts as the table in most respects,
-    except that item lookups are relative to the slice.
-
-    As with dictionary views, changes to the underlying table are visible in
-    the view.
-    """
-    def __init__(self, table, indices):
-        self._table = table
-        self._indices = indices
-
-    def __len__(self):
-        return len(self._indices)
-
-    def __getitem__(self, i):
-        if isinstance(i, slice):
-            return type(self).from_slice(self._table, i)
-        return self._table[self._indices[i]]
-
-    def __getattr__(self, attr):
-        return getattr(self._table, attr)
-
-    @classmethod
-    def from_slice(cls, table, sl):
-        return cls(table, sl.indices(len(table)))
 
 
 class Index(Sequence):
