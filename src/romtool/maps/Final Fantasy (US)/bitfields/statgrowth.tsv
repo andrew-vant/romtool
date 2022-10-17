@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+luk	Luck	bits	0	1	uint	L
+vit	Vit	bits	1	1	uint	V
+int	Int	bits	2	1	uint	I
+agi	Agi	bits	3	1	uint	A
+str	Str	bits	4	1	uint	S
+hp	HP	bits	5	1	uint	H
+unk1	Unused 1	bits	6	1	uint	U
+unk2	Unused 2	bits	7	1	uint	U
