@@ -25,6 +25,10 @@ from .exceptions import RomtoolError
 log = logging.getLogger(__name__)
 
 class Entity(Mapping):
+    # FIXME: consider making Entity inherit ChainMap. Then have EntityList
+    # construct the Entity on the fly, wrapping primitives in a single-key
+    # mapping. Or something. Entity/Entitylist is really just a chainmap of
+    # zip, I think. See DeepChainMap example in std.collections for ideas.
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
@@ -112,7 +116,7 @@ class Entity(Mapping):
         sa('index', index)
 
     def __len__(self):
-        return len(self.keys())
+        return len(list(iter(self)))
 
     def __str__(self):
         tnm = self.__class__.__name__
@@ -147,6 +151,12 @@ class Entity(Mapping):
             setattr(item, attr, value)
         else:
             table[self.index] = value
+
+    def get(self, key, default=None):
+        try:
+            return super().get(key)
+        except IndexError:
+            return default
 
     @classmethod
     def _keys_by_table(cls, filter_keys=None):
@@ -504,6 +514,20 @@ class BitField(Structure):
 
 
 class Table(Sequence, NodeMixin, RomObject):
+    """ A ROM data table
+
+    For tables without an index, 'offset' is relative to the start of the ROM,
+    and indicates the location of the zeroth item in the table. The offset of
+    the Nth item will be `offset + (N * stride).
+
+    For tables with an index, 'offset' is added to the index values to convert
+    them to ROM offsets. Hence, the offset of the Nth item is `offset +
+    index[N]`. The stride is informational only.
+
+    FIXME: it occurs to me that the offset calculation could be unified as
+    `offset(table[N]) = table.offset + index[N] + N * table.stride`, where
+    stride is 0 for indexed tables and index[N] is 0 for non-indexed tables.
+    """
 
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
@@ -567,7 +591,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return Table(self.view, self.typename, self.index[i])
+            return TableView.from_slice(self, i)
         elif i >= len(self):
             raise IndexError("Table index out of range")
         elif self._struct:
@@ -669,6 +693,35 @@ class Table(Sequence, NodeMixin, RomObject):
                 'comment': self.comment}
 
 
+class TableView:
+    """ View of a subset of table items
+
+    Usually produced by slicing a table. Acts as the table in most respects,
+    except that item lookups are relative to the slice.
+
+    As with dictionary views, changes to the underlying table are visible in
+    the view.
+    """
+    def __init__(self, table, indices):
+        self._table = table
+        self._indices = indices
+
+    def __len__(self):
+        return len(self._indices)
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return type(self).from_slice(self._table, i)
+        return self._table[self._indices[i]]
+
+    def __getattr__(self, attr):
+        return getattr(self._table, attr)
+
+    @classmethod
+    def from_slice(cls, table, sl):
+        return cls(table, sl.indices(len(table)))
+
+
 class Index(Sequence):
     def __init__(self, offset, count, stride):
         self.offset = offset
@@ -680,7 +733,7 @@ class Index(Sequence):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return (self[i] for i in range(i.start, i.stop, i.step))
+            return [self[i] for i in range(len(self))[i]]
         elif i >= self.count:
             raise IndexError("Index doesn't extend that far")
         else:
