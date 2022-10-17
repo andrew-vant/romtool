@@ -6,27 +6,50 @@
 </ol>
 {%- endmacro %}
 
-{%- macro mappingtable(table, classes) %}
+{%- macro mappingtable(table, classes, keys, numbering) %}
+{%- set ns = namespace(headings=[]) %}
+{%- set numbering = numbering|default(true) %}
+<figure class="table">
 <table class="{{ ' '.join(classes) }}">
 {%- for item in table %}
 {%- if loop.first %}
 <thead><tr>
-  <th>#</th>
-  {%- for key in item.keys() %}
+  {%- if numbering %}<th>#</th>{%- endif %}
+  {%- set ns.headings = keys |
+                        default(item.keys()) |
+                        reject("eq", "comment") |
+                        list %}
+  {%- for key in ns.headings %}
   <th>{{ key }}</th>
   {%- endfor %}
 </tr></thead>
 <tbody>
 {%- endif -%}
 <tr>
-<td>{{ loop.index0 }}</td>
-{%- for v in item.values() %}
-<td>{{ v }}</td>
+{%- if numbering %}<td>{{ loop.index0 }}</td>{%- endif %}
+{%- for key in ns.headings %}
+{#- FIXME: appears very slow. Find some way to use or imitate the perf
+hack in entity.items() #}
+<td>{{ item.get(key, "ERR") }}</td>
 {%- endfor %}
 </tr>
 {%- endfor %}
 </tbody>
 </table>
+<figcaption>
+  {%- for item in table if item.get('comment') %}
+  {%- if loop.first %}
+  <p>Notes:</p>
+  <dl class="tablenotes">
+  {%- endif %}
+  <dt id="item.id">{{ item.name }}</dt>
+  <dd>{{ item.comment }}</dd>
+  {%- if loop.last %}
+  </dl>
+  {%- endif %}
+  {%- endfor %}
+</figcaption>
+</figure>
 {%- endmacro %}
 
 {%- macro structtable(struct, classes) %}
@@ -68,6 +91,7 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
 {%- if table[0] is mapping %}
 {{ mappingtable(table, ["scroll"]) }}
 {%- else %}
+<figure class="table">
 <table class="scroll">
 <thead><tr><td>#</td><td>Value</td></tr></thead>
 <tbody>
@@ -76,6 +100,7 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
 {%- endfor %}
 </tbody>
 </table>
+</figure>
 {%- endif %}
 {%- endmacro %}
 

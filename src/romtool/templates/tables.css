@@ -2,11 +2,12 @@
 
 table.scroll {
 	display: inline-block;
-	max-height: 50vh;
 	max-width: 100%;
-	overflow: auto;
+	max-height: 80vh;
+	overflow-x: auto;
 	border-spacing: 0;
 	border-collapse: separate;
+	white-space: nowrap;
 }
 
 .scroll td, .scroll th {
@@ -35,5 +36,21 @@ table.scroll {
 	inset-inline-start: 0;
 }
 
+.tablenotes {
+	display: grid;
+	grid: auto-flow / auto 1fr;
+	gap: .5em;
+	padding-left: 2em;
+	padding-right: 2em;
+	counter-reset: tablenotes 0;
+}
 
-
+.tablenotes dt { counter-increment: tablenotes 1; }
+.tablenotes dt::before {
+	content: counter(tablenotes) ". ";
+	display: inline-block;
+	width: 3ch;
+	padding-right: 1ch;
+	text-align: right;
+}
+.tablenotes dt::after { content: ":" }

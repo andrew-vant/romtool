@@ -1,7 +1,6 @@
 {#-
   Expected context:
     rom: rom object
-    indexes: dict of indexes
     tables: dict of tables
     structures: rom structure registry
 
@@ -20,6 +19,7 @@ toclist, tablespecs %}
 
 {%- block body %}
 <nav id="sidebar" class="toc">
+<h1 id="title">{{ rom.name }}</h1>
 <ol>
   <li><a href="#tables">Data Tables</a></li>
   <li><a href="#structs">Structure Type Formats</a></li>
@@ -28,14 +28,31 @@ toclist, tablespecs %}
   {{ toclist(rom.entities, 'entities') }}
   <li><a href="#raw">Data Dump by Table</a></li>
   {{ toclist(tables, 'table') }}
+  <li><a href="#references">References</a></li>
+  <ol>
+    <li><a href="#data-types">Data Types</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+  </ol>
 </ol>
 </nav>
 <main>
   <article id="content">
     <h1 id="top">{{ rom.name }}</h1>
+    <p>This document describes the ROM data structures for
+    "{{ rom.name }}", and includes a dump of all data thus described.
+    The descriptions and the dump are derived from the same
+    underlying code and definitions; to the extent that the dump is
+    correct, the structure specs should be too.</p>
     <h2 id="tables">Data Tables</h2>
-    {{ mappingtable(rom.map.tables.values(), ["scroll"]) }}
+    {%- include 'tables.md' %}
+    {{ mappingtable(
+      rom.map.tables.values(),
+      ["scroll"],
+      ["name","id","type","offset","count","stride","index"],
+      false
+      ) }}
     <h2 id="structs">Structure Type Formats</h2>
+    {%- include 'structs.md' %}
     {%- for name, struct in rom.map.structs.items() %}
     <h3 id="struct-{{ name }}">{{ name }}</h3>
     {{ structtable(struct, ["scroll"]) }}
