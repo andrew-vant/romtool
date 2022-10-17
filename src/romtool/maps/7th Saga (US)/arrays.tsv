@@ -3,6 +3,8 @@ spellfuncs	func	Spell Script Index?	Spell Script Pointer	spells	uintle	0x4B155	6
 char_ptr	cptr	Character Stats Index	Character Pointer	characters	uintle	0x4EF2	8	3				pointer	
 spset_ptr	ssptr	Character Spells Index	Spellset Pointer	characters	uintle	0x4F0A	8	3				pointer	
 splvls_ptr	slptr	Character Spell Levels Index	Spell Levels Pointer	characters	uintle	0x4F22	8	3				pointer	
+inter_ptr	intptr	Ally Interactions Index	Interactions Pointer	characters	uintle	0x58AF	8	3				pointer	
+equip_ptr	jeqptr	Ally Equipment Index	Join Equipment Pointer	characters	uintle	0x58C7	8	3				pointer	
 item_ptr	iptr	Item Stats Index	Statblock Pointer	items	uintle	0x4F3A	100	3				pointer	
 weapon_ptr	wptr	Weapon Index	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	
 armor_ptr	aptr	Armor Index	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	
