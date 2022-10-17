@@ -1,27 +1,27 @@
 id	name	offset	size	type	origin	display	order	arg	ref	info	comment
-lvl	Level	0	1	uintle						stats	Does nothing of importance? 
+lvl	Level	0	1	uintle						stats	Only(?) used in chance-to-run calculation
 hp	HP	1	2	uintle						stats	
 mp	MP	3	2	uintle						stats	
 pow	Power	5	2	uintle						stats	
 grd	Guard	7	2	uintle						stats	
 mag	Magic	9	1	uintle						stats	
 spd	Speed	10	1	uintle						stats	
-sp0	Spell 0 Index	11	1	uintle					spells	spells	
-sp1	Spell 1 Index	12	1	uintle					spells	spells	
-sp2	Spell 2 Index	13	1	uintle					spells	spells	
-sp3	Spell 3 Index	14	1	uintle					spells	spells	
-sp4	Spell 4 Index	15	1	uintle					spells	spells	
-sp5	Spell 5 Index	16	1	uintle					spells	spells	
-sp6	Spell 6 Index	17	1	uintle					spells	spells	
-sp7	Spell 7 Index	18	1	uintle					spells	spells	
-ctc0	Spell 0 Chance	19	1	uintle						ai	
-ctc1	Spell 1 Chance	20	1	uintle						ai	
-ctc2	Spell 2 Chance	21	1	uintle						ai	
-ctc3	Spell 3 Chance	22	1	uintle						ai	
-ctc4	Spell 4 Chance	23	1	uintle						ai	
-ctc5	Spell 5 Chance	24	1	uintle						ai	
-ctc6	Spell 6 Chance	25	1	uintle						ai	
-ctc7	Spell 7 Chance	26	1	uintle						ai	
+sp0	Spell 0	11	1	uintle					spells	spells	
+sp1	Spell 1	12	1	uintle					spells	spells	
+sp2	Spell 2	13	1	uintle					spells	spells	
+sp3	Spell 3	14	1	uintle					spells	spells	
+sp4	Spell 4	15	1	uintle					spells	spells	
+sp5	Spell 5	16	1	uintle					spells	spells	
+sp6	Spell 6	17	1	uintle					spells	spells	
+sp7	Spell 7	18	1	uintle					spells	spells	
+ctc0	CTC Spell 0	19	1	uintle						ai	CTC = Chance to Cast
+ctc1	CTC Spell 1	20	1	uintle						ai	
+ctc2	CTC Spell 2	21	1	uintle						ai	
+ctc3	CTC Spell 3	22	1	uintle						ai	
+ctc4	CTC Spell 4	23	1	uintle						ai	
+ctc5	CTC Spell 5	24	1	uintle						ai	
+ctc6	CTC Spell 6	25	1	uintle						ai	
+ctc7	CTC Spell 7	26	1	uintle						ai	
 rthu	Thunder Resist	27	1	uintle						stats	
 ru1	Unknown Resist 1	28	1	uintle						stats	
 ru2	Unknown Resist 2	29	1	uintle						stats	

@@ -1,0 +1,56 @@
+/* Way too much magic for producing tables with frozen rows/cols */
+
+table.scroll {
+	display: inline-block;
+	max-width: 100%;
+	max-height: 80vh;
+	overflow-x: auto;
+	border-spacing: 0;
+	border-collapse: separate;
+	white-space: nowrap;
+}
+
+.scroll td, .scroll th {
+	border-top: none;
+	border-left: none;
+	border-right: 1px solid;
+	border-bottom: 1px solid;
+}
+
+.scroll thead {
+	position: sticky;
+	inset-block-start: 0;
+	background: gainsboro;
+}
+
+.scroll td:nth-child(-n+2) { background: white; }
+.scroll th {background: gainsboro;}
+.scroll td:first-child { z-index: 1; }
+.scroll td:nth-child(2) { z-index: 2; }
+.scroll thead { z-index: 10; }
+.scroll th:first-child { z-index: 11; }
+.scroll th:nth-child(2) { z-index: 12; }
+
+.scroll td:nth-child(-n+2),.scroll th:nth-child(-n+2) {
+	position: sticky;
+	inset-inline-start: 0;
+}
+
+.tablenotes {
+	display: grid;
+	grid: auto-flow / auto 1fr;
+	gap: .5em;
+	padding-left: 2em;
+	padding-right: 2em;
+	counter-reset: tablenotes 0;
+}
+
+.tablenotes dt { counter-increment: tablenotes 1; }
+.tablenotes dt::before {
+	content: counter(tablenotes) ". ";
+	display: inline-block;
+	width: 3ch;
+	padding-right: 1ch;
+	text-align: right;
+}
+.tablenotes dt::after { content: ":" }

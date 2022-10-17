@@ -1,0 +1,64 @@
+body {
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 4em;
+	grid:
+		"sidebar content" 100vh
+		/ auto 1fr;
+}
+#sidebar {
+	grid-area: sidebar;
+	background: linear-gradient(
+		to right,
+		rgba(240,240,240,0),
+		rgba(240,240,240,.8),
+		rgba(240,240,240,1)
+		);
+	padding: 2em;
+	overflow: auto;
+}
+
+#sidebar h1 {
+	font-size: large;
+	font-weight: bold;
+	max-width: 20ch;
+}
+
+main {
+	grid-area: content;
+	overflow: auto;
+}
+
+h1,h2,h3 { margin: 2em 0 1em;}
+
+article {
+	max-width: 80ch;
+}
+
+table {
+	border: 1px solid;
+	border-collapse: collapse;
+}
+
+caption {
+	padding-bottom: 8px;
+	font-weight: bold;
+}
+
+thead {
+	font-weight: bold;
+}
+
+th { padding: 4px; }
+td {
+	padding: 4px;
+	border: 1px solid grey;
+}
+
+#sidebar > ol > ol { list-style-type: lower-roman; }
+li { margin: 2px; }
+
+
+.offset {color: green;}
+.type   {color: darkgreen;}

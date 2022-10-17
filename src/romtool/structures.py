@@ -24,7 +24,11 @@ from .exceptions import RomtoolError
 
 log = logging.getLogger(__name__)
 
-class Entity(ABC):
+class Entity(Mapping):
+    # FIXME: consider making Entity inherit ChainMap. Then have EntityList
+    # construct the Entity on the fly, wrapping primitives in a single-key
+    # mapping. Or something. Entity/Entitylist is really just a chainmap of
+    # zip, I think. See DeepChainMap example in std.collections for ideas.
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
@@ -56,7 +60,7 @@ class Entity(ABC):
                         self.bykey[field.name] = table
                 else:
                     self.byattr[table.fid or table.id] = table
-                    self.bykey[table.name] = table
+                    self.bykey[table.iname or table.name] = table
 
     def __init_subclass__(cls, tables, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -102,7 +106,8 @@ class Entity(ABC):
                           if table.typename in Structure.registry
                           else [table])
         fields.sort(key=ordering)
-        cols = [f.name for f in fields]
+        cols = [f.iname or f.name if isinstance(f, Table) else f.name
+                for f in fields]
         assert set(cols) == set(cls._tables.bykey)
         return cols
 
@@ -110,13 +115,16 @@ class Entity(ABC):
         sa = super().__setattr__
         sa('index', index)
 
+    def __len__(self):
+        return len(list(iter(self)))
+
     def __str__(self):
         tnm = self.__class__.__name__
         inm = getattr(self, 'name', 'nameless')
         return f'{tnm} #{self.index} ({inm})'
 
     def __iter__(self):
-        yield from iter(self._tables.bykey)
+        yield from self.columns()
 
     def __getitem__(self, key):
         table = self._tables.bykey[key]
@@ -142,7 +150,13 @@ class Entity(ABC):
         if isinstance(item, Structure):
             setattr(item, attr, value)
         else:
-            table[index] = value
+            table[self.index] = value
+
+    def get(self, key, default=None):
+        try:
+            return super().get(key)
+        except IndexError:
+            return default
 
     @classmethod
     def _keys_by_table(cls, filter_keys=None):
@@ -339,7 +353,9 @@ class Structure(Mapping, NodeMixin, RomObject):
                    for field in cls.fields)
 
     def __iter__(self):
-        return (f.name for f in self.fields)
+        # Keys are technically unordered, but in many places it's very
+        # convenient for the name to come 'first'.
+        return (f.name for f in sorted(self.fields))
 
     def __len__(self):
         return len(self.fields)
@@ -498,13 +514,27 @@ class BitField(Structure):
 
 
 class Table(Sequence, NodeMixin, RomObject):
+    """ A ROM data table
+
+    For tables without an index, 'offset' is relative to the start of the ROM,
+    and indicates the location of the zeroth item in the table. The offset of
+    the Nth item will be `offset + (N * stride).
+
+    For tables with an index, 'offset' is added to the index values to convert
+    them to ROM offsets. Hence, the offset of the Nth item is `offset +
+    index[N]`. The stride is informational only.
+
+    FIXME: it occurs to me that the offset calculation could be unified as
+    `offset(table[N]) = table.offset + index[N] + N * table.stride`, where
+    stride is 0 for indexed tables and index[N] is 0 for non-indexed tables.
+    """
 
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
 
     def __init__(self, id_, view, typename, index, fid=None, name=None,
-                 offset=0, size=None, units=Unit.bytes, display=None,
-                 parent=None):
+                 iname=None, offset=0, size=None, units=Unit.bytes,
+                 display=None, parent=None):
         """ Create a Table
 
         view:   The underlying bitarray view
@@ -515,12 +545,13 @@ class Table(Sequence, NodeMixin, RomObject):
         self.id = id_
         self.fid = fid
         self.name = name
+        self.iname = iname
         self.view = view
         self.parent = parent
         self.index = index
         self.units = units
         self.typename = typename
-        self.offset = offset
+        self.offset = util.HexInt(offset)
         self.size = size
         self.display = display
 
@@ -560,7 +591,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return Table(self.view, self.typename, self.index[i])
+            return TableView.from_slice(self, i)
         elif i >= len(self):
             raise IndexError("Table index out of range")
         elif self._struct:
@@ -593,6 +624,10 @@ class Table(Sequence, NodeMixin, RomObject):
                                "but they are nameless")
         except StopIteration:
             raise ValueError(f"No object with name: {name}")
+
+    @property
+    def has_index(self):
+        return isinstance(self.index, Table)
 
     def __setitem__(self, i, v):
         if str(v) != str(self[i]):
@@ -632,6 +667,7 @@ class Table(Sequence, NodeMixin, RomObject):
         display = row.get('display', None)
         fid = row.get('fid', None)
         name = row.get('name', None)
+        iname = row.get('iname', None)
         if 'index' in row:
             index = parent.tables[row['index']]
         else:
@@ -639,7 +675,51 @@ class Table(Sequence, NodeMixin, RomObject):
             stride = int(row.get('stride', '0'), 0)
             index = Index(0, count, stride)
         return Table(tid, view, typename, index, fid, name,
-                     offset, size, units, display, parent)
+                     iname, offset, size, units, display, parent)
+
+    def asdict(self):
+        return {'id': self.id,
+                'fid': self.fid,
+                'name': self.name or '',
+                'iname': self.iname or '',
+                'type': self.typename,
+                'units': self.units,
+                'offset': self.offset,
+                'count': len(self),
+                'stride': self.size or '',
+                'size': self.size or '',
+                'index': self.index.id if self.has_index else '',
+                'display': self.display,
+                'comment': self.comment}
+
+
+class TableView:
+    """ View of a subset of table items
+
+    Usually produced by slicing a table. Acts as the table in most respects,
+    except that item lookups are relative to the slice.
+
+    As with dictionary views, changes to the underlying table are visible in
+    the view.
+    """
+    def __init__(self, table, indices):
+        self._table = table
+        self._indices = indices
+
+    def __len__(self):
+        return len(self._indices)
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return type(self).from_slice(self._table, i)
+        return self._table[self._indices[i]]
+
+    def __getattr__(self, attr):
+        return getattr(self._table, attr)
+
+    @classmethod
+    def from_slice(cls, table, sl):
+        return cls(table, sl.indices(len(table)))
 
 
 class Index(Sequence):
@@ -653,11 +733,11 @@ class Index(Sequence):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return (self[i] for i in range(i.start, i.stop, i.step))
+            return [self[i] for i in range(len(self))[i]]
         elif i >= self.count:
             raise IndexError("Index doesn't extend that far")
         else:
-            return self.offset + i * self.stride
+            return util.HexInt(self.offset + i * self.stride)
 
     def __repr__(self):
         return f"Index({self.offset}, {self.count}, {self.stride})"

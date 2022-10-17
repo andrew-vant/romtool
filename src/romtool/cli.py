@@ -15,6 +15,7 @@ Commands:
     search              Search a rom for strings, indexes, etc.
     charmap             Generate a texttable from known strings
     initchg             Generate a starter changeset file.
+    document            Generate documentation from rom
     fix                 Fix bogus headers and checksums
     dirs                Print directory paths used by romtool
 
@@ -50,13 +51,14 @@ import csv
 import json
 import re
 import codecs
-from os.path import splitext
+from os.path import splitext, basename
 from itertools import chain, groupby
 from textwrap import dedent
 from functools import partial
 from collections import namedtuple
 from inspect import getdoc
 
+import jinja2
 from addict import Dict
 from appdirs import AppDirs
 from docopt import docopt
@@ -134,7 +136,7 @@ def loadrom(romfile, mapdir=None):
 def dump(args):
     """ Dump all known data from a ROM
 
-    Usage: romtool dump [--help] [options] <rom> <moddir> [<patches>...]
+    Usage: romtool dump [--help] [options] <rom> <outdir> [<patches>...]
 
     Arguments:
         rom       The ROM file to dump
@@ -154,33 +156,15 @@ def dump(args):
     dumping. This is intended to allow examining a patch's effects without
     physically modifying the rom.
     """
-
-
-    if __debug__:
-        log.info("Optimizations disabled; dumping may be slow. "
-                 "Consider setting PYTHONOPTIMIZE=TRUE")
-    if args.patches:
-        raise NotImplementedError("Pre-patching of dumps not yet implemented")
-    if not args.map:
-        try:
-            args.map = detect(args.rom)
-        except RomDetectionError as e:
-            e.log()
-            sys.exit(2)
-
-    rmap = RomMap.load(args.map)
-    log.info("Opening ROM file: %s", args.rom)
-    with open(args.rom, "rb") as f:
-        rom = Rom.make(f, rmap)
-
-    log.info("Dumping ROM data to: %s", args.moddir)
-    os.makedirs(args.moddir, exist_ok=True)
+    rom = _init_rom(args.rom, args.map, args.patches)
+    log.info("Dumping ROM data to: %s", args.outdir)
+    os.makedirs(args.outdir, exist_ok=True)
     try:
-        rom.dump(args.moddir, args.force)
+        rom.dump(args.outdir, args.force)
     except FileExistsError as err:
         log.error(err)
-        dest = os.path.abspath(args.moddir)
-        log.error("Aborting, dump would overwrite files in %s", dest)
+        dest = os.path.abspath(args.outdir)
+        log.error("Aborting, would overwrite files in %s", dest)
         log.error("you can use --force if you really mean it")
         sys.exit(2)
     log.info("Dump finished")
@@ -486,6 +470,89 @@ def charmap(args):
         out = sorted((byte, char) for char, byte in cs.items())
         for byte, char in out:
             print("{:02X}={}".format(byte, char))
+
+
+def _init_rom(romfile, mapdir=None, patches=None):
+    """ Boilerplate for ROM object setup
+
+    Possibly this should be in Rom.__init__ or maybe a classmethod?
+    """
+    if __debug__:
+        log.info("Optimizations disabled; dumping may be slow. "
+                 "Consider setting PYTHONOPTIMIZE=TRUE")
+    if patches:
+        raise NotImplementedError("Pre-patching of dumps not yet implemented")
+    if not mapdir:
+        try:
+            mapdir = detect(romfile)
+        except RomDetectionError as ex:
+            ex.log()
+            sys.exit(2)
+    rmap = RomMap.load(mapdir)
+    log.info("Opening ROM file: %s", romfile)
+    with open(romfile, "rb") as f:
+        rom = Rom.make(f, rmap)
+    return rom
+
+
+def document(args):
+    """ Generate html documentation for a ROM
+
+    Usage: romtool document [--help] [options] <rom> [<outdir>] [<patches>...]
+
+    Arguments:
+        rom       The ROM file to document
+        outdir    Directory to build documentation
+        patches   Patches to apply before documenting
+
+    Options:
+        -m, --map PATH      Specify path to ROM map
+        -f, --force         Overwrite existing output files
+
+        -h, --help          Print this help
+        -v, --verbose       Verbose output
+        -q, --quiet         Quiet output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+
+    The built documentation includes the following:
+
+        * ROM and map metadata
+        * data table locations
+        * data structure formats
+        * data table contents (optional, slow)
+    """
+    rom = _init_rom(args.rom, args.map, args.patches)
+    structures = {}
+    for name, path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
+        log.info("Generating doc table for %s", path)
+        name = splitext(basename(name))[0]
+        name = name[0].upper() + name[1:]
+        try:
+            with open(path) as f:
+                structures[name] = util.tsv2html(f, name)
+        except jinja2.TemplateSyntaxError as ex:
+            log.critical("Error while documenting %s structure: [%s:%s] %s",
+                         name, ex.name, ex.lineno, ex.message)
+            sys.exit(2)
+    path = os.path.join(rom.map.path, "arrays.tsv")
+    log.info("Documenting data tables")
+    indexes = {t.index: rom.map.tables[t.index]
+               for t in rom.map.tables.values()}
+    tables = {tid: table for tid, table in rom.tables.items()
+              if tid not in indexes}
+    print(util.jrender('monolithic.html',
+                       rom=rom,
+                       tables=tables,
+                       indexes=indexes,
+                       structures=structures))
+
+
+    #     rom.document(args.outdir, args.force)
+    # except FileExistsError as ex:
+    #     log.error("%s (use --force to permit overwriting)", ex)
+    #     sys.exit(1)
+    # log.info("Dump finished")
 
 def findblocks(args):
     """ Search for unused blocks in a rom

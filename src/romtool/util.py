@@ -11,10 +11,13 @@ from itertools import chain
 from functools import lru_cache
 from os.path import dirname, realpath
 from os.path import join as pathjoin
+from pathlib import Path
 from enum import IntEnum
 
 import yaml
 import asteval
+import appdirs
+import jinja2
 from bitarray import bitarray
 from bitarray.util import bits2bytes
 from itertools import tee
@@ -466,3 +469,27 @@ def pairwise(iterable):
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b)
+
+@lru_cache
+def jinja_env():
+    user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
+    tpl_loader = jinja2.ChoiceLoader([
+        jinja2.FileSystemLoader(user_templates),
+        jinja2.PackageLoader('romtool'),
+        ])
+    return jinja2.Environment(
+            loader=tpl_loader,
+            extensions=['jinja2.ext.do'],
+            )
+
+def tsv2html(infile, caption=None):
+    reader = csv.reader(infile, dialect='romtool')
+    template = jinja_env().get_template('tsv2html.html')
+    return template.render(
+            caption=caption,
+            headers=next(reader),
+            rows=reader
+            )
+
+def jrender(_template, **kwargs):
+    return jinja_env().get_template(_template).render(**kwargs)

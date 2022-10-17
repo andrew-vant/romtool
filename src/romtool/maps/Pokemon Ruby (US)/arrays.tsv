@@ -1,10 +1,10 @@
-id	fid	name	set	type	offset	count	stride	size	index	priority	display	comment
-species			species	species	0x1FEC30	412	28	28				
-snames	name	Name	species	strz	0x1F7184	412	11	11			main	
-pokedex			pokedex	pokedex	0x3B1874	387	36	36				
-moves			moves	move	0x1FB144	355	12	9				
-mnames	name	Name	moves	strz	0x1F8338	355	13	13			main	
-mdesc_ptr	dptr	Description Pointer	moves	uintle	0x3C09F0	355	4	4			pointer	
-mdesc	desc	Description	moves	strz	-0x8000000	355		255	mdesc_ptr		main	
-evo			species	evolutions	0x203B80	412	40	40				
-effectiveness			types	effectiveness	0x1F9738	112	3	3				
+id	fid	name	iname	set	type	offset	count	stride	size	index	priority	display	comment
+species		Species	Species	species	species	0x1FEC30	412	28	28				
+snames	name	Species Names	Name	species	strz	0x1F7184	412	11	11			main	
+pokedex		Pokedex	Entry	pokedex	pokedex	0x3B1874	387	36	36				
+moves		Moves	Move	moves	move	0x1FB144	355	12	9				
+mnames	name	Move Names	Name	moves	strz	0x1F8338	355	13	13			main	
+mdesc_ptr	dptr	Move Descriptions Index	Description Pointer	moves	uintle	0x3C09F0	355	4	4			pointer	
+mdesc	desc	Move Descriptions	Description	moves	strz	-0x8000000	355	255	255	mdesc_ptr		main	
+evo		Evolutions	Evolution	species	evolutions	0x203B80	412	40	40				
+effectiveness		Type Interactions	Effectiveness	types	effectiveness	0x1F9738	112	3	3				

@@ -1,0 +1,156 @@
+{%- macro toclist(dct, prefix) %}
+<ol>
+  {%- for key, item in dct|dictsort%}
+  <li><a href="#{{ prefix }}-{{ key }}">{{ item.name or key }}</a></li>
+  {%- endfor %}
+</ol>
+{%- endmacro %}
+
+{%- macro mappingtable(table, classes, keys, numbering) %}
+{%- set ns = namespace(headings=[]) %}
+{%- set numbering = numbering|default(true) %}
+<figure class="table">
+<table class="{{ ' '.join(classes) }}">
+{%- for item in table %}
+{%- if loop.first %}
+<thead><tr>
+  {%- if numbering %}<th>#</th>{%- endif %}
+  {%- set ns.headings = keys |
+                        default(item.keys()) |
+                        reject("eq", "comment") |
+                        list %}
+  {%- for key in ns.headings %}
+  <th>{{ key }}</th>
+  {%- endfor %}
+</tr></thead>
+<tbody>
+{%- endif -%}
+<tr>
+{%- if numbering %}<td>{{ loop.index0 }}</td>{%- endif %}
+{%- for key in ns.headings %}
+{#- FIXME: appears very slow. Find some way to use or imitate the perf
+hack in entity.items() #}
+<td>{{ item.get(key, "ERR") }}</td>
+{%- endfor %}
+</tr>
+{%- endfor %}
+</tbody>
+</table>
+<figcaption>
+  {%- for item in table if item.get('comment') %}
+  {%- if loop.first %}
+  <p>Notes:</p>
+  <dl class="tablenotes">
+  {%- endif %}
+  <dt id="item.id">{{ item.name }}</dt>
+  <dd>{{ item.comment }}</dd>
+  {%- if loop.last %}
+  </dl>
+  {%- endif %}
+  {%- endfor %}
+</figcaption>
+</figure>
+{%- endmacro %}
+
+{%- macro structtable(struct, classes) %}
+{%- set content = [] %}
+{%- for field in struct.fields %}
+{%- do content.append(field.asdict()) %}
+{%- endfor %}
+{{ mappingtable(content, classes) }}
+{%- endmacro %}
+
+{%- macro tablespecs(tables, classes) %}
+{%- set content = [] %}
+{%- for table in tables %}
+{%- do content.append(table.asdict()) %}
+{%- endfor %}
+{{ mappingtable(content, classes) }}
+{%- endmacro %}
+
+{%- macro datatable(table) %}
+{%- set index = table.index %}
+{%- set stride = table.size or index.stride or null %}
+<h3 id="table-{{ table.id }}">{{ table.name }}</h3>
+<p>
+{{ table.comment }}
+{{ table | length }}
+{% if stride %}{{ stride }}-byte{% endif %}
+items of type <span class='type'>{{ table.typename }}</span>.
+{%- if table.has_index %}
+{%- set endian = 'little-endian' if index.typename.endswith('le')
+                 else 'big-endian' if index.typename.endswith('be')
+                 else '' %}
+The table index begins at <span class='offset'>{{ index.offset }}</span>;
+index entries are {{ index.index.stride }}-byte {{ endian }}
+integer offsets relative to <span class='offset'>{{ table.offset }}</span>.
+{%- else %}
+First item starts at <span class='offset'>{{ table.offset }}</span>.
+{%- endif %}
+</p>
+{%- if table[0] is mapping %}
+{{ mappingtable(table, ["scroll"]) }}
+{%- else %}
+<figure class="table">
+<table class="scroll">
+<thead><tr><td>#</td><td>Value</td></tr></thead>
+<tbody>
+{%- for item in table %}
+<tr><td>{{ loop.index0 }}</td><td>{{ item }}</td></tr>
+{%- endfor %}
+</tbody>
+</table>
+</figure>
+{%- endif %}
+{%- endmacro %}
+
+{%- macro tbl2html(rows, caption) %}
+{%- set headers = rows[0] | list %}
+<table>
+  {%- if caption is defined and caption %}
+  <caption>{{ caption }}</caption>
+  {%- endif %}
+  <thead>
+    <tr>
+      <td>#</td>
+      {%- for header in headers %}
+      <td>{{ header }}</td>
+      {%- endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {%- for row in rows %}
+    <tr>
+      <td>{{ loop.index0 }}</td>
+      {%- for header in headers %}
+      <td>{{ row[header] }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{%- macro tsvtable(caption, headers, rows) %}
+<table>
+  {%- if caption is defined and caption %}
+  <caption>{{ caption }}</caption>
+  {%- endif %}
+  <thead>
+    <tr>
+      {%- for header in headers %}
+      <td>{{ header }}</td>
+      {%- endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {%- for row in rows %}
+    <tr>
+      {%- for value in row %}
+      <td>{{ value }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}

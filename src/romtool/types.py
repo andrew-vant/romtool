@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, asdict
 from io import BytesIO
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -83,6 +83,8 @@ class FieldExpr:
             self.value = None
             self.static = False
 
+    def __str__(self):
+        return self.spec
 
     def eval(self, parent):
         if self.static:
@@ -143,6 +145,28 @@ class Field(ABC):
         if self.offset is None:
             msg = f"'{self.id}' field missing required offset property"
             raise RomtoolError(msg)
+
+    def _sort_for_readability(self):
+        """ Get an ordering key for this field
+
+        It's often useful to order fields for readability rather than the
+        typical (in specs) offset order. This orders name fields first, pushes
+        opaque or unknown fields towards the end, and otherwise orders
+        according to the sort order given in the spec.
+
+        Sorting an iterable of fields directly will use this key.
+        """
+        return (
+                not self.is_name,
+                self.is_slop,
+                self.is_ptr,
+                self.is_unknown,
+                self.is_flag,
+                self.order or 0,
+               )
+
+    def __lt__(self, other):
+        return self._sort_for_readability() < other._sort_for_readability()
 
     @property
     def is_name(self):
@@ -228,6 +252,9 @@ class Field(ABC):
             raise RomtoolError(f"'{kwargs['type']}' is not a known field type")
         cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
+
+    def asdict(self):
+        return {f.name: getattr(self, f.name) or '' for f in fields(self)}
 
     @classmethod
     def handle(cls, typename):

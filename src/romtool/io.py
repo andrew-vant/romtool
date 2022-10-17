@@ -26,6 +26,8 @@ class Unit(enum.IntEnum):
     def __contains__(self, item):
         return item in type(self).__members__
 
+    def __str__(self):
+        return str(self.name)
 
 class BitArrayView(NodeMixin):
     """ Low level data handler
