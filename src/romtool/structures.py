@@ -15,7 +15,7 @@ from abc import ABC
 import yaml
 from anytree import NodeMixin
 
-from .types import Field, StructField
+from .field import Field, StructField
 from . import util
 from .util import RomObject, SequenceView
 from .io import Unit

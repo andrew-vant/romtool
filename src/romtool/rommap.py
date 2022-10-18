@@ -17,7 +17,7 @@ from . import util, text
 from .structures import Structure, BitField, Table
 from .text import TextTable
 from .exceptions import RomtoolError, MapError
-from .types import IntField
+from .field import IntField
 
 
 log = logging.getLogger(__name__)

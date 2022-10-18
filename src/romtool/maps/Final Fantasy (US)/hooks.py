@@ -1,6 +1,6 @@
 import logging
 
-from romtool.types import Field, IntField, StructField
+from romtool.field import Field, IntField, StructField
 from romtool.structures import Structure
 
 

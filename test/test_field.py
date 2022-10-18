@@ -6,7 +6,7 @@ import yaml
 from addict import Dict
 
 from romtool.io import BitArrayView as Stream
-from romtool.types import Field
+from romtool.field import Field
 from romtool.structures import Structure, BitField, Table, Index
 from romtool.util import bytes2ba
 

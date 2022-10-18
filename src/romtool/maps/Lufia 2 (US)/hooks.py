@@ -4,7 +4,7 @@ from functools import partial
 from io import BytesIO
 
 from romtool.structures import Structure
-from romtool.types import IntField
+from romtool.field import IntField
 from romtool.io import Unit
 from romtool.util import HexInt
 

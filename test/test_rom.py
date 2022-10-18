@@ -12,7 +12,7 @@ import codecs
 from romtool.rom import Rom
 from romtool.rommap import RomMap
 from romtool.structures import Structure
-from romtool.types import Field
+from romtool.field import Field
 from romtool.util import pkgfile, IndexInt
 
 
