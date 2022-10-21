@@ -521,3 +521,26 @@ def tsv2html(infile, caption=None):
 
 def jrender(_template, **kwargs):
     return jinja_env().get_template(_template).render(**kwargs)
+
+def nodestats(node):
+    """ Get some debugging statistics about an anynode node """
+    childcount = lambda node: len(node.children)
+    largest = max(node.descendants, key=childcount)
+    return {
+        str(node): {
+            'height': node.height,
+            'depth': node.depth,
+            'children': len(node.children),
+            'descendants': len(node.descendants),
+            'largest child': f'{largest} ({childcount(largest)} children)',
+            }
+        }
+
+class lstr:
+    """ Calls a function only when its result needs to be printed """
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+    def __str__(self):
+        return str(self.func(*args, **kwargs))

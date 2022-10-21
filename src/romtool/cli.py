@@ -59,6 +59,7 @@ from collections import namedtuple
 from inspect import getdoc
 
 import jinja2
+import yaml
 from addict import Dict
 from appdirs import AppDirs
 from docopt import docopt
@@ -263,6 +264,10 @@ def build(args):
             rom.load(path)
         else:
             raise ValueError(f"Don't know what to do with input file: {path}")
+    if args.debug:
+        for node in rom, rom.data:
+            for line in yaml.dump(util.nodestats(node)).splitlines():
+                log.debug(line)
     _writepatch(rom.patch, args.out)
 
 
