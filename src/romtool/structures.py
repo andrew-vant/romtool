@@ -388,7 +388,10 @@ class Structure(Mapping, NodeMixin, RomObject):
             raise ValueError("bad format string: {spec}")
 
     def __str__(self):
-        return yaml.dump(dict(self))
+        cls = type(self).__name__
+        name = getattr(self, 'name', 'nameless')
+        os_bytes, rm_bits = self.view.os_bytemod
+        return f'{cls}@{os_bytes}+{rm_bits} ({name})'
 
     def __repr__(self):
         tpnm = type(self).__name__

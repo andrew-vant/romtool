@@ -13,7 +13,7 @@ from collections.abc import Hashable
 from functools import lru_cache
 from io import BytesIO
 
-from .util import bytes2ba
+from .util import bytes2ba, HexInt
 
 log = logging.getLogger(__name__)
 
@@ -120,6 +120,12 @@ class BitArrayView(NodeMixin):
             raise ValueError("Not an even number of bytes")
         else:
             return self.offset // Unit.bytes
+
+    @property
+    def os_bytemod(self):
+        os_bytes, rm_bits = divmod(self.offset, Unit.bytes)
+        os_bytes = HexInt(os_bytes, len(self.root).bit_length())
+        return os_bytes, rm_bits
 
     def __str__(self):
         bits = ''.join('1' if b else '0' for b in self[:16])
