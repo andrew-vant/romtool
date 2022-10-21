@@ -602,7 +602,7 @@ class Table(Sequence, NodeMixin, RomObject):
         if isinstance(i, slice):
             return SequenceView(self, i)
         elif i >= len(self):
-            raise IndexError("Table index out of range")
+            raise IndexError(f"Table index out of range ({i} >= {len(self)})")
         elif self._struct:
             return self._struct(self._subview(i), self)
         elif self.typename == 'str':
