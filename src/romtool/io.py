@@ -105,7 +105,11 @@ class BitArrayView(NodeMixin):
             return self.offset // Unit.bytes
 
     def __str__(self):
-        bits = ''.join('1' if b else '0' for b in self)
+        bits = ''.join('1' if b else '0' for b in self[:16])
+        excess = max([len(self) - len(bits), 0])
+        if len(bits) < len(self):
+            excess = len(self) - len(bits)
+            bits += f'...({excess} more)'
         return f'BitArrayView({bits})'
 
     def __repr__(self):
