@@ -152,6 +152,7 @@ def dump(args):
         -v, --verbose       Verbose output
         -q, --quiet         Quiet output
         -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
 
     If <patches>... are given, they will be applied to the ROM in-memory before
     dumping. This is intended to allow examining a patch's effects without
