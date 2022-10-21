@@ -4,6 +4,7 @@ These objects form a layer over the raw rom, such that accessing them
 automagically turns the bits and bytes into integers, strings, etc.
 """
 import logging
+from collections import ChainMap
 from collections.abc import Mapping, Sequence
 from itertools import chain, combinations, groupby
 from functools import partial, lru_cache
@@ -15,7 +16,7 @@ from abc import ABC
 import yaml
 from anytree import NodeMixin
 
-from .field import Field, StructField
+from .field import Field, StructField, FieldExpr
 from . import util
 from .util import RomObject, SequenceView
 from .io import Unit
@@ -24,212 +25,82 @@ from .exceptions import RomtoolError
 
 log = logging.getLogger(__name__)
 
-class Entity(Mapping):
-    # FIXME: consider making Entity inherit ChainMap. Then have EntityList
-    # construct the Entity on the fly, wrapping primitives in a single-key
-    # mapping. Or something. Entity/Entitylist is really just a chainmap of
-    # zip, I think. See DeepChainMap example in std.collections for ideas.
+
+class Entity(ChainMap):
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
     element of each underlying table until one returns successfully. For tables
     that return a primitive value, the lookup will be checked against the
     table's name.
-
-    FIXME: can't have more than one table with an id of 'name'. Also intuitive
-    table names for primtives are things like 'charnames', which the check
-    below won't match. Need another way to identify name tables.
     """
-
-    class TableList(list):
-        """ Helper list
-
-        Has attributes to look up tables by id, name, field name (key) or field
-        id (attr).
-        """
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.byid = {t.id: t for t in self}
-            self.byname = {t.name: t for t in self}
-            self.bykey = {}
-            self.byattr = {}
-            for table in self:
-                if table._struct:
-                    for field in table._struct.fields:
-                        self.byattr[field.id] = table
-                        self.bykey[field.name] = table
-                else:
-                    self.byattr[table.fid or table.id] = table
-                    self.bykey[table.iname or table.name] = table
-
-    def __init_subclass__(cls, tables, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._tables = cls.TableList(tables)
-        attrs = ','.join(list(cls._tables.byattr))
-        log.debug(f"checking for bad attributes in {cls}: [{attrs}]")
-        bad_attrs = sorted(f"{table.id}.{attr}"
-                           for attr, table
-                           in cls._tables.byattr.items()
-                           if hasattr(cls, attr))
-        if bad_attrs:
-            raise ValueError("forbidden field id(s): " + ", ".join(bad_attrs))
-
-    @classmethod
-    def columns(cls):
-        """ Get entity columns for output in an intelligent order """
-        def ordering(thing):
-            # ew
-            if isinstance(thing, Field):
-                return (
-                        not thing.is_name,
-                        thing.is_slop,
-                        thing.is_ptr,
-                        thing.is_unknown,
-                        thing.is_flag,
-                        thing.order or 0,
-                       )
-            elif isinstance(thing, Table):
-                return (
-                    not thing.fid == 'name',
-                    0,
-                    thing.display == 'pointer',
-                    'unknown' in thing.name.lower(),
-                    False,  # FIXME: how to do this right?
-                    0,
-                    )
-            else:
-                raise Exception("can't happen?")
-
-        fields = []
-        for table in cls._tables:
-            fields.extend(Structure.registry[table.typename].fields
-                          if table.typename in Structure.registry
-                          else [table])
-        fields.sort(key=ordering)
-        cols = [f.iname or f.name if isinstance(f, Table) else f.name
-                for f in fields]
-        assert set(cols) == set(cls._tables.bykey)
-        return cols
-
-    def __init__(self, index):
-        sa = super().__setattr__
-        sa('index', index)
-
-    def __len__(self):
-        return len(list(iter(self)))
-
-    def __str__(self):
-        tnm = self.__class__.__name__
-        inm = getattr(self, 'name', 'nameless')
-        return f'{tnm} #{self.index} ({inm})'
-
     def __iter__(self):
-        yield from self.columns()
-
-    def __getitem__(self, key):
-        table = self._tables.bykey[key]
-        item = table[self.index]
-        return item if not isinstance(item, Structure) else item[key]
+        fields = sorted(chain.from_iterable(s.fields for s in self.maps))
+        for field in fields:
+            yield field.name
 
     def __setitem__(self, key, value):
-        table = self._tables.bykey[key]
-        item = table[self.index]
-        if isinstance(item, Structure):
-            item[key] = value
-        else:
-            table[self.index] = value
+        for struct in self.maps:
+            if key in struct:
+                struct[key] = value
+                return
+        raise KeyError(key)
+
+    def __delitem__(self, key):
+        raise NotImplementedError("can't delete structure fields")
 
     def __getattr__(self, attr):
-        table = self._tables.byattr[attr]
-        item = table[self.index]
-        return item if not isinstance(item, Structure) else getattr(item, attr)
+        for struct in self.maps:
+            if hasattr(struct, attr):
+                return getattr(struct, attr)
+        raise AttributeError(attr)
+
+
+class StructifyItem(Mapping):
+    """ Wrap a table item so that it 'looks like' a structure """
+    def __init__(self, table, i):
+        sa = super().__setattr__
+        sa('_table', table)
+        sa('_i', i)
+        fld = Field(id=table.fid, name=table.iname, type=table.typename,
+                    offset=FieldExpr('0'), size=FieldExpr('1'),
+                    display=table.display)
+        sa('fields', [fld])
+
+    def __iter__(self):
+        yield self._table.iname
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, k):
+        if k == self._table.iname:
+            return self._table[self._i]
+        raise KeyError(k)
+
+    def __setitem__(self, k, value):
+        if k == self._table.iname:
+            self._table[self._i] = value
+        else:
+            raise KeyError(k)
+
+    def __getattr__(self, attr):
+        if attr == self._table.fid:
+            return self._table[self._i]
+        raise AttributeError(attr)
 
     def __setattr__(self, attr, value):
-        table = self._tables.byattr[attr]
-        item = table[self.index]
-        if isinstance(item, Structure):
-            setattr(item, attr, value)
+        if attr == self._table.fid:
+            self._table[self._i] = value
         else:
-            table[self.index] = value
-
-    def get(self, key, default=None):
-        try:
-            return super().get(key)
-        except IndexError:
-            return default
-
-    @classmethod
-    def _keys_by_table(cls, filter_keys=None):
-        """ Group the entity keys by the underlying table id.
-
-        Helper method for use by update/items.
-        """
-        bytable = lambda k: cls._tables.bykey[k].id
-        keys = sorted(cls._tables.bykey, key=bytable)
-        for tid, keys in groupby(keys, key=bytable):
-            if filter_keys is None:
-                keys = list(keys)
-            else:
-                keys = [k for k in keys if k in filter_keys]
-            if keys:
-                # Would prefer to yield the item itself, but then the caller
-                # can't set scalars in the underlying table.
-                yield cls._tables.byid[tid], keys
-
-    def update(self, other):
-        """ Update this entity from a dictionary-like object
-
-        Repeated setitem calls can get expensive. This provides a more
-        performant alternative. The input dictionary should be keyed by field
-        name. "extra" keys are ignored.
-        """
-        # Table item lookups are where most of the cost seems to be, so let's
-        # see if we can limit it to once per table
-        for table, keys in self._keys_by_table(other):
-            try:
-                item = table[self.index]
-            except IndexError as ex:
-                log.warning(f"can't set %s[%s]{keys}  ({ex})",
-                            table.id, self.index)
-                continue
-            if isinstance(item, Structure):
-                for k in keys:
-                    item[k] = other[k]
-            else:
-                table[self.index] = other[keys.pop()]
-                if list(keys):
-                    raise Exception("can't happen?")
-
-    def items(self):
-        """ Get the field names and values in this entity
-
-        Repeated entity key lookups can get expensive. This provides a more
-        performant alternative; the underlying table lookups are only done
-        once.
-        """
-        for table, keys in self._keys_by_table():
-            try:
-                item = table[self.index]
-            except IndexError as ex:
-                log.warning(f"can't get %s[%s]{keys}  ({ex})",
-                            table.id, self.index)
-                item = None
-            if isinstance(item, Structure):
-                for k in keys:
-                    yield (k, item[k])
-            else:
-                assert len(keys) == 1
-                yield (keys.pop(), item)
+            raise AttributeError(attr)
 
 
 class EntityList(Sequence):
     """ Wrapper for parallel tables
 
-    Behaves as a list. Lookups on an EntityList return an Entity wrapping
-    corresponding items from the underlying tables.
-
-    Accepts either kwargs mapping names to tables, or a positional dictionary
-    argument describing the same.
+    Lookups on an EntityList return an Entity wrapping corresponding items from
+    the underlying tables.
     """
 
     def __init__(self, name, tables):
@@ -239,13 +110,18 @@ class EntityList(Sequence):
         if len(lengths) != 1:
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
-        self.tables = tables
         self.name = name
-        self.etype = type(name, (Entity,), {}, tables=tables)
-        self.entities = [self.etype(i) for i in range(len(self))]
+        self.tables = tables
 
     def __getitem__(self, i):
-        return self.entities[i]
+        if i >= len(self):
+            raise IndexError(f"i >= {len(self)}")
+        structs = [table[i] if table._struct else StructifyItem(table, i)
+                   for table in self.tables]
+        return Entity(*structs)
+
+    def __setitem__(self, i, v):
+        self[i].update(v)
 
     def __len__(self):
         lengths = set(len(t) for t in self.tables)
@@ -254,12 +130,15 @@ class EntityList(Sequence):
                              "after creation")
         return lengths.pop()
 
+    def columns(self):
+        return list(self[0])
+
     def locate(self, name):
         """ Get the index of the entity with the given name """
         try:
             return next(i for i, e in enumerate(self) if e.name == name)
         except AttributeError:
-            raise LookupError(f"Tried to look up {self.typename} by name, "
+            raise LookupError(f"Tried to look up {self.name} by name, "
                                "but they are nameless")
         except StopIteration:
             raise ValueError(f"No object with name: {name}")

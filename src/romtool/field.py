@@ -224,12 +224,12 @@ class Field(ABC):
         """
         setattr(self.view(obj), self.type, value)
 
-    @abstractmethod
     def parse(self, string):
         """ Parse the string representation of this field's value type
 
         The resulting value is returned, for convenience.
         """
+        raise NotImplementedError("don't know how to parse a %s", type(self))
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

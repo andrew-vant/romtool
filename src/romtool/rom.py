@@ -100,7 +100,7 @@ class Rom(NodeMixin, util.RomObject):
                 record = {'_idx': i}
                 record.update(entity.items())
                 records.append(record)
-            cols = elist.etype.columns()
+            cols = elist.columns()
             cols.append('_idx')
             # sanity check
             keys = set(records[0].keys())
@@ -143,7 +143,12 @@ class Rom(NodeMixin, util.RomObject):
                     name = new.get('Name', 'nameless')
                     log.debug("Loading %s #%s (%s)", etype, i, name)
                     with util.loading_context(etype, name, i):
-                        orig.update(new)
+                        for k in set(orig) & set(new):
+                            try:
+                                orig[k] = new[k]
+                            except (IndexError, KeyError) as ex:
+                                log.warning("can't set %s #%s[%s] (%s)",
+                                            etype, i, k, ex)
 
     def apply(self, changeset):
         """ Apply a dictionary of changes to a ROM
