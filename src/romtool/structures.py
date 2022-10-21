@@ -291,6 +291,10 @@ class Structure(Mapping, NodeMixin, RomObject):
     registry = {}
     labels = {}
 
+    @lru_cache(None)
+    def __new__(cls, view, parent=None):
+        return super().__new__(cls)
+
     def __init__(self, view, parent=None):
         self.view = view
         self.parent = parent
@@ -310,6 +314,12 @@ class Structure(Mapping, NodeMixin, RomObject):
             self._fbid(key).write(self, value)
         except AttributeError:
             super().__setattr__(key, value)
+
+    def __eq__(self, other):
+        return object.__eq__(self, other)
+
+    def __hash__(self):
+        return object.__hash__(self)
 
     def lookup(self, key):
         try:

@@ -9,6 +9,8 @@ from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
 from anytree import NodeMixin
 from anytree.search import find
 from collections import namedtuple
+from collections.abc import Hashable
+from functools import lru_cache
 from io import BytesIO
 
 from .util import bytes2ba
@@ -44,6 +46,18 @@ class BitArrayView(NodeMixin):
     Slices are indexed relative to the view's start and end, not the
     underlying bitarray. The underlying bitarray is available as BitArrayView.bits.
     """
+    def __new__(cls, auto, *args, **kwargs):
+        # bitarrays are unhashable. Farm to separate new for view vs bitarray
+        # and just cache the view one.
+        return (cls._newcache(auto, *args, **kwargs)
+                if isinstance(auto, Hashable)
+                else super().__new__(cls))
+
+    @classmethod
+    @lru_cache(None)
+    def _newcache(cls, auto, *args, **kwargs):
+        return super().__new__(cls)
+
     def __init__(self, auto, offset=None, length=None, name=None):
         self._ba = None
         if isinstance(auto, BitArrayView):
@@ -69,8 +83,11 @@ class BitArrayView(NodeMixin):
     def __len__(self):
         return self.length
 
+    def __hash__(self):
+        return hash((id(self.parent), self.offset, self.length, self.name))
+
     def __eq__(self, other):
-        return self.bits == other.bits
+        return hash(self) == hash(other)
 
     @property
     def sha1(self):
