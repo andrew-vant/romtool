@@ -488,9 +488,9 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             return self._struct(self._subview(i), self)
         elif self.typename == 'str':
-            return self._subview(i).str.read(self.display)
+            return self._subview(i).str_read(self.display)
         elif self.typename == 'strz':
-            return self._subview(i).strz.read(self.display)
+            return self._subview(i).strz_read(self.display)
         elif self.display in ('hex', 'pointer'):
             return util.HexInt(getattr(self._subview(i), self.typename))
         else:
@@ -534,9 +534,9 @@ class Table(Sequence, NodeMixin, RomObject):
         if self._struct:
             self[i].copy(v)
         elif self.typename == 'str':
-            self._subview(i).str.write(v, self.display)
+            self._subview(i).str_write(v, self.display)
         elif self.typename == 'strz':
-            self._subview(i).strz.write(v, self.display)
+            self._subview(i).strz_write(v, self.display)
         else:
             setattr(self._subview(i), self.typename, v)
 
