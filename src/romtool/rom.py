@@ -132,11 +132,9 @@ class Rom(NodeMixin, util.RomObject):
                 log.warning('_idx field not present; assuming input order is correct')
             data[_set] = contents
 
-        with ExitStack() as context:
+        with EntityList.cache_lookups():
             # Crossref resolution is slow. Cache results during load. FIXME: I
             # am *sure* there's a better way to do this.
-            for el in self.entities.values():
-                context.enter_context(el.cached_searches())
             for etype, elist in self.entities.items():
                 log.info("Loading %s %s", len(elist), etype)
                 for i, (orig, new) in enumerate(zip(elist, data[etype])):

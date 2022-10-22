@@ -51,8 +51,10 @@ class Entity(ChainMap):
 
     def __getattr__(self, attr):
         for struct in self.maps:
-            if hasattr(struct, attr):
+            try:
                 return getattr(struct, attr)
+            except AttributeError:
+                pass
         raise AttributeError(attr)
 
 
@@ -143,9 +145,10 @@ class EntityList(Sequence):
         except StopIteration:
             raise ValueError(f"No object with name: {name}")
 
+    @classmethod
     @contextmanager
-    def cached_searches(self):
-        """ Temporarily cache locate calls
+    def cache_lookups(cls):
+        """ Temporarily cache entity lookups
 
         This is supposed to help with the abysmal slowness of resolving
         cross-references in tsv input files. I'm pretty sure this is a terrible
@@ -156,12 +159,14 @@ class EntityList(Sequence):
         loading, but could easily happen during other use, hence it not being
         the default behavior.
         """
-
-        self.locate = lru_cache(self.locate)
+        orig_locate, orig_getitem = cls.locate, cls.__getitem__
+        cls.locate = lru_cache(None)(cls.locate)
+        cls.__getitem__ = lru_cache(None)(cls.__getitem__)
         try:
-            yield self
+            yield cls
         finally:
-            del self.locate
+            cls.locate = orig_locate
+            cls.__getitem__ = orig_getitem
 
 
 class Structure(Mapping, NodeMixin, RomObject):
