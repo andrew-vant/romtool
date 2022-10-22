@@ -51,6 +51,7 @@ import csv
 import json
 import re
 import codecs
+from datetime import datetime, timedelta
 from os.path import splitext, basename
 from itertools import chain, groupby
 from textwrap import dedent
@@ -971,6 +972,7 @@ def initlog(args):
 
 def main(argv=None):
     """ Entry point for romtool."""
+    ts_start = datetime.now()
     args = Args(docopt(__doc__.strip(), argv, version=version, options_first=True))
     initlog(args)
     util.debug_structure(args)
@@ -987,6 +989,7 @@ def main(argv=None):
         args = Args(docopt(getdoc(cmd), argv, version=version))
         initlog(args)  # because log opts may come before or after the command
         cmd(args)
+        log.debug("total running time: %s", datetime.now()-ts_start)
     except KeyboardInterrupt as ex:
         log.error(f"keyboard interrupt; aborting")
         sys.exit(2)
