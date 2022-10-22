@@ -361,20 +361,30 @@ def loadyaml(data):
     # Should take anything yaml.load will take.
     return yaml.load(data, Loader=yaml.SafeLoader)
 
+def dumptsv(path, dataset, force=False, headers=None, index=None):
+    """ Dump an iterable of mappings to a tsv file
 
-def writetsv(path, data, force=False, headers=None):
-    mode = "w" if force else "x"
-    data = list(data)
-    if headers is None:
-        headers = data[0].keys()
+    If an `index` string is provided, a matching column will be added to the
+    output to indicate the original order of the data.
+    """
+    mode = 'w' if force else 'x'
+    writer = None
+    desc = getattr(dataset, 'name', '')
     with open(path, mode, newline='') as f:
         # FIXME: Wonder if I can auto-generate per-struct dialects that do the
         # right thing with validate() on loading, so we find out about size or
         # type mismatches right away.
-        writer = csv.DictWriter(f, headers, dialect='romtool')
-        writer.writeheader()
-        for item in data:
-            writer.writerow(item)
+        for i, item in enumerate(dataset):
+            if not writer:
+                headers = list(headers or item.keys())
+                if index:
+                    headers.append(index)
+                writer = csv.DictWriter(f, headers, dialect='romtool')
+                writer.writeheader()
+            log.debug("Dumping %s #%s", desc, i)
+            record = {index: i} if index else {}
+            record.update(item.items())
+            writer.writerow(record)
 
 def readtsv(infile):
     """ Read in a tsv file

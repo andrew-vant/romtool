@@ -188,7 +188,7 @@ class EntityList(Sequence):
         return self._length
 
     def columns(self):
-        return list(self.etype.keys())
+        return self.etype._keys
 
     def locate(self, name):
         """ Get the index of the entity with the given name """

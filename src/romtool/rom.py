@@ -94,21 +94,8 @@ class Rom(NodeMixin, util.RomObject):
 
         for name, elist in self.entities.items():
             log.info("Dumping %s (%s items)", name, len(elist))
-            records = []
-            for i, entity in enumerate(elist):
-                log.debug("Dumping %s #%s", name, i)
-                record = {'_idx': i}
-                record.update(entity.items())
-                records.append(record)
-            cols = elist.columns()
-            cols.append('_idx')
-            # sanity check
-            keys = set(records[0].keys())
-            for r in records:
-                assert not (set(r.keys()) - keys)
-                assert not (set(keys - r.keys()))
             path = pathjoin(folder, f'{name}.tsv')
-            util.writetsv(path, records, force, cols)
+            util.dumptsv(path, elist, force, elist.columns(), '_idx')
 
     def lookup(self, key):
         if key in self.map.sets:
