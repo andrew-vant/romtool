@@ -6,7 +6,7 @@ import logging
 import os
 import abc
 from collections import OrderedDict, Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from itertools import chain
 from functools import lru_cache
 from os.path import dirname, realpath
@@ -42,21 +42,25 @@ csv.register_dialect(
 class CheckedDict(dict):
     """ A dictionary that warns you if you overwrite keys."""
 
-    cmsg = "Conflict: %s: %s replaced with %s."
+    class KeyConflict(KeyError):
+        """ Error indicating an attempt to overwrite a key """
+        def __init__(self, keys):
+            self.keys = [keys] if isinstance(keys, str) else keys
+
+        def __str__(self):
+            return f"key(s) already set: {self.keys}"
 
     def __setitem__(self, key, value):
-        self._check_conflict(key, value)
+        if key in self and value != self[key]:
+            raise CheckedDict.KeyConflict(f"{key} already set")
         super().__setitem__(key, value)
 
-    def update(self, *args, **kwargs):
-        d = dict(*args, **kwargs)
-        for k, v in d.items():
-            self._check_conflict(k, v)
-        super().update(d)
-
-    def _check_conflict(self, key, value):
-        if key in self and value != self[key]:
-            log.debug(self.cmsg, key, self[key], value)
+    def update(self, other):
+        bad = [k for k, v in other.items()
+               if k in self and v != self[k]]
+        if bad:
+            raise CheckedDict.KeyConflict(bad)
+        super().update(other)
 
 
 class HexInt(int):

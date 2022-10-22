@@ -5,7 +5,7 @@ automagically turns the bits and bytes into integers, strings, etc.
 """
 import logging
 from collections import ChainMap
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, groupby
 from functools import partial, lru_cache
 from contextlib import contextmanager
@@ -18,7 +18,7 @@ from anytree import NodeMixin
 
 from .field import Field, StructField, FieldExpr
 from . import util
-from .util import RomObject, SequenceView
+from .util import RomObject, SequenceView, CheckedDict
 from .io import Unit
 from .exceptions import RomtoolError
 
@@ -26,7 +26,7 @@ from .exceptions import RomtoolError
 log = logging.getLogger(__name__)
 
 
-class Entity(ChainMap):
+class Entity(MutableMapping):
     """ Wrapper for corresponding objects in parallel tables
 
     Attribute and key operations on an Entity will be forwarded to the `i`th
@@ -34,68 +34,128 @@ class Entity(ChainMap):
     that return a primitive value, the lookup will be checked against the
     table's name.
     """
-    def __iter__(self):
-        fields = sorted(chain.from_iterable(s.fields for s in self.maps))
-        for field in fields:
-            yield field.name
-
-    def __setitem__(self, key, value):
-        for struct in self.maps:
-            if key in struct:
-                struct[key] = value
-                return
-        raise KeyError(key)
-
-    def __delitem__(self, key):
-        raise NotImplementedError("can't delete structure fields")
-
-    def __getattr__(self, attr):
-        for struct in self.maps:
-            try:
-                return getattr(struct, attr)
-            except AttributeError:
-                pass
-        raise AttributeError(attr)
-
-
-class StructifyItem(Mapping):
-    """ Wrap a table item so that it 'looks like' a structure """
-    def __init__(self, table, i):
-        sa = super().__setattr__
-        sa('_table', table)
-        sa('_i', i)
-        fld = Field(id=table.fid, name=table.iname, type=table.typename,
+    def __init_subclass__(cls, tables, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._all_fields = []
+        cls._tables_by_attr = CheckedDict()
+        cls._tables_by_name = CheckedDict()
+        cls._keys_by_table = {}
+        for table in tables:
+            cls._keys_by_table[table] = []
+            if table._struct:
+                fields = table._struct.fields
+            else:
+                fields = [Field.handlers[table.typename](
+                    id=table.fid, name=table.iname, type=table.typename,
                     offset=FieldExpr('0'), size=FieldExpr('1'),
-                    display=table.display)
-        sa('fields', [fld])
+                    display=table.display
+                    )]
+            for field in fields:
+                cls._all_fields.append(field)
+                cls._tables_by_attr[field.id] = table
+                cls._tables_by_name[field.name] = table
+                cls._keys_by_table[table].append(field.name)
+                prop = property(partial(cls._getattr, attr=field.id),
+                                partial(cls._setattr, attr=field.id))
+                if hasattr(cls, field.id):
+                    raise MapError(f"{cls.__name__}.{field.id} shadows a "
+                                   f"built-in attribute")
+                setattr(cls, field.id, prop)
+        cls._keys = [f.name for f in sorted(cls._all_fields)]
 
-    def __iter__(self):
-        yield self._table.iname
+    @classmethod
+    def define(cls, name, tables):
+        return type(name, (cls,), {}, tables=tables)
+
+    def __init__(self, index):
+        self._i = index
+
+    def __str__(self):
+        tnm = type(self).__name__
+        inm = getattr(self, 'name', 'nameless')
+        return f'{tnm} #{self._i} ({inm})'
 
     def __len__(self):
-        return 1
+        return len(type(self)._keys)
 
-    def __getitem__(self, k):
-        if k == self._table.iname:
-            return self._table[self._i]
-        raise KeyError(k)
+    def __repr__(self):
+        tnm = type(self).__name__
+        return f'{tnm}({self._i})'
 
-    def __setitem__(self, k, value):
-        if k == self._table.iname:
-            self._table[self._i] = value
+    def __iter__(self):
+        yield from type(self)._keys
+
+    def __getitem__(self, key):
+        item = self._tables_by_name[key][self._i]
+        return item if not isinstance(item, Structure) else item[key]
+
+    def __setitem__(self, key, value):
+        table = self._tables_by_name[key]
+        if table._struct:
+            table[self._i][key] = value
         else:
-            raise KeyError(k)
+            table[self._i] = value
 
-    def __getattr__(self, attr):
-        if attr == self._table.fid:
-            return self._table[self._i]
-        raise AttributeError(attr)
+    def __delitem__(self, key):
+        raise NotImplementedError("Can't delete entity fields")
 
-    def __setattr__(self, attr, value):
-        if attr == self._table.fid:
-            self._table[self._i] = value
+    # Not called directly; init_subclass partials these to produce attribute
+    # descriptors.
+    def _getattr(self, attr):
+        item = self._tables_by_attr[attr][self._i]
+        return item if not isinstance(item, Structure) else getattr(item, attr)
+
+    def _setattr(self, attr, value):
+        table = self._tables_by_attr[attr]
+        if table._struct:
+            setattr(table[self._i], attr, value)
         else:
-            raise AttributeError(attr)
+            table[self._i] = value
+
+    def update(self, other):
+        """ Update this entity from a dictionary-like object
+
+        Repeated setitem calls can get expensive. This provides a more
+        performant alternative. The input dictionary should be keyed by field
+        name. "extra" keys are ignored.
+        """
+        # Table item lookups are where most of the cost seems to be, so let's
+        # see if we can limit it to once per table
+        for table, keys in self._keys_by_table.items():
+            try:
+                item = table[self._i]
+            except IndexError as ex:
+                log.warning(f"can't set %s[%s]{keys}  ({ex})",
+                            table.id, self._i)
+                continue
+            if isinstance(item, Structure):
+                for k in keys:
+                    item[k] = other[k]
+            else:
+                assert len(keys) == 1
+                table[self._i] = other[keys[0]]
+
+    def items(self):
+        """ Get the field names and values in this entity
+
+        Repeated entity key lookups can get expensive. This provides a more
+        performant alternative; the underlying table lookups are only done
+        once.
+        """
+        # FIXME: pretty sure something unexpected will happen if the update
+        # includes a changed table-index entry.
+        for table, keys in self._keys_by_table.items():
+            try:
+                item = table[self._i]
+            except IndexError as ex:
+                log.warning(f"can't get %s[%s]{keys}  ({ex})",
+                            table.id, self._i)
+            if isinstance(item, Structure):
+                for k in keys:
+                    yield (k, item[k])
+            else:
+                assert len(keys) == 1
+                yield (keys[0], item)
 
 
 class EntityList(Sequence):
@@ -113,27 +173,22 @@ class EntityList(Sequence):
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
         self.name = name
-        self.tables = tables
+        self.etype = Entity.define(name, tables)
+        self._length = lengths.pop()
 
     def __getitem__(self, i):
         if i >= len(self):
             raise IndexError(f"i >= {len(self)}")
-        structs = [table[i] if table._struct else StructifyItem(table, i)
-                   for table in self.tables]
-        return Entity(*structs)
+        return self.etype(i)
 
     def __setitem__(self, i, v):
         self[i].update(v)
 
     def __len__(self):
-        lengths = set(len(t) for t in self.tables)
-        if len(lengths) != 1:
-            raise ValueError("EntityList table length mismatch introduced "
-                             "after creation")
-        return lengths.pop()
+        return self._length
 
     def columns(self):
-        return list(self[0])
+        return list(self.etype.keys())
 
     def locate(self, name):
         """ Get the index of the entity with the given name """
@@ -147,8 +202,8 @@ class EntityList(Sequence):
 
     @classmethod
     @contextmanager
-    def cache_lookups(cls):
-        """ Temporarily cache entity lookups
+    def cache_locate(cls):
+        """ Temporarily cache locate calls
 
         This is supposed to help with the abysmal slowness of resolving
         cross-references in tsv input files. I'm pretty sure this is a terrible
@@ -159,14 +214,12 @@ class EntityList(Sequence):
         loading, but could easily happen during other use, hence it not being
         the default behavior.
         """
-        orig_locate, orig_getitem = cls.locate, cls.__getitem__
+        orig_locate = cls.locate
         cls.locate = lru_cache(None)(cls.locate)
-        cls.__getitem__ = lru_cache(None)(cls.__getitem__)
         try:
             yield cls
         finally:
             cls.locate = orig_locate
-            cls.__getitem__ = orig_getitem
 
 
 class Structure(Mapping, NodeMixin, RomObject):

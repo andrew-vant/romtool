@@ -132,7 +132,7 @@ class Rom(NodeMixin, util.RomObject):
                 log.warning('_idx field not present; assuming input order is correct')
             data[_set] = contents
 
-        with EntityList.cache_lookups():
+        with EntityList.cache_locate():
             # Crossref resolution is slow. Cache results during load. FIXME: I
             # am *sure* there's a better way to do this.
             for etype, elist in self.entities.items():
@@ -141,12 +141,7 @@ class Rom(NodeMixin, util.RomObject):
                     name = new.get('Name', 'nameless')
                     log.debug("Loading %s #%s (%s)", etype, i, name)
                     with util.loading_context(etype, name, i):
-                        for k in set(orig) & set(new):
-                            try:
-                                orig[k] = new[k]
-                            except (IndexError, KeyError) as ex:
-                                log.warning("can't set %s #%s[%s] (%s)",
-                                            etype, i, k, ex)
+                        orig.update(new)
 
     def apply(self, changeset):
         """ Apply a dictionary of changes to a ROM
