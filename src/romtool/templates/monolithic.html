@@ -60,6 +60,7 @@ toclist, tablespecs %}
     <h2 id="dump">Data Dump by Entity</h2>
     {%- for name, dataset in rom.entities.items() %}
     <h3 id="entities-{{ name }}">{{ name }}</h3>
+    <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
     {{ mappingtable(dataset, ["scroll"]) }}
     {%- endfor %}
     <h2 id="raw">Data Dump by Table</h2>
