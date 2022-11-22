@@ -56,7 +56,7 @@ class FieldExpr:
     This is mainly of use for field offsets and sizes that are defined by
     another field of the parent structure.
     """
-
+    DYNAMIC = object()  # Sentinel static value since None may be valid
 
     def __init__(self, spec):
         if not spec:
@@ -78,16 +78,17 @@ class FieldExpr:
         # possible.
         try:
             self.value = int(spec, 0)
-            self.static = True
         except ValueError:
-            self.value = None
-            self.static = False
+            self.value = self.DYNAMIC
+
+    def __repr__(self):
+        return f"{type(self)}('{self.spec}')"
 
     def __str__(self):
         return self.spec
 
     def eval(self, parent):
-        if self.static:
+        if self.value is not self.DYNAMIC:
             return self.value
         self.interpreter.symtable = FieldContext(parent)
         result = self.interpreter.eval(self.spec)
