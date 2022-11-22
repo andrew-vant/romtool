@@ -81,7 +81,7 @@ class HexInt(int):
         return self
 
     def __repr__(self):
-        return f"HexInt({self})"
+        return f"{type(self).__name__}({self})"
 
     def __str__(self):
         """ Print self as a hex representation of bytes """
