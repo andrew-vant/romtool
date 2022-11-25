@@ -3,6 +3,7 @@
 These objects form a layer over the raw rom, such that accessing them
 automagically turns the bits and bytes into integers, strings, etc.
 """
+import dataclasses as dc
 import logging
 from collections import ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
@@ -14,11 +15,12 @@ from io import BytesIO
 from abc import ABC
 
 import yaml
+from addict import Dict
 from anytree import NodeMixin
 
 from .field import Field, StructField, FieldExpr
 from . import util
-from .util import RomObject, SequenceView, CheckedDict
+from .util import RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -45,8 +47,8 @@ class Entity(MutableMapping):
             if table._struct:
                 fields = table._struct.fields
             else:
-                fields = [Field.handlers[table.typename](
-                    id=table.fid, name=table.iname, type=table.typename,
+                fields = [Field.handlers[table.type](
+                    id=table.fid, name=table.iname, type=table.type,
                     offset=FieldExpr('0'), size=FieldExpr('1'),
                     display=table.display
                     )]
@@ -463,6 +465,41 @@ class BitField(Structure):
             self[k] = letter.isupper()
 
 
+@dc.dataclass
+class TableSpec:
+    id: str
+    type: str
+    fid: str = None
+    name: str = None
+    iname: str = None
+    set: str = None
+    units: Unit = Unit.bytes
+    count: int = None
+    offset: int = 0
+    stride: int = None
+    size: int = None
+    index: str = None
+    display: str = None
+    comment: str = ''
+
+    def __post_init__(self):
+        self.fid = self.fid or self.id
+        self.iname = self.iname or self.name
+        self.size = self.size or self.stride
+        if self.type in ['str', 'strz'] and not self.display:
+            raise MapError(f"Map bug in {self.id} array: "
+                           f"'display' is required for string types")
+
+    @classmethod
+    def from_tsv_row(cls, row):
+        kwargs = Dict(((k, v) for k, v in row.items() if v))
+        kwargs.offset = HexInt(kwargs.offset)
+        kwargs.count = int(kwargs.count, 0)
+        kwargs.stride = int(kwargs.stride, 0) if kwargs.stride else None
+        kwargs.size = int(kwargs.size.strip(), 0) if kwargs.size else None
+        return cls(**kwargs)
+
+
 class Table(Sequence, NodeMixin, RomObject):
     """ A ROM data table
 
@@ -482,42 +519,35 @@ class Table(Sequence, NodeMixin, RomObject):
     # Can't do a registry; what if you have more than one rom open? No, the rom
     # object has to maintain tables and their names, connect indexes, etc.
 
-    def __init__(self, id_, view, typename, index, fid=None, name=None,
-                 iname=None, offset=0, size=None, units=Unit.bytes,
-                 display=None, parent=None):
+    def __init__(self, parent, view, spec, index=None):
         """ Create a Table
 
-        view:   The underlying bitarray view
+        parent: The parent object (usually a Rom)
+        view:   The reference view (usually Rom.data)
+        spec:   The table spec
         index:  a list of offsets within the view
-        cls:    The type of object contained in this table.
         """
-
-        self.id = id_
-        self.fid = fid
-        self.name = name
-        self.iname = iname
-        self.view = view
         self.parent = parent
-        self.index = index
-        self.units = units
-        self.typename = typename
-        self.offset = util.HexInt(offset)
-        self.size = size
-        self.display = display
+        self.view = view
+        self.spec = spec
+        self.index = index or Index(0, spec.count, spec.stride or spec.size)
+        for field in dc.fields(spec):
+            if not hasattr(self, field.name):
+                setattr(self, field.name, getattr(spec, field.name))
 
     @property
     def _struct(self):
-        return Structure.registry.get(self.typename, None)
+        return Structure.registry.get(self.spec.type, None)
 
     @property
     def _isz_bits(self):
         """ Get the size of items in the table."""
-        if self.size:
-            return self.size * self.units
+        if self.spec.size:
+            return self.spec.size * self.spec.units
         elif self._struct:
             return self._struct.size()
         elif isinstance(self.index, Index):
-            return self.index.stride * self.units
+            return self.index.stride * self.spec.units
         else:
             ident = self.name or self.fid or 'unknown'
             msg = f"Couldn't figure out size of items in {ident} table"
@@ -533,7 +563,7 @@ class Table(Sequence, NodeMixin, RomObject):
         return f'Table({content})\n'
 
     def __str__(self):
-        tp = self.typename
+        tp = self.spec.type
         ct = len(self)
         offset = util.HexInt(self.index.offset)
         return f'Table({tp}*{ct}@{offset})'
@@ -545,20 +575,20 @@ class Table(Sequence, NodeMixin, RomObject):
             raise IndexError(f"Table index out of range ({i} >= {len(self)})")
         elif self._struct:
             return self._struct(self._subview(i), self)
-        elif self.typename == 'str':
-            return self._subview(i).str_read(self.display)
-        elif self.typename == 'strz':
-            return self._subview(i).strz_read(self.display)
-        elif self.display in ('hex', 'pointer'):
-            return util.HexInt(getattr(self._subview(i), self.typename))
+        elif self.spec.type == 'str':
+            return self._subview(i).str_read(self.spec.display)
+        elif self.spec.type == 'strz':
+            return self._subview(i).strz_read(self.spec.display)
+        elif self.spec.display in ('hex', 'pointer'):
+            return util.HexInt(getattr(self._subview(i), self.spec.type))
         else:
-            return getattr(self._subview(i), self.typename)
+            return getattr(self._subview(i), self.spec.type)
 
     def lookup(self, name):
         try:
             return next(item for item in self if item.name == name)
         except AttributeError:
-            raise AttributeError(f"Tried to look up {self.typename} by name, "
+            raise AttributeError(f"Tried to look up {self.spec.type} by name, "
                                   "but they are nameless")
         except StopIteration:
             raise LookupError(f"No object with name: {name}")
@@ -569,7 +599,7 @@ class Table(Sequence, NodeMixin, RomObject):
             return next(i for i, item in enumerate(self)
                         if item == name or item.name == name)
         except AttributeError:
-            raise LookupError(f"Tried to look up {self.typename} by name, "
+            raise LookupError(f"Tried to look up {self.spec.type} by name, "
                                "but they are nameless")
         except StopIteration:
             raise ValueError(f"No object with name: {name}")
@@ -591,54 +621,29 @@ class Table(Sequence, NodeMixin, RomObject):
 
         if self._struct:
             self[i].copy(v)
-        elif self.typename == 'str':
-            self._subview(i).str_write(v, self.display)
-        elif self.typename == 'strz':
-            self._subview(i).strz_write(v, self.display)
+        elif self.spec.type == 'str':
+            self._subview(i).str_write(v, self.spec.display)
+        elif self.spec.type == 'strz':
+            self._subview(i).strz_write(v, self.spec.display)
         else:
-            setattr(self._subview(i), self.typename, v)
+            setattr(self._subview(i), self.spec.type, v)
 
     def __len__(self):
         return len(self.index)
-
-    @classmethod
-    def from_tsv_row(cls, row, parent, view=None):
-        if not view:
-            view = parent.view
-
-        # Filter out empty strings
-        row = {k: v for k, v in row.items() if v}
-        tid = row['id']
-        typename = row['type']
-        offset = int(row.get('offset', '0'), 0)
-        units = Unit[row.get('unit', 'bytes')]
-        size = int(row['size'], 0) if 'size' in row else None
-        display = row.get('display', None)
-        fid = row.get('fid', None)
-        name = row.get('name', None)
-        iname = row.get('iname', None)
-        if 'index' in row:
-            index = parent.tables[row['index']]
-        else:
-            count = int(row['count'], 0)
-            stride = int(row.get('stride', '0'), 0)
-            index = Index(0, count, stride)
-        return Table(tid, view, typename, index, fid, name,
-                     iname, offset, size, units, display, parent)
 
     def asdict(self):
         return {'id': self.id,
                 'fid': self.fid,
                 'name': self.name or '',
                 'iname': self.iname or '',
-                'type': self.typename,
+                'type': self.spec.type,
                 'units': self.units,
                 'offset': self.offset,
                 'count': len(self),
                 'stride': self.size or '',
                 'size': self.size or '',
                 'index': self.index.id if self.has_index else '',
-                'display': self.display,
+                'display': self.spec.display,
                 'comment': self.comment}
 
 

@@ -7,7 +7,7 @@ from addict import Dict
 
 from romtool.io import BitArrayView as Stream
 from romtool.field import Field
-from romtool.structures import Structure, BitField, Table, Index
+from romtool.structures import Structure, BitField, TableSpec, Table, Index
 from romtool.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
@@ -278,14 +278,16 @@ class TestTable(unittest.TestCase):
         del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
-        array = Table('t1', self.stream, 'uint', Index(0, 4, 1))
+        spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
+        array = Table(None, self.stream, spec)
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
         for i in range(4):
             self.assertEqual(array[i], i)
 
     def test_structure_array_construction(self):
-        array = Table('t1', self.stream, 'scratch', Index(0, 4, 1))
+        spec = TableSpec('t1', 'scratch', count=4, offset=0, stride=1)
+        array = Table(None, self.stream, spec)
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
@@ -293,13 +295,17 @@ class TestTable(unittest.TestCase):
             self.assertEqual(array[i].one, i)
 
     def test_indexed_table(self):
-        index = Table('t1', self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
-        table = Table('t2', self.stream, 'scratch', index)
+        ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
+        tspec = TableSpec('t2', 'scratch')
+        index = Table(None, self.stream, ispec)
+        table = Table(None, self.stream, tspec, index)
         for i in range(4):
             self.assertEqual(table[i].one, i)
 
     def test_primitive_table(self):
-        index = Table('t1', self.stream, 'uint', Index(0, 4, 1)) # 0 1 2 3
-        table = Table('t2', self.stream, 'uint', index, size=1)
+        ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
+        tspec = TableSpec('t2', 'uint', size=1)
+        index = Table(None, self.stream, ispec) # 0 1 2 3
+        table = Table(None, self.stream, tspec, index)
         for i in range(4):
             self.assertEqual(table[i], i)

@@ -57,13 +57,14 @@ class Rom(NodeMixin, util.RomObject):
 
         self.map = rommap
         self.tables = Dict()
-        byidx = lambda row: row.get('index', '')
+        byidx = lambda spec: bool(spec.index)
         for spec in sorted(self.map.tables.values(), key=byidx):
-            log.debug("creating table: %s", spec['id'])
-            self.tables[spec['id']] = Table.from_tsv_row(spec, self, self.data)
+            log.debug("creating table: %s", spec.id)
+            index = self.tables.get(spec.index)
+            self.tables[spec.id] = Table(self, self.data, spec, index)
 
         self.entities = Dict()
-        byset = lambda row: row.get('set')
+        byset = lambda spec: spec.set or spec.id
         tables = sorted(self.map.tables.values(), key=byset)
         for tset, tspecs in groupby(tables, key=byset):
             parts = [self.tables[tspec.id] for tspec in tspecs]
@@ -89,7 +90,7 @@ class Rom(NodeMixin, util.RomObject):
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
 
-        byset = lambda row: row.get('set', None) or row['id']
+        byset = lambda tbl: tbl.set or tbl.id
         tablespecs = sorted(self.map.tables.values(), key=byset)
 
         for name, elist in self.entities.items():

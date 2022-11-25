@@ -5,16 +5,17 @@ import logging
 import types
 from typing import Mapping, Sequence
 from functools import partial
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from os.path import relpath, basename
 from pathlib import Path
 from hashlib import sha1
+from typing import Type
 import importlib.util
 
 from addict import Dict
 
 from . import util, text
-from .structures import Structure, BitField, Table
+from .structures import Structure, BitField, Table, TableSpec
 from .text import TextTable
 from .exceptions import RomtoolError, MapError
 from .field import IntField
@@ -45,17 +46,17 @@ class RomMap:
 
     name: str = None
     path: Path = None
-    structs: Mapping[str, Structure] = _adctfld()
-    tables: Mapping[str, Table] = _adctfld()
+    structs: Mapping[str, Type[Structure]] = _adctfld()
+    tables: Mapping[str, TableSpec] = _adctfld()
     ttables: Mapping[str, TextTable] = _adctfld()
-    enums: Mapping[str, util.RomEnum] = _adctfld()
+    enums: Mapping[str, Type[util.RomEnum]] = _adctfld()
     tests: Sequence = list
     hooks: types.ModuleType = None
     meta: Mapping[str, str] = _adctfld()
 
     @property
     def sets(self):
-        return set(t['set'] for t in self.tables.values())
+        return set(t.set for t in self.tables.values())
 
     def find(self, top):
         """ Find the ROM corresponding to this map under top """
@@ -162,15 +163,9 @@ class RomMap:
         log.info("Loading array specs from %s", path)
         kwargs.tables = Dict()
         for record in util.readtsv(path):
-            tspec = Dict(record)
-            if (tspec.source or 'rom') != 'rom':
-                log.warning(f"skipping '{tspec.id}' array with invalid "
-                            f"source '{tspec.source}'")
-            elif tspec.type in ['str', 'strz'] and not tspec.display:
-                raise MapError(f"Map bug in {tspec.id} array: "
-                               f"'display' is required for string types")
-            else:
-                kwargs.tables[record['id']] = Dict(record)
+            record = Dict(((k, v) for k, v in record.items()
+                          if k in (f.name for f in fields(TableSpec))))
+            kwargs.tables[record['id']] = TableSpec.from_tsv_row(record)
         # we should check that tables in the same set are the same length
 
         kwargs.tests = cls.get_tests(root)
