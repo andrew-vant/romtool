@@ -101,11 +101,11 @@ class Entity(MutableMapping):
 
     # Not called directly; init_subclass partials these to produce attribute
     # descriptors.
-    def _getattr(self, attr):
+    def _getattr(self, *, attr):
         item = self._tables_by_attr[attr][self._i]
         return item if not isinstance(item, Structure) else getattr(item, attr)
 
-    def _setattr(self, attr, value):
+    def _setattr(self, value, *, attr):
         table = self._tables_by_attr[attr]
         if table._struct:
             setattr(table[self._i], attr, value)
