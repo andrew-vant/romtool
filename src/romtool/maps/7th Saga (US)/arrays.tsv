@@ -16,6 +16,7 @@ charnames	name	Character Names	Name	characters	strz	-0xC00000	8	12	12	cname_ptr	
 characters		Character Stats	Character	characters	character	-0xC00000	8	18		char_ptr			
 spellset		Character Spells	Spells Learned	characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
 splvls		Character Spell Levels	Spell Levels	characters	splvls	-0xC00000	8	32		splvls_ptr			
+splgfx		Spell GFX Pointers?	GFX	spells	splgfx	0x5912B	64	9	9				Pointers to spell graphics information, I think.
 weapons		Weapons	Weapon	weapons	weapon	-0xC00000	51			weapon_ptr			
 armor		Armor	Armor	armor	armor	-0xC00000	105	17		armor_ptr			
 spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr			

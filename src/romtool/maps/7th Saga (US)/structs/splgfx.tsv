@@ -1,0 +1,4 @@
+id	name	offset	size	type	arg	ref	display	order	info	comment
+gfx1	GFX Script Pointer	0	3	uintle			pointer		base	
+gfx2	GFX Sprite Pointer 1	3	3	uintle			pointer		base	
+gfx3	GFX Sprite Pointer 2	6	3	uintle			pointer		base	
