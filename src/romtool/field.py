@@ -107,7 +107,8 @@ class Field(ABC):
     There's a lot of things needed to fully characterize "what something is,
     and where":
 
-    - id       (python identifier)
+    - id       (python identifier; used as attribute name on structs)
+    - name     (arbitrary string; used as dictionary key and table heading)
     - type     (could be a sub-struct or str or custom type (FF1 spell arg))
     - origin   ([parent], rom, file)
     - unit     (bits, bytes, kb)
