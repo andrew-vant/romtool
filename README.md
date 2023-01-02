@@ -136,7 +136,8 @@ They can be opened in any spreadsheet program. I use LibreOffice.
 
 **WARNING**: If possible, disable any auto-formatting or auto-correct
 features your spreadsheet program provides before proceeding. They
-*will* get in your way.
+*will* get in your way. See [Useful Tools][uet] below for
+suggestions.
 
 You can now edit the files created in the previous section. Change a
 monster's HP, or a weapon's attack value, or a name. Note that there are
@@ -366,10 +367,20 @@ extension columns vs official columns...)
 
 ## Useful Tools
 
-* [fasm][], with an accompanying [macro set][fm], can translate 6502
-  (NES) assembly snippets into something you can put in a patch.
-* [fasmg][], its successor, also has macro sets for a number of
-  languages, including [6502][fgm].
+* For tsv editing:
+  * [visidata][vd] is a vim-like terminal editor for tabular files.
+    Use this if you’re already comfortable with vim.
+  * [LibreOffice Calc][lo]: A free spreadsheet editor. It works for the
+    purpose, but it will take some coercion to make it *stop helping
+    you*.
+* Assemblers:
+  * [fasm][], with an accompanying [macro set][fm], can translate 6502
+    (NES) assembly snippets into something you can put in a patch.
+  * [fasmg][], its successor, also has macro sets for a number of
+    languages, including [6502][fgm].
+* Debugging:
+  * [Mesen][mesen] and Mesen-S are emulators with excellent built-in
+    debuggers.
 
 TODO: give romtool a way to take an asm file, pass it to fasm, and
 produce a patch inserting the result at a given offset.
@@ -378,6 +389,7 @@ TODO: detect and optionally download external tools. No installable
 packages for fasmg (yet) or the macro sets (probably ever).
 
 [lm]: http://fusoya.eludevisibility.org/lm/index.html
+[vd]: https://www.visidata.org/
 [maps]: ./src/romtool/maps
 [py]: https://www.python.org/downloads/
 [git]: https://git-scm.com/downloads
@@ -385,3 +397,5 @@ packages for fasmg (yet) or the macro sets (probably ever).
 [fasmg]: https://flatassembler.net/download.php
 [fm]: https://board.flatassembler.net/topic.php?t=16366
 [fgm]: https://board.flatassembler.net/topic.php?t=19389
+[uet]: #useful-tools
+[mesen]: https://www.mesen.ca/
