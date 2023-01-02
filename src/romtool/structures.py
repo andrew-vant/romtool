@@ -20,7 +20,7 @@ from .field import Field, StructField, FieldExpr
 from . import util
 from .util import RomObject, SequenceView, CheckedDict
 from .io import Unit
-from .exceptions import RomtoolError
+from .exceptions import RomtoolError, MapError
 
 
 log = logging.getLogger(__name__)

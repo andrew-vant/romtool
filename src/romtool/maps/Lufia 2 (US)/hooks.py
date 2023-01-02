@@ -9,6 +9,9 @@ from romtool.io import Unit
 from romtool.util import HexInt
 
 
+log = logging.getLogger(__name__)
+
+
 class MonsterExtra(IntField):
     """ Field used for monster "tail options"
 

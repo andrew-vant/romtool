@@ -356,11 +356,6 @@ def load_builtins(path, extension, loader):
     return builtins
 
 
-def loadyaml(data):
-    # Just so I don't have to remember the extra argument everywhere.
-    # Should take anything yaml.load will take.
-    return yaml.load(data, Loader=yaml.SafeLoader)
-
 def dumptsv(path, dataset, force=False, headers=None, index=None):
     """ Dump an iterable of mappings to a tsv file
 
@@ -556,5 +551,6 @@ class lstr:
         self.func = func
         self.args = args
         self.kwargs = kwargs
+
     def __str__(self):
-        return str(self.func(*args, **kwargs))
+        return str(self.func(*self.args, **self.kwargs))

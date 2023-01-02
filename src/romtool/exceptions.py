@@ -1,5 +1,11 @@
 """ Romlib exceptions """
 
+import logging
+
+
+log = logging.getLogger(__name__)
+
+
 class RomtoolError(Exception):
     """ Base class for romtool exceptions """
 
