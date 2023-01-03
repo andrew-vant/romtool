@@ -45,6 +45,8 @@ class Rom(NodeMixin, util.RomObject):
     def __init__(self, romfile, rommap=None):
         if rommap is None:
             rommap = RomMap()
+        if isinstance(romfile, bytes):
+            romfile = io.BytesIO(romfile)
 
         romfile.seek(0)
         ba = bitarray(endian='little')

@@ -7,6 +7,8 @@ from addict import Dict
 
 from romtool.io import BitArrayView as Stream
 from romtool.field import Field
+from romtool.rom import Rom
+from romtool.rommap import RomMap
 from romtool.structures import Structure, BitField, TableSpec, Table, Index
 from romtool.util import bytes2ba
 
@@ -63,7 +65,6 @@ class TestStructure(unittest.TestCase):
         self.scratch = Structure.define('scratch', self.fields)
 
     def tearDown(self):
-        del Structure.registry['scratch']
         del Field.handlers['scratch']
 
     def test_define_struct(self):
@@ -190,15 +191,17 @@ class TestSubstructures(unittest.TestCase):
                    'arg': None,}]
         self.cls_flags = BitField.define_from_rows('flags', subfields)
         self.cls_struct = Structure.define_from_rows('scratch', fields)
-        self.data = bytes2ba(bytes([0b10000000]))
+        rmap = RomMap()
+        rmap.structs['flags'] = self.cls_flags
+        rmap.structs['scratch'] = self.cls_struct
+        self.rom = Rom(bytes([0b00000001]), rmap)
 
     def tearDown(self):
         for name in ['scratch', 'flags']:
-            del Structure.registry[name]
             del Field.handlers[name]
 
     def test_substruct(self):
-        struct = self.cls_struct(Stream(self.data))
+        struct = self.cls_struct(self.rom.data, self.rom)
         self.assertTrue(struct.sub.one)
 
 
@@ -226,7 +229,6 @@ class TestBitField(unittest.TestCase):
         self.scratch = BitField.define('scratch', self.fields)
 
     def tearDown(self):
-        del Structure.registry['scratch']
         del Field.handlers['scratch']
 
     def test_define(self):
@@ -262,7 +264,6 @@ class TestIndex(unittest.TestCase):
 
 class TestTable(unittest.TestCase):
     def setUp(self):
-        self.data = bytes2ba(b'\x00\x01\x02\x03abcdef')
         self.struct_spec =  [{'id': 'one',
                               'name': 'One Label',
                               'type': 'uint',
@@ -270,16 +271,17 @@ class TestTable(unittest.TestCase):
                               'size': '1',
                               'arg': '0'}]
         self.fields = [Field.from_tsv_row(row) for row in self.struct_spec]
-        self.stream = Stream(self.data)
         self.scratch = Structure.define('scratch', self.fields)
+        self.rmap = RomMap(structs={'scratch': self.scratch})
+        self.rom = Rom(b'\x00\x01\x02\x03abcdef', self.rmap)
+        self.stream = Stream(self.rom.data)
 
     def tearDown(self):
-        del Structure.registry['scratch']
         del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
         spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
-        array = Table(None, self.stream, spec)
+        array = Table(self.rom, self.stream, spec)
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
         for i in range(4):
@@ -287,7 +289,7 @@ class TestTable(unittest.TestCase):
 
     def test_structure_array_construction(self):
         spec = TableSpec('t1', 'scratch', count=4, offset=0, stride=1)
-        array = Table(None, self.stream, spec)
+        array = Table(self.rom, self.stream, spec)
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
         self.assertEqual(len(array.index), 4)
@@ -297,15 +299,15 @@ class TestTable(unittest.TestCase):
     def test_indexed_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         tspec = TableSpec('t2', 'scratch')
-        index = Table(None, self.stream, ispec)
-        table = Table(None, self.stream, tspec, index)
+        index = Table(self.rom, self.stream, ispec)
+        table = Table(self.rom, self.stream, tspec, index)
         for i in range(4):
             self.assertEqual(table[i].one, i)
 
     def test_primitive_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         tspec = TableSpec('t2', 'uint', size=1)
-        index = Table(None, self.stream, ispec) # 0 1 2 3
-        table = Table(None, self.stream, tspec, index)
+        index = Table(self.rom, self.stream, ispec) # 0 1 2 3
+        table = Table(self.rom, self.stream, tspec, index)
         for i in range(4):
             self.assertEqual(table[i], i)

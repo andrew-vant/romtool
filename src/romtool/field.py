@@ -353,7 +353,7 @@ class StructField(Field):
         if obj is None:
             return self
         view = self.view(obj)
-        return obj.registry[realtype or self.type](view, obj)
+        return obj.root.map.structs[realtype or self.type](view, obj)
 
     def write(self, obj, value, realtype=None):
         target = self.read(obj)

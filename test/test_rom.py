@@ -89,7 +89,6 @@ class TestKnownMapBase(abc.ABC, unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.std_struct_registry = Structure.registry.copy()
         cls.std_field_handlers = Field.handlers.copy()
         assert 'monster' not in Field.handlers
         cls.rmap = RomMap.load(str(cls.maproot))
@@ -103,7 +102,6 @@ class TestKnownMapBase(abc.ABC, unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        Structure.registry = cls.std_struct_registry
         Field.handlers = cls.std_field_handlers
         assert 'monster' not in Field.handlers
         # FIXME: String tests fail if different maps have codecs with the same

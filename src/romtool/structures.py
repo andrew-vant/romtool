@@ -227,7 +227,6 @@ class EntityList(Sequence):
 class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
 
-    registry = {}
     labels = {}
 
     @lru_cache(None)
@@ -352,11 +351,7 @@ class Structure(Mapping, NodeMixin, RomObject):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        name = cls.__name__
-        if name in cls.registry:
-            log.warning("duplicate definition of '%s'", name)
-        cls.registry[name] = cls
-        StructField.handle(name)
+        StructField.handle(cls.__name__)
 
     @classmethod
     def define(cls, name, fields):
@@ -516,9 +511,6 @@ class Table(Sequence, NodeMixin, RomObject):
     stride is 0 for indexed tables and index[N] is 0 for non-indexed tables.
     """
 
-    # Can't do a registry; what if you have more than one rom open? No, the rom
-    # object has to maintain tables and their names, connect indexes, etc.
-
     def __init__(self, parent, view, spec, index=None):
         """ Create a Table
 
@@ -537,7 +529,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
     @property
     def _struct(self):
-        return Structure.registry.get(self.spec.type, None)
+        return self.root.map.structs.get(self.spec.type, None)
 
     @property
     def _isz_bits(self):
