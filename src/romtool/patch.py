@@ -126,8 +126,13 @@ class Patch(object):
             raise PatchFormatError("Header mismatch reading IPST file.")
 
         changes = {}
-        for line_number, line in enumerate(f, 2):
-            line = line.rstrip()
+        for line_number, line in enumerate(f, 1):
+            # remove comments and trailing whitespace. If the remaining line is
+            # empty, skip it. If it's the footer, stop. Otherwise process as
+            # usual.
+            line = line.partition('#')[0].rstrip()
+            if not line:
+                continue
             # Check for EOF marker
             if line == _IPS_FOOTER:
                 break
