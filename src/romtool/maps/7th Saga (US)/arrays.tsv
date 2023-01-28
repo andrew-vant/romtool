@@ -1,5 +1,6 @@
 id	fid	name	iname	set	type	offset	count	stride	size	index	priority	display	comment
 spellfuncs	func	Spell Script Index?	Spell Script Pointer	spells	uintle	0x4B155	64	3				pointer	Possibly pointers to spell behavior routines.
+spellfuncs_mon	mfunc	Spell Script (Monster)	Monster Spellscript Pointer	spells	uintle	0x4D305	64	3				pointer	Monsters appear to use a separate set of spell behavior functions?
 char_ptr	cptr	Character Stats Index	Character Pointer	characters	uintle	0x4EF2	8	3				pointer	
 spset_ptr	ssptr	Character Spells Index	Spellset Pointer	characters	uintle	0x4F0A	8	3				pointer	
 splvls_ptr	slptr	Character Spell Levels Index	Spell Levels Pointer	characters	uintle	0x4F22	8	3				pointer	
@@ -23,3 +24,4 @@ spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr
 itemstats		Item Stats	Item Stats	items	item	-0xC00000	100	9		item_ptr			
 monsters		Monsters	Monster	monsters	monster	-0xC00000	98	42		mon_ptr			
 dropsets		Dropsets	Dropset	dropsets	dropset	0x8A18	16	16					
+ext_spell_palette	pal	Spell Palette Overrides	Palette Override	spells	uint	0x9E000	64	1					The default 255 does nothing; any other number overrides the palette set in the spell's gfx script.

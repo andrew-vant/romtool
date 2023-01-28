@@ -1,0 +1,7 @@
+PATCH
+# Replacement palette-setting routine that looks for spell-palette
+# overrides in a table.
+9E100:36:E220A00000A90E48DA5AAD2709C54ED00FE210AABF00E0C9C210C9FFF00285407AFA68220F9202E220A90C951EA904951DA930950E6B
+# Patch the original routine to jump to the new one.
+595C6:05:2200E1C96B
+EOF
