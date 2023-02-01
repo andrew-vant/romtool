@@ -248,7 +248,8 @@ def build(args):
     typeloaders = {'.ips': [Patch.load, rom.apply_patch],
                    '.ipst': [Patch.load, rom.apply_patch],
                    '.yaml': [slurp, loadyaml, rom.apply],
-                   '.json': [slurp, json.loads, rom.apply]}
+                   '.json': [slurp, json.loads, rom.apply],
+                   '.asm': [rom.apply_assembly],}
     for path in args.input:
         log.info("Loading changes from: %s", path)
         ext = splitext(path)[1]

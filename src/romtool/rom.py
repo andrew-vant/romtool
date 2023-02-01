@@ -2,6 +2,8 @@ import string
 import logging
 import math
 import io
+import re
+import subprocess as sp
 from operator import itemgetter
 from os.path import splitext, basename
 from os.path import join as pathjoin
@@ -169,6 +171,35 @@ class Rom(NodeMixin, util.RomObject):
                 msg = f"{attr} is not a valid attribute of {path}"
                 raise ChangesetError(msg)
 
+    def apply_assembly(self, path):
+        """ Insert assembly code into the ROM
+
+        Scans the input for a line matching 'romtool: patch@{address}', which
+        indicates where the assembled bytecode should be inserted. Then passes
+        the code itself to an external assembler.
+
+        Expects the content of the file as a string.
+        """
+        with open(path) as f:
+            for i, line in enumerate(f):
+                match = re.search(r'romtool: patch@([0-9A-Fa-f]+)', line)
+                if match:
+                    try:
+                        location = int(match.group(1), 16)
+                    except ValueError as ex:
+                        raise ChangesetError(f"error on line {i}: {ex}")
+                    break
+            else:
+                raise ChangesetError(f"no patch location given")
+        proc = sp.run(['xa', '-w', '-c', '-M', '-o' '-', path],
+                      capture_output=True)
+        for line in proc.stderr.decode().splitlines():
+            log.error('xa: %s', line)
+        if proc.returncode:
+            raise ChangesetError(f"external assembly failed with return code "
+                               f"{proc.returncode}")
+        end = location + len(proc.stdout)
+        self.data[location:end:Unit.bytes].bytes = proc.stdout
 
     @property
     def patch(self):
