@@ -620,10 +620,10 @@ def findblocks(args):
     if args.sort:
         blocks.sort(reverse=True)
     if not args.noheaders:
-        print("offset\tbyte\tlength\thexlen")
+        print("start\tend\tbyte\tlength\thexlen")
     for length, offset, byte in blocks[0:limit]:
-        fmt = "{:06X}\t0x{:02X}\t{}\t{:X}"
-        print(fmt.format(offset, byte, length, length))
+        fmt = "{:06X}\t{:06X}\t0x{:02X}\t{}\t{:X}"
+        print(fmt.format(offset, offset+length, byte, length, length))
 
 def meta(args):
     """ Print rom metadata, e.g. console and header info"""
