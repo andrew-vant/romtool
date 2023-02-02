@@ -3,8 +3,11 @@
 ; FIXME: JSL not known by xa, alias it to JSR?
 
 spell_index_start = @$C0523A
-single_target_damage_func = @$C4B2F3
-multi_target_damage_func = @$C4B307
+splfunc_p_dmg = @$C4B2F3
+splfunc_p_dmg_aoe = @$C4B307
+splfunc_m_dmg = @$C4D3CF
+splfunc_m_dmg_aoe = @$C4D3E9
+first_monster = $1E80
 
 #define TAB php:sep #$20:pha:plb:plp
 #define TSD tsc:tcd
@@ -25,19 +28,43 @@ auto_target_damage_func:
   ; existing functions; set accumulator and (re)load spell ID.
   JSR @spl_targeting
   CMP #$0
-  BEQ single_target_damage_spell
+  BEQ dmg_single
   CMP #$1
-  BEQ multi_target_damage_spell
+  BEQ dmg_multi
   ; don't know what to do, so abort, but set accum as usual
   SEP #$20:LDA $927
-  BRA return
-single_target_damage_spell:
+  RTL
+
+  ; Jump to player or monster code as needed
+dmg_single:
+  .al
+  REP #$20:LDA $5C
+  CMP #first_monster
+  .as
+  BCC p_dmg_single_target
+  BRA m_dmg_single_target
+dmg_multi:
+  .al
+  REP #$20:LDA $5C
+  CMP #first_monster
+  .as
+  BCC p_dmg_multi_target
+  BRA m_dmg_multi_target
+p_dmg_single_target:
   SEP #$20:LDA $927
-  JSR @single_target_damage_func
+  JSR @splfunc_p_dmg
   BRA return
-multi_target_damage_spell:
+p_dmg_multi_target:
   SEP #$20:LDA $927
-  JSR @multi_target_damage_func
+  JSR @splfunc_p_dmg_aoe
+  BRA return
+m_dmg_single_target:
+  SEP #$20:LDA $927
+  JSR @splfunc_m_dmg
+  BRA return
+m_dmg_multi_target:
+  SEP #$20:LDA $927
+  JSR @splfunc_m_dmg_aoe
   BRA return
 return:
   RTL
