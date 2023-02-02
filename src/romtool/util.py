@@ -138,13 +138,16 @@ class RomObject(abc.ABC):
 
 class Searchable:
     """ Generator wrapper that supports lookups by name """
+    _NO_MATCH = object()
+
     def __init__(self, iterable, searcher=None):
         self.iter = iter(iterable)
         self.searcher = searcher or self._default_search
 
     @staticmethod
     def _default_search(obj, key):
-        return obj == key or obj.name == key
+        NM = Searchable._NO_MATCH
+        return obj == key or getattr(obj, 'name', NM) == key
 
     def __iter__(self):
         yield from self.iter
@@ -154,7 +157,8 @@ class Searchable:
 
     def lookup(self, key):
         try:
-            return next(i for i in self if self.searcher(i, key))
+            return next(item for i, item in enumerate(self)
+                        if key == i or self.searcher(item, key))
         except StopIteration:
             typename = getattr(self, 'name', 'object')
             raise LookupError(key)
@@ -229,6 +233,17 @@ class SequenceView:
                 self[i] = v
         else:
             self.sequence[self.indices[i]] = v
+
+def flatten_dicts(dct, _parent_keys=None):
+    """ Turn nested dicts into a sequence of paths-to-values """
+    if _parent_keys is None:
+        _parent_keys = []
+    for k, v in dct.items():
+        path = _parent_keys + [k]
+        if isinstance(v, Mapping):
+            yield from flatten_dicts(v, path)
+        else:
+            yield (path, v)
 
 
 @contextlib.contextmanager

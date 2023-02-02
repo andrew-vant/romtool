@@ -145,29 +145,24 @@ class Rom(NodeMixin, util.RomObject):
         field ids of their parent.
         """
 
-        def flatten(dct, prefix='', sep=':'):
-            for k, v in dct.items():
-                if isinstance(v, Mapping):
-                    yield from flatten(v, prefix+k+sep, sep=sep)
-                else:
-                    yield (prefix + k).split(sep), v
-
-        for keys, value in flatten(changeset):
+        for keys, value in util.flatten_dicts(changeset):
+            log.info('applying change: %s -> %s',
+                     ':'.join(str(k) for k in keys), value)
             attr = keys.pop()
             parent = self
-            path = []
+            path = []  # note the path we've traversed for messages
             for key in keys:
+                path.append(key)
                 try:
                     parent = parent.lookup(key)
                 except LookupError as ex:
-                    path = ':'.join(path + [str(ex)])
-                    msg = f"Couldn't find item from changeset: {path}"
+                    path = ':'.join(str(k) for k in path)
+                    msg = f"Bad lookup path '{path}' (typo?)"
                     raise ChangesetError(msg)
-                path.append(key)
             try:
                 setattr(parent, attr, value)
-            except AttributeError:
-                path = ':'.join(path)
+            except AttributeError as ex:
+                path = ':'.join(str(k) for k in path)
                 msg = f"{attr} is not a valid attribute of {path}"
                 raise ChangesetError(msg)
 
