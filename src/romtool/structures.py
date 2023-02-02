@@ -70,7 +70,7 @@ class Entity(MutableMapping):
         return type(name, (cls,), {}, tables=tables)
 
     def __init__(self, index):
-        self._i = index
+        super().__setattr__('_i', index)
 
     def __str__(self):
         tnm = type(self).__name__
@@ -113,6 +113,11 @@ class Entity(MutableMapping):
             setattr(table[self._i], attr, value)
         else:
             table[self._i] = value
+
+    def __setattr__(self, attr, value):
+        if attr not in self._tables_by_attr:
+            raise AttributeError(attr)
+        super().__setattr__(attr, value)
 
     def update(self, other):
         """ Update this entity from a dictionary-like object
