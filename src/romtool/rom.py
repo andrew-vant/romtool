@@ -12,6 +12,8 @@ from functools import reduce, partial
 from operator import itemgetter
 from collections.abc import Mapping
 from contextlib import ExitStack
+from shutil import which
+from tempfile import TemporaryDirectory
 
 from bitarray import bitarray
 from anytree import NodeMixin
@@ -175,26 +177,41 @@ class Rom(NodeMixin, util.RomObject):
 
         Expects the content of the file as a string.
         """
+        re_ctrl = r'romtool: patch@([0-9A-Fa-f]+):(.*)$'
         with open(path) as f:
             for i, line in enumerate(f):
-                match = re.search(r'romtool: patch@([0-9A-Fa-f]+)', line)
+                match = re.search(re_ctrl, line)
                 if match:
                     try:
                         location = int(match.group(1), 16)
+                        cmd = match.group(2)
                     except ValueError as ex:
                         raise ChangesetError(f"error on line {i}: {ex}")
                     break
             else:
                 raise ChangesetError(f"no patch location given")
-        proc = sp.run(['xa', '-w', '-c', '-M', '-o' '-', path],
-                      capture_output=True)
-        for line in proc.stderr.decode().splitlines():
-            log.error('xa: %s', line)
-        if proc.returncode:
-            raise ChangesetError(f"external assembly failed with return code "
-                               f"{proc.returncode}")
-        end = location + len(proc.stdout)
-        self.data[location:end:Unit.bytes].bytes = proc.stdout
+
+        with TemporaryDirectory(prefix='romtool.') as tmp:
+            outfile = f'{tmp}/{basename(path)}.bin'
+            known_assemblers = {
+                'cl65': [which('cl65'), '-t', 'none', '-o', outfile, path],
+                'xa65': [which('xa'), '-w', '-c', '-M', '-o', outfile, path],
+                }
+            args = known_assemblers.get(cmd)
+            if not args:
+                raise RomtoolError(f"don't know how to assemble with {cmd}")
+            log.info("assembling %s", basename(path))
+            log.debug("executing external command: %s", " ".join(args))
+            proc = sp.run(args)
+            if proc.returncode:
+                raise ChangesetError(f"external assembly failed with return "
+                                     f"code {proc.returncode}")
+            with open(outfile, 'rb') as f:
+                data = f.read()
+        end = location + len(data)
+        log.info("patching assembled %s to %s (%s bytes)",
+                 basename(path), hex(location), len(data))
+        self.data[location:end:Unit.bytes].bytes = data
 
     @property
     def patch(self):
