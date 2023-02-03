@@ -9,6 +9,7 @@ equip_ptr	jeqptr	Ally Equipment Index	Join Equipment Pointer	characters	uintle	0
 item_ptr	iptr	Item Stats Index	Statblock Pointer	items	uintle	0x4F3A	100	3				pointer	
 weapon_ptr	wptr	Weapon Index	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	
 armor_ptr	aptr	Armor Index	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	
+shops_ptr	tsptr	Town Shop Index	Shops Pointer	shops	uintle	0x570B	139	3				pointer	
 spell_ptr	splptr	Spell Index	Spell Pointer	spells	uintle	0x523A	64	3				pointer	The spell-data index appears to be much longer than stated (150+ entries?), but the corresponding spell routine array is much shorter. The extra entries may not do anything.
 mon_ptr	mptr	Monster Index	Monster Pointer	monsters	uintle	0x53FF	260	3				pointer	
 cname_ptr	nmp	Character Name Index	Name Pointer	characters	uintle	0x1ED25	8	3				pointer	This table is used for the default names during character creation, but there are other copies in the ROM; I'm not sure where or how they're used.
@@ -25,3 +26,4 @@ itemstats		Item Stats	Item Stats	items	item	-0xC00000	100	9		item_ptr
 monsters		Monsters	Monster	monsters	monster	-0xC00000	98	42		mon_ptr			
 dropsets		Dropsets	Dropset	dropsets	dropset	0x8A18	16	16					
 ext_spell_palette	pal	Spell Palette Overrides	Palette Override	spells	uint	0x9E000	64	1					The default 255 does nothing; any other number overrides the palette set in the spell's gfx script.
+shops	shop	Shops	Town Shops	shops	shops	-0xC00000	139	40		shops_ptr			
