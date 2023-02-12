@@ -252,6 +252,11 @@ class Rom(NodeMixin, util.RomObject):
     def make(cls, romfile, rommap=None, ignore_extension=False):
         # Check file extension first, if possible
         ext = splitext(romfile.name)[1]
+        if rommap and hasattr(rommap.hooks, 'Rom'):
+            rom = rommap.hooks.Rom(romfile, rommap)
+            log.info("%s loaded using map hook", basename(romfile.name))
+            return rom
+
         if ext in cls.registry and not ignore_extension:
             subcls = cls.registry[ext]
             rom = subcls(romfile, rommap)
