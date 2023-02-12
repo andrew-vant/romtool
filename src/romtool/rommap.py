@@ -111,13 +111,12 @@ class RomMap:
         # am not sure if python will like that.
         path = root + "/hooks.py"
         spec = importlib.util.spec_from_file_location("hooks", path)
-        hooks = importlib.util.module_from_spec(spec)
+        kwargs.hooks = importlib.util.module_from_spec(spec)
         try:
-            spec.loader.exec_module(hooks)
+            spec.loader.exec_module(kwargs.hooks)
+            log.info("hooks loaded from %s", path)
         except FileNotFoundError:
             log.info("skipping hooks, %s not present", path)
-        else:
-            kwargs.hooks = hooks
 
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed

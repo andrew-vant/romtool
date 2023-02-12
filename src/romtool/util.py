@@ -48,11 +48,12 @@ class CheckedDict(dict):
             self.keys = [keys] if isinstance(keys, str) else keys
 
         def __str__(self):
-            return f"key(s) already set: {self.keys}"
+            keys = ' ,'.join(self.keys)
+            return f"key(s) already set: {keys}"
 
     def __setitem__(self, key, value):
         if key in self and value != self[key]:
-            raise CheckedDict.KeyConflict(f"{key} already set")
+            raise CheckedDict.KeyConflict(key)
         super().__setitem__(key, value)
 
     def update(self, other):
@@ -97,6 +98,9 @@ class IndexInt(int):
     Dumps and parses as the name of the corresponding item in a given table.
     """
     def __new__(cls, table, value):
+        if not isinstance(table, Sequence):
+            raise ValueError("tried to make an IndexInt referencing "
+                             "something that isn't a table")
         if isinstance(value, str):
             try:
                 value = int(value, 0)
@@ -259,9 +263,8 @@ def loading_context(listname, name, index=None):
     try:
         yield
     except Exception as ex:
-        msg = "{}\nProblem loading {} #{}: {}"
-        msg = msg.format(ex, listname, index, name)
-        ex.args = (msg,) + ex.args[1:]
+        msg = f"Problem loading {listname} #{index} ({name}): {ex}"
+        ex.args = (msg,)
         raise
 
 

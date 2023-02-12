@@ -174,6 +174,9 @@ class EntityList(Sequence):
 
     def __init__(self, name, tables):
         lengths = set(len(t) for t in tables)
+        if not name:
+            raise ValueError(f"Tried to create an EntityList with no name "
+                             f"from tables: {', '.join(tables)}")
         if len(lengths) == 0:
             raise ValueError(f"Tried to create EntityList '{name}' with no underlying tables")
         if len(lengths) != 1:
@@ -599,7 +602,7 @@ class Table(Sequence, NodeMixin, RomObject):
             raise LookupError(f"Tried to look up {self.spec.type} by name, "
                                "but they are nameless")
         except StopIteration:
-            raise ValueError(f"No object with name: {name}")
+            raise ValueError(f"No {self.id} named {name}")
 
     @property
     def has_index(self):
