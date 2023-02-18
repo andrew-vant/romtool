@@ -43,7 +43,6 @@ class Rom(NodeMixin, util.RomObject):
     romtype = 'unknown'
     prettytype = "Unknown ROM type"
     registry = {}
-    extensions = []
     sz_min = 0  # Files smaller than this are assumed to not be of this type
 
     def __init__(self, romfile, rommap=None):
@@ -240,15 +239,17 @@ class Rom(NodeMixin, util.RomObject):
     def validate(self):
         raise NotImplementedError(f"No validator available for {type(self)}")
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, extensions=None, **kwargs):
         super().__init_subclass__(**kwargs)
         name = cls.__name__
-        for ext in cls.extensions:
+        extensions = extensions or []
+        for ext in extensions:
             if ext in cls.registry:
                 msg = ("%s attempted to claim %s extension, but it is "
                       "already registered; ignoring")
                 log.warning(msg, name, ext)
             else:
+                log.debug('registering file extension %s as %s', ext, name)
                 cls.registry[ext] = cls
 
     @classmethod
@@ -300,10 +301,9 @@ class Rom(NodeMixin, util.RomObject):
             f.write(self.file.bytes)
 
 
-class INESRom(Rom):
+class INESRom(Rom, extensions=('.nes', '.ines')):
     romtype = 'ines'
     prettytype = "INES ROM"
-    extensions = ['.nes', '.ines']
     hdr_ident = b"NES\x1a"
     sz_header = 16
     sz_min = sz_header
@@ -326,10 +326,9 @@ class INESRom(Rom):
         return True
 
 
-class SNESRom(Rom):
+class SNESRom(Rom, extensions=['.sfc', '.smc']):
     romtype = 'snes'
     prettytype = "SNES ROM"
-    extensions = ['.sfc', '.smc']
     sz_smc = 0x200
     # FIXME: Pretty sure these are SNES addresses, not ROM addresses, will have
     # to work out correponding address
@@ -432,10 +431,9 @@ class SNESRom(Rom):
         return bool(self.header)
 
 
-class GBARom(Rom):
+class GBARom(Rom, extensions=['.gba']):
     romtype = 'gba'
     prettytype = "GBA ROM"
-    extensions = ['.gba']
     hdr_offset = 0xA0
     hdr_sz = 32  # bytes
     hdr_magic = 0x96
