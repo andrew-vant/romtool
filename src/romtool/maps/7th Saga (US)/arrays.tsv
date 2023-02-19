@@ -9,6 +9,7 @@ equip_ptr	jeqptr	Ally Equipment Index	Join Equipment Pointer	characters	uintle	0
 item_ptr	iptr	Item Stats Index	Statblock Pointer	items	uintle	0x4F3A	100	3				pointer	
 weapon_ptr	wptr	Weapon Index	Weapon Pointer	weapons	uintle	0x5066	51	3				pointer	
 armor_ptr	aptr	Armor Index	Armor Pointer	armor	uintle	0x50FF	105	3				pointer	
+loot_ptr	lptr	Loot Index	Loot Pointer		uintle	0x4F3A	256	3				pointer	Virtual table containing all of [items, weapons, armor]. Used for crossreferences.
 shops_ptr	tsptr	Town Shop Index	Shops Pointer	shops	uintle	0x570B	139	3				pointer	
 spell_ptr	splptr	Spell Index	Spell Pointer	spells	uintle	0x523A	64	3				pointer	The spell-data index appears to be much longer than stated (150+ entries?), but the corresponding spell routine array is much shorter. The extra entries may not do anything.
 mon_ptr	mptr	Monster Index	Monster Pointer	monsters	uintle	0x53FF	260	3				pointer	
@@ -19,6 +20,7 @@ characters		Character Stats	Character	characters	character	-0xC00000	8	18		char_
 spellset		Character Spells	Spells Learned	characters	spellset	-0xC00000	8	32		spset_ptr			The spell set and spell level structures are interlaced. Possibly a joint struct, but they have separate indexes.
 splvls		Character Spell Levels	Spell Levels	characters	splvls	-0xC00000	8	32		splvls_ptr			
 splgfx		Spell GFX Pointers?	GFX	spells	splgfx	0x5912B	64	9	9				Pointers to spell graphics information, I think.
+loot	loot	Loot	Loot		object	-0xC00000	256			loot_ptr			Virtual table containing all of [items, weapons, armor]. Used for crossreferences.
 weapons		Weapons	Weapon	weapons	weapon	-0xC00000	51			weapon_ptr			
 armor		Armor	Armor	armor	armor	-0xC00000	105	17		armor_ptr			
 spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr			

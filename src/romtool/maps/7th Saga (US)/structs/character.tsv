@@ -11,7 +11,7 @@ powg	Power Growth	10	1	uint					growth
 grdg	Guard Growth	11	1	uint					growth	
 magg	Magic Growth	12	1	uint					growth	
 spdg	Speed Growth	13	1	uint					growth	
-wpn	Weapon	14	1	uint	-100	weapons			equip	
-amr	Armor	15	1	uint	-151	armor			equip	
-acc	Accessory	16	1	uint	-151	armor			equip	
+wpn	Weapon	14	1	uint		loot			equip	
+amr	Armor	15	1	uint		loot			equip	
+acc	Accessory	16	1	uint		loot			equip	
 xp	Exp	17	1	uint					base	
