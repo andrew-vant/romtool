@@ -384,6 +384,10 @@ class StructField(Field):
         raise NotImplementedError
 
 
+class ObjectField(StructField):
+    handles = ['object']
+
+
 class BinField(Field):
     handles = ['bin']
 
