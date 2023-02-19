@@ -310,7 +310,12 @@ class IntField(Field):
             except ValueError:
                 pass
         if self.ref:
-            i = IndexInt(obj.root.entities[self.ref], i)
+            for source in obj.root.entities, obj.root.tables:
+                if self.ref in source:
+                    i = IndexInt(source[self.ref], i)
+                    break
+            else:
+                raise ValueError(f"bad cross-reference key: {self.ref}")
         return i
 
     def write(self, obj, value, realtype=None):
@@ -321,7 +326,20 @@ class IntField(Field):
                 except KeyError:
                     value = int(value, 0)
             elif self.ref:
-                value = obj.root.entities[self.ref].locate(value)
+                # FIXME: break crossref resolution into a separate function.
+                # Not sure if it should be part of the field or somewhere else.
+                if not value:
+                    log.debug(f"empty cross-ref for {self.name} ignored")
+                    return
+                for source in obj.root.entities, obj.root.tables:
+                    if self.ref in source:
+                        key = value
+                        value = source[self.ref].locate(value)
+                        if source[value].name == key:
+                            return
+                        break
+                else:
+                    raise MapError(f"bad cross-reference: {self.ref}")
             else:
                 value = int(value, 0)
         view = self.view(obj)

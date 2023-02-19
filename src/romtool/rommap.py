@@ -56,7 +56,7 @@ class RomMap:
 
     @property
     def sets(self):
-        return set(t.set for t in self.tables.values())
+        return set(t.set for t in self.tables.values() if t.set)
 
     def find(self, top):
         """ Find the ROM corresponding to this map under top """

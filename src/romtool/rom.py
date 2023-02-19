@@ -72,9 +72,12 @@ class Rom(NodeMixin, util.RomObject):
             self.tables[spec.id] = Table(self, self.data, spec, index)
 
         self.entities = Dict()
-        byset = lambda spec: spec.set or spec.id
+        byset = lambda spec: spec.set or ''
         tables = sorted(self.map.tables.values(), key=byset)
         for tset, tspecs in groupby(tables, key=byset):
+            if not tset:
+                # Ignore tables that aren't associated with an entity
+                continue
             parts = [self.tables[tspec.id] for tspec in tspecs]
             # FIXME: add format dunder to types involved?
             pdesc = ', '.join(p.name or p.id for p in parts)
