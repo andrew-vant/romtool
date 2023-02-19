@@ -112,9 +112,10 @@ class IndexInt(int):
 
     @property
     def obj(self):
-        return self.table[self]
+        return self.table[self]  # pylint: disable=no-member
 
     def __repr__(self):
+        #pylint: disable=no-member
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):

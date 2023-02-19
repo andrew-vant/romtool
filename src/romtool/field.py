@@ -10,7 +10,7 @@ from asteval import Interpreter
 from .io import Unit
 from .util import HexInt, IndexInt
 
-from .exceptions import RomtoolError
+from .exceptions import RomtoolError, MapError
 
 log = logging.getLogger(__name__)
 

@@ -351,7 +351,7 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
         return f'{self.name} (SNES ROM, {wh})'
 
     @property
-    def prettytype(self):
+    def prettytype(self):  # pylint: disable=function-redefined
         wh = "headered" if self.smc else "unheadered"
         return f'SNES ROM, {wh}'
 

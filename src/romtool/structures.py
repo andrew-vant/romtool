@@ -36,6 +36,7 @@ class Entity(MutableMapping):
     that return a primitive value, the lookup will be checked against the
     table's name.
     """
+    # pylint: disable=no-member
     def __init_subclass__(cls, tables, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._all_fields = []
