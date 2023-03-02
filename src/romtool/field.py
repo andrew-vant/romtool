@@ -142,6 +142,7 @@ class Field(ABC):
     handles = []
 
     def __post_init__(self):
+        """ Perform sanity checks after construction """
         self.name = self.name or self.id
         for field in fields(self):
             value = getattr(self, field.name)
@@ -209,6 +210,12 @@ class Field(ABC):
         size = self.size.eval(obj) * self.unit
         end = offset + size
         return context[offset:end]
+
+    def __get__(self, instance, owner):
+        return self.read(instance, owner)
+
+    def __set__(self, instance, value):
+        self.write(instance, value)
 
     def read(self, obj, objtype=None):
         """ Read from a structure field

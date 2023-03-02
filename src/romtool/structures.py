@@ -252,16 +252,6 @@ class Structure(Mapping, NodeMixin, RomObject):
     def __setitem__(self, key, value):
         self._fbnm(key).write(self, value)
 
-    def __getattr__(self, key):
-        return self._fbid(key).read(self)
-
-    def __setattr__(self, key, value):
-        # TODO: don't allow setting new attributes after definition is done.
-        try:
-            self._fbid(key).write(self, value)
-        except AttributeError:
-            super().__setattr__(key, value)
-
     def __eq__(self, other):
         return object.__eq__(self, other)
 
@@ -368,10 +358,9 @@ class Structure(Mapping, NodeMixin, RomObject):
 
         The newly-defined type will be registered and returned.
         """
-        fields = list(fields)
-        fids = [f.id for f in fields]
-        names = [f.name for f in fields]
-        for identifier in chain(fids, names):
+        attrs = {f.id: f for f in fields}
+        names = [f.name for f in attrs.values()]
+        for identifier in chain(attrs, names):
             if hasattr(cls, identifier):
                 msg = f"{name}.{identifier} shadows a built-in attribute"
                 raise ValueError(msg)
@@ -383,7 +372,7 @@ class Structure(Mapping, NodeMixin, RomObject):
                 raise ValueError(msg)
 
         bases = (cls,)
-        attrs = {'fields': fields}
+        attrs['fields'] = list(attrs.values())
         return type(name, bases, attrs)
 
     @classmethod
