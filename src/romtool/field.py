@@ -43,7 +43,7 @@ class FieldContext(Mapping):
             raise NotImplementedError
         if key in self.struct.fids:
             return getattr(self.struct, key)
-        raise ValueError(f"name not in context: {key}")
+        raise KeyError(f"name not in context: {key}")
 
     def __iter__(self):
         yield 'rom'
