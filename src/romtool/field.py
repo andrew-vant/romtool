@@ -35,7 +35,11 @@ class FieldContext(Mapping):
     def __getitem__(self, key):
         if key == 'root':
             return self.struct.view.root
-        if key == 'rom':
+        if key == 'parent':
+            log.warning("offset reference to 'parent' in map; "
+                        "I am not sure if its behavior is correct")
+            return -self.struct.view.abs_start % 8
+        if key in ('rom', 'file'):
             raise NotImplementedError
         if key in self.struct.fids:
             return getattr(self.struct, key)
