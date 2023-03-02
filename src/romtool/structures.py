@@ -557,6 +557,9 @@ class Table(Sequence, NodeMixin, RomObject):
         offset = util.HexInt(self.index.offset)
         return f'<Table({tp}*{ct}@{offset})>'
 
+    def __len__(self):
+        return len(self.index)
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             return SequenceView(self, i)
@@ -566,6 +569,21 @@ class Table(Sequence, NodeMixin, RomObject):
             return self._struct(self._subview(i), self)
         else:
             return self._field.read(self._subview(i))
+
+    def __setitem__(self, i, v):
+        if str(v) != str(self[i]):
+            log.debug("difference detected: %r != %r", v, self[i])
+        if isinstance(i, slice):
+            indices = list(range(i.start, i.stop, i.step))
+            if len(indices) != len(v):
+                msg = "mismatched slice length; {len(indices)} != {len(v)}"
+                raise ValueError(msg)
+            for i, v in zip(range(i.start, i.stop, i.step), v):
+                self[i] = v
+        elif self._struct:
+            self[i].copy(v)
+        else:
+            self._field.write(self._subview(i), v)
 
     def lookup(self, name):
         try:
@@ -590,24 +608,6 @@ class Table(Sequence, NodeMixin, RomObject):
     @property
     def has_index(self):
         return isinstance(self.index, Table)
-
-    def __setitem__(self, i, v):
-        if str(v) != str(self[i]):
-            log.debug("difference detected: %r != %r", v, self[i])
-        if isinstance(i, slice):
-            indices = list(range(i.start, i.stop, i.step))
-            if len(indices) != len(v):
-                msg = "mismatched slice length; {len(indices)} != {len(v)}"
-                raise ValueError(msg)
-            for i, v in zip(range(i.start, i.stop, i.step), v):
-                self[i] = v
-        elif self._struct:
-            self[i].copy(v)
-        else:
-            self._field.write(self._subview(i), v)
-
-    def __len__(self):
-        return len(self.index)
 
     def asdict(self):
         return {'id': self.id,
