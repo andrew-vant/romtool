@@ -526,6 +526,11 @@ def pairwise(iterable):
     next(b, None)
     return zip(a, b)
 
+def roundup(n, base):
+    """ Round N up to the next multiple of `base` """
+    # credit: https://stackoverflow.com/a/14092788/
+    return n - n % (-base)
+
 @lru_cache
 def jinja_env():
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
