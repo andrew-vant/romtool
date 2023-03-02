@@ -1,3 +1,4 @@
+import codecs
 import logging
 from functools import partial
 from dataclasses import dataclass, fields, asdict
@@ -7,7 +8,7 @@ from collections.abc import Mapping
 
 from asteval import Interpreter
 
-from .io import Unit
+from .io import Unit, BitArrayView
 from .util import HexInt, IndexInt
 
 from .exceptions import RomtoolError, MapError
@@ -202,6 +203,11 @@ class Field(ABC):
 
     def view(self, obj):
         """ Get the bitview corresponding to this field's data """
+        # FIXME: Terrible. Mostly for cases where Tables need to read strings
+        # that aren't part of a struct. Should read() take a view instead of an
+        # object, and let __get__ handle cases where there is an actual parent?
+        if isinstance(obj, BitArrayView):
+            return obj
         # Get the parent view that this field is "relative to"
         context = (obj.view if not self.origin
                    else obj.view.root if self.origin == 'root'
@@ -282,21 +288,93 @@ class Field(ABC):
 
 
 class StringField(Field):
-    handles = ['str', 'strz']
+    """ Field for fixed-width strings """
+    handles = ['str']
 
-    def __post_init__(self):
-        super().__post_init__()
+    @property
+    def codec(self):
+        return codecs.lookup(self.display or 'ascii')
 
     def read(self, obj, objtype=None):
         if obj is None:
             return self
-        return getattr(self.view(obj), self.type).read(self.display)
+        return self.view(obj).bytes.decode(self.display).rstrip()
 
     def write(self, obj, value):
-        getattr(self.view(obj), self.type).write(value, self.display)
+        """ Write a fixed-width string
+
+        Strings longer than the expected width are rejected; shorter strings
+        are padded with spaces. Before writing, the old value is decoded and
+        compared to the new one, and the change is ignored if they match. This
+        prevents spurious changes when there are multiple valid encodings for a
+        string.
+        """
+        if value.rstrip() == self.read(obj).rstrip():
+            return  # ignore no-ops
+        # Pad fixed-length strings with spaces. I feel like there should be a
+        # better way to do this.
+        view = self.view(obj)
+        content = BytesIO(self.codec.encode(' ')[0] * len(view.bytes))
+        content.write(value.encode(self.display))
+        content.seek(0)
+        view.bytes = content.read()
 
     def parse(self, string):
         return string
+
+
+class StringZField(StringField):
+    """ Field for strings with a terminator """
+    handles = ['strz']
+
+    @property
+    def codec(self):
+        return codecs.lookup('ascii' if not self.display
+                             else f'{self.display}_clean')
+
+    def _decode(self, obj):
+        """ Get the string and bytecount of the current value """
+        # Evil way to figure out if we're using a default codec, like ascii, or
+        # a texttable. The default codecs don't stop on nulls, but we probably
+        # want to. FIXME: Awful, find a better way to do this.
+        view = self.view(obj)
+        b_old = (view.bytes if hasattr(self.codec, 'eos')
+                 else view.bytes.partition(b'\0')[0])
+        s_old, bct_old = self.codec.decode(b_old)
+        return s_old, bct_old
+
+    def read(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return self._decode(obj)[0]
+
+    def write(self, obj, value):
+        """ Write a terminated string
+
+        Before writing, the old value is decoded and compared to the new one,
+        and the change is ignored if they match. This prevents spurious changes
+        when there are multiple valid encodings for a string.
+
+        Replacing a string with a longer string will usually cause problems,
+        but some use cases call for it. Doing so is allowed, but emits a
+        warning.
+        """
+        s_old, bct_old = self._decode(obj)
+        if value == s_old:
+            return
+        b_new = self.codec.encode(value)[0]
+        overrun = len(b_new) - bct_old
+        if overrun > 0:
+            log.warning(f"replacement string '{value}' overruns end of old "
+                        f"string '{s_old}' by {overrun} bytes")
+        else:
+            log.debug(f"replacing string '{s_old}' (len {bct_old}) "
+                      f"with '{value}' (len {len(b_new)})")
+        view = self.view(obj)
+        content = BytesIO(view.bytes)
+        content.write(b_new)
+        content.seek(0)
+        view.bytes = content.read()
 
 
 class IntField(Field):

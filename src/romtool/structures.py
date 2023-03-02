@@ -45,14 +45,7 @@ class Entity(MutableMapping):
         cls._keys_by_table = {}
         for table in tables:
             cls._keys_by_table[table] = []
-            if table._struct:
-                fields = table._struct.fields
-            else:
-                fields = [Field.handlers[table.type](
-                    id=table.fid, name=table.iname, type=table.type,
-                    offset=FieldExpr('0'), size=FieldExpr('1'),
-                    display=table.display
-                    )]
+            fields = table._struct.fields if table._struct else [table._field]
             for field in fields:
                 cls._all_fields.append(field)
                 cls._tables_by_attr[field.id] = table
@@ -528,6 +521,14 @@ class Table(Sequence, NodeMixin, RomObject):
         return self.root.map.structs.get(self.spec.type, None)
 
     @property
+    def _field(self):
+        return Field.handlers[self.type](
+                id=self.fid, name=self.iname, type=self.type,
+                offset=FieldExpr('0'), size=FieldExpr(str(self.size)),
+                display=self.display
+                )
+
+    @property
     def _isz_bits(self):
         """ Get the size of items in the table."""
         if self.spec.size:
@@ -563,14 +564,8 @@ class Table(Sequence, NodeMixin, RomObject):
             raise IndexError(f"Table index out of range ({i} >= {len(self)})")
         elif self._struct:
             return self._struct(self._subview(i), self)
-        elif self.spec.type == 'str':
-            return self._subview(i).str_read(self.spec.display)
-        elif self.spec.type == 'strz':
-            return self._subview(i).strz_read(self.spec.display)
-        elif self.spec.display in ('hex', 'pointer'):
-            return util.HexInt(getattr(self._subview(i), self.spec.type))
         else:
-            return getattr(self._subview(i), self.spec.type)
+            return self._field.read(self._subview(i))
 
     def lookup(self, name):
         try:
@@ -606,15 +601,10 @@ class Table(Sequence, NodeMixin, RomObject):
                 raise ValueError(msg)
             for i, v in zip(range(i.start, i.stop, i.step), v):
                 self[i] = v
-
-        if self._struct:
+        elif self._struct:
             self[i].copy(v)
-        elif self.spec.type == 'str':
-            self._subview(i).str_write(v, self.spec.display)
-        elif self.spec.type == 'strz':
-            self._subview(i).strz_write(v, self.spec.display)
         else:
-            setattr(self._subview(i), self.spec.type, v)
+            self._field.write(self._subview(i), v)
 
     def __len__(self):
         return len(self.index)

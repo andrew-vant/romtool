@@ -140,7 +140,7 @@ class TestStructure(unittest.TestCase):
 
     def test_overrun_warning(self):
         struct = self.scratch(Stream(self.data))
-        with self.assertLogs('romtool.io', logging.WARNING):
+        with self.assertLogs('romtool.field', logging.WARNING):
             struct.strz = 'abcdefg'
 
     def test_undersized_string(self):
