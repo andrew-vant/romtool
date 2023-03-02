@@ -547,15 +547,15 @@ class Table(Sequence, NodeMixin, RomObject):
         end = start + self._isz_bits
         return self.view[start:end]
 
-    def __repr__(self):
+    def __str__(self):
         content = ', '.join(repr(item) for item in self)
         return f'Table({content})\n'
 
-    def __str__(self):
+    def __repr__(self):
         tp = self.spec.type
         ct = len(self)
         offset = util.HexInt(self.index.offset)
-        return f'Table({tp}*{ct}@{offset})'
+        return f'<Table({tp}*{ct}@{offset})>'
 
     def __getitem__(self, i):
         if isinstance(i, slice):
