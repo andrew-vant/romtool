@@ -51,7 +51,7 @@ import csv
 import json
 import re
 import codecs
-from datetime import datetime, timedelta
+from datetime import datetime
 from os.path import splitext, basename
 from itertools import chain, groupby
 from textwrap import dedent
@@ -891,16 +891,6 @@ def _backup(filename, skip=False):
         shutil.copyfile(bak, filename)
     else:
         log.warning("Backup suppressed")
-
-
-def _filterpatch(patch, romfile):
-    # Fixme: Ask forgiveness, not permission here? And should the check be
-    # handled by the caller?
-    if romfile is not None:
-        msg = "Filtering changes against %s."
-        log.info(msg, romfile)
-        with open(romfile, "rb") as rom:
-            patch.filter(rom)
 
 
 def _writepatch(patch, outfile):
