@@ -625,27 +625,6 @@ def findblocks(args):
         fmt = "{:06X}\t{:06X}\t0x{:02X}\t{}\t{:X}"
         print(fmt.format(offset, offset+length, byte, length, length))
 
-def meta(args):
-    """ Print rom metadata, e.g. console and header info"""
-
-    writer = None
-    for filename in args.rom:
-        log.info("Inspecting ROM: %s", filename)
-        with open(filename, 'rb') as romfile:
-            try:
-                rom = rom.Rom.make(romfile)
-            except rom.RomFormatError as e:
-                log.error("Error inspecting %s: %s", filename, str(e))
-                continue
-        header_data = {"File": filename}
-        header_data.update(rom.header.dump())
-        columns = ['File'] + list(rom.header.labels)
-        if not writer:
-            writer = csv.DictWriter(sys.stdout, columns, dialect='romtool')
-            writer.writeheader()
-        writer.writerow(header_data)
-
-
 def ident(args):
     """ Print identifying information for a ROM
 
@@ -657,6 +636,7 @@ def ident(args):
         -l, --long            Alias for --format long
         -n, --name            Always echo filename in short format
         -N, --no-name         Never echo filename in short format
+        -H, --header-data     Include header metadata in long format
 
     Common options:
         -h, --help            Print this help
@@ -716,6 +696,9 @@ def ident(args):
             info.map = detect(filename)
         except RomDetectionError:
             info.map = "(no map found)"
+        if args['header-data']:
+            for k, v in getattr(rom, 'header', {}).items():
+                info[f'header.{k}'] = v
         if not longfmt:
             prefix = (f"{filename}:\t"
                       if args.name or not args['no-name'] and len(args.roms) > 1

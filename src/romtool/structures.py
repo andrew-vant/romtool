@@ -236,8 +236,6 @@ class EntityList(Sequence):
 class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
 
-    labels = {}
-
     @lru_cache(None)
     def __new__(cls, view, parent=None):
         return super().__new__(cls)
