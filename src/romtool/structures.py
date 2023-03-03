@@ -302,17 +302,14 @@ class Structure(Mapping, NodeMixin, RomObject):
                        for field in self.fields)
 
     def __format__(self, spec):
-        outfmt, identifier = spec.split(":")
-        if outfmt != 'y':
-            raise ValueError("bad format string: {spec}")
-        if identifier == 'i':
+        if spec == 'byid':
             return ''.join(f'{field.id}: {getattr(self, field.id)}\n'
                            for field in self.fields)
-        elif identifier == 'n':
+        elif spec == 'byname':
             return ''.join(f'{field.name}: {self[field.name]}\n'
                            for field in self.fields)
         else:
-            raise ValueError("bad format string: {spec}")
+            return super().__format__(spec)
 
     def __str__(self):
         cls = type(self).__name__
