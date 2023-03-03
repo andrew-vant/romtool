@@ -92,6 +92,27 @@ class HexInt(int):
         return f'{sign}0x{abs(self):0{digits}X}'
 
 
+class Offset(HexInt):
+    # Need to do something canonical with this because fuck it's annoying
+    # translating. Needs to track bits internally, have bytes/bits attributes,
+    # something like divmod, handle arithmetic, provide useful
+    # string and format methods.
+    def __new__(cls, *args, bytes=None, bits=None):
+        if args and (bytes or bits):
+            raise ValueError("supply value or bytes/bits, not both")
+        if args:
+            return super().__new__(cls, *args)
+        return super().__new__(cls, bytes*8+bits)
+
+    @property
+    def bytes(self):
+        return self // 8
+
+    @property
+    def bits(self):
+        return self % 8
+
+
 class IndexInt(int):
     """ An int representing a table index
 
