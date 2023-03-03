@@ -1,5 +1,6 @@
 import codecs
 import logging
+from collections import ChainMap
 from functools import partial
 from dataclasses import dataclass, fields, asdict
 from io import BytesIO
@@ -139,9 +140,6 @@ class Field(ABC):
     order: int = 0
     comment: str = ''
 
-    handlers = {}
-    handles = []
-
     def __post_init__(self):
         """ Perform sanity checks after construction """
         self.name = self.name or self.id
@@ -250,13 +248,9 @@ class Field(ABC):
         """
         raise NotImplementedError("don't know how to parse a %s", type(self))
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        for typename in cls.handles:
-            cls.handle(typename)
-
     @classmethod
-    def from_tsv_row(cls, row):
+    def from_tsv_row(cls, row, extra_fieldtypes=None):
+        cls = ChainMap(extra_fieldtypes or {}, DEFAULT_FIELDS)[row['type']]
         kwargs = {}
         convtbl = {int: partial(int, base=0),
                    Unit: Unit.__getitem__,
@@ -267,29 +261,14 @@ class Field(ABC):
             v = row.get(k, None) or None  # ignore missing or empty values
             if v is not None:
                 kwargs[k] = convtbl[field.type](v)
-        if kwargs['type'] not in cls.handlers:
-            raise RomtoolError(f"'{kwargs['type']}' is not a known field type")
-        cls = cls.handlers[kwargs['type']]
         return cls(**kwargs)
 
     def asdict(self):
         return {f.name: getattr(self, f.name) or '' for f in fields(self)}
 
-    @classmethod
-    def handle(cls, typename):
-        name = cls.__name__
-        if typename in cls.handlers:
-            other = cls.handlers[typename].__name__
-            msg = (f"{name} wants to handle type '{typename}', "
-                   f"but it is already handled by {other}")
-            raise ValueError(msg)
-        cls.handlers[typename] = cls
-        log.debug(f"{name} registered as handler for '{typename}'")
-
 
 class StringField(Field):
     """ Field for fixed-width strings """
-    handles = ['str']
 
     @property
     def codec(self):
@@ -325,7 +304,6 @@ class StringField(Field):
 
 class StringZField(StringField):
     """ Field for strings with a terminator """
-    handles = ['strz']
 
     @property
     def codec(self):
@@ -378,13 +356,12 @@ class StringZField(StringField):
 
 
 class IntField(Field):
-    handles = ['int', 'uint', 'uintbe', 'uintle']
-    enums = {}
-
-    @property
-    def enum(self):
-        """ Get enum type for this field, if relevant, otherwise int"""
-        return self.enums.get(self.display)
+    def _enum(self, obj):
+        """ Get any relevant enum type """
+        try:
+            return obj.root.map.enums.get(self.display)
+        except (KeyError, AttributeError):
+            return None
 
     def read(self, obj, objtype=None, realtype=None):
         if obj is None:
@@ -393,11 +370,8 @@ class IntField(Field):
         i = getattr(view, (realtype or self.type)) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
             i = HexInt(i, len(view))
-        if self.enum:
-            try:
-                i = self.enum(i)
-            except ValueError:
-                pass
+        if self._enum(obj):
+            i = self._enum(obj)(i)
         if self.ref:
             for source in obj.root.entities, obj.root.tables:
                 if self.ref in source:
@@ -409,9 +383,9 @@ class IntField(Field):
 
     def write(self, obj, value, realtype=None):
         if isinstance(value, str):
-            if self.enum:
+            if self._enum(obj):
                 try:
-                    value = self.enum[value]
+                    value = self._enum(obj)[value]
                 except KeyError:
                     value = int(value, 0)
             elif self.ref:
@@ -436,26 +410,16 @@ class IntField(Field):
         setattr(view, (realtype or self.type), value)
 
     def parse(self, string):
-        parser = self.enum.parse if self.enum else partial(int, base=0)
+        parser = self._enum.parse if self._enum else partial(int, base=0)
         return parser(string)
-
-    @classmethod
-    def handle(cls, typename, enum=None):
-        super().handle(typename)
-        if enum:
-            cls.enums[typename] = enum
 
 
 class BytesField(Field):
-    handles = ['bytes']
-
     def parse(self, string):
         return bytes.fromhex(string)
 
 
 class StructField(Field):
-    handles = []
-
     def read(self, obj, objtype=None, realtype=None):
         if obj is None:
             return self
@@ -474,15 +438,26 @@ class StructField(Field):
 
 
 class ObjectField(StructField):
-    handles = ['object']
+    """ Dummy field, for when a field is needed but won't be used """
 
 
 class BinField(Field):
-    handles = ['bin']
-
     def parse(self, string):
         # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
         # necessary if possible.
         if isinstance(self.size, int):
             string = string.zfill(self.size * self.unit)
         return string
+
+
+DEFAULT_FIELDS = {
+    'bin': BinField,
+    'object': ObjectField,
+    'bytes': BytesField,
+    'int': IntField,
+    'uint': IntField,
+    'uintbe': IntField,
+    'uintle': IntField,
+    'str': StringField,
+    'strz': StringZField,
+    }

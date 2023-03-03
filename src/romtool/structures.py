@@ -5,7 +5,6 @@ automagically turns the bits and bytes into integers, strings, etc.
 """
 import dataclasses as dc
 import logging
-from collections import ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, groupby
 from functools import partial, lru_cache
@@ -339,10 +338,6 @@ class Structure(Mapping, NodeMixin, RomObject):
             out += f" ({name})"
         return f"<{out}>"
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        StructField.handle(cls.__name__)
-
     @classmethod
     def define(cls, name, fields):
         """ Define a type of structure from a list of Fields
@@ -367,14 +362,14 @@ class Structure(Mapping, NodeMixin, RomObject):
         return type(name, bases, attrs)
 
     @classmethod
-    def define_from_tsv(cls, path):
+    def define_from_tsv(cls, path, extra_fieldtypes=None):
         name = splitext(basename(path))[0]
         rows = util.readtsv(path)
-        return cls.define_from_rows(name, rows)
+        return cls.define_from_rows(name, rows, extra_fieldtypes)
 
     @classmethod
-    def define_from_rows(cls, name, rows):
-        fields = [Field.from_tsv_row(row)
+    def define_from_rows(cls, name, rows, extra_fieldtypes=None):
+        fields = [Field.from_tsv_row(row, extra_fieldtypes)
                   for row in rows]
         return cls.define(name, fields)
 
@@ -522,7 +517,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
     @property
     def _field(self):
-        return Field.handlers[self.type](
+        return self.root.map.handlers[self.type](
                 id=self.fid, name=self.iname, type=self.type,
                 offset=FieldExpr('0'), size=FieldExpr(str(self.size)),
                 display=self.display

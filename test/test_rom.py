@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 from os.path import basename
 
+from addict import Dict
+
 import romtool.rom
 import romtool.rommap
 import romtool.text
@@ -12,7 +14,7 @@ import codecs
 from romtool.rom import Rom
 from romtool.rommap import RomMap
 from romtool.structures import Structure
-from romtool.field import Field
+from romtool.field import Field, DEFAULT_FIELDS
 from romtool.util import pkgfile, IndexInt
 
 
@@ -59,16 +61,16 @@ class TestRom(unittest.TestCase):
 
 class TestRomMap(unittest.TestCase):
     def setUp(self):
-        structs = {'snesheaders': romtool.rom.headers['snes-hdr']}
+        structs = {'snesheader': romtool.rom.headers['snes-hdr']}
         tables = {'snesheaders':
-                     {'id': 'snesheaders',
+                     Dict({'id': 'snesheaders',
                       'name': 'Header',
                       'set': '',
-                      'type': 'snes-hdr',
+                      'type': 'snesheader',
                       'offset': '0x7FC0',
                       'size': '32',
                       'count': '2',
-                      'stride': '0x8000'}
+                      'stride': '0x8000'})
                      }
         self.rmap = RomMap('nameless', None, structs, tables)
 
@@ -89,8 +91,6 @@ class TestKnownMapBase(abc.ABC, unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.std_field_handlers = Field.handlers.copy()
-        assert 'monster' not in Field.handlers
         cls.rmap = RomMap.load(str(cls.maproot))
         assert cls.rmap.meta, f"metadata missing for {cls.rmap.name}"
         try:
@@ -102,8 +102,6 @@ class TestKnownMapBase(abc.ABC, unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        Field.handlers = cls.std_field_handlers
-        assert 'monster' not in Field.handlers
         # FIXME: String tests fail if different maps have codecs with the same
         # name. Unfortunately the ability to un-register codecs was only added
         # in 3.10, so for now, treat all runs after the first as tainted.

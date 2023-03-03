@@ -6,7 +6,7 @@ import yaml
 from addict import Dict
 
 from romtool.io import BitArrayView as Stream
-from romtool.field import Field
+from romtool.field import Field, StructField
 from romtool.rom import Rom
 from romtool.rommap import RomMap
 from romtool.structures import Structure, BitField, TableSpec, Table, Index
@@ -63,9 +63,6 @@ class TestStructure(unittest.TestCase):
                         'display': 'ascii'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = Structure.define('scratch', self.fields)
-
-    def tearDown(self):
-        del Field.handlers['scratch']
 
     def test_define_struct(self):
         self.assertTrue(issubclass(self.scratch, Structure))
@@ -190,15 +187,13 @@ class TestSubstructures(unittest.TestCase):
                    'display': None,
                    'arg': None,}]
         self.cls_flags = BitField.define_from_rows('flags', subfields)
-        self.cls_struct = Structure.define_from_rows('scratch', fields)
-        rmap = RomMap()
-        rmap.structs['flags'] = self.cls_flags
-        rmap.structs['scratch'] = self.cls_struct
+        self.cls_struct = Structure.define_from_rows(
+            'scratch', fields, {'flags': StructField}
+        )
+        rmap = RomMap(
+            structs={s.__name__: s for s in [self.cls_flags, self.cls_struct]},
+        )
         self.rom = Rom(bytes([0b00000001]), rmap)
-
-    def tearDown(self):
-        for name in ['scratch', 'flags']:
-            del Field.handlers[name]
 
     def test_substruct(self):
         struct = self.cls_struct(self.rom.data, self.rom)
@@ -227,9 +222,6 @@ class TestBitField(unittest.TestCase):
                         'arg': '0'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = BitField.define('scratch', self.fields)
-
-    def tearDown(self):
-        del Field.handlers['scratch']
 
     def test_define(self):
         self.assertTrue(issubclass(self.scratch, BitField))
@@ -275,9 +267,6 @@ class TestTable(unittest.TestCase):
         self.rmap = RomMap(structs={'scratch': self.scratch})
         self.rom = Rom(b'\x00\x01\x02\x03abcdef', self.rmap)
         self.stream = Stream(self.rom.data)
-
-    def tearDown(self):
-        del Field.handlers['scratch']
 
     def test_primitive_array_construction(self):
         spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)

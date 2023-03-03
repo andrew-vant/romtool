@@ -26,7 +26,6 @@ class MonsterExtra(IntField):
     pointer only attack; monsters with no resist pointer have neutral resists.
     """
 
-    handles = ['exmon']
     known_extypes = [0x03, 0x07, 0x08]
 
     # FIXME: Is there a way to alter a logger within the main dump/load loop such
@@ -80,3 +79,5 @@ class MonsterExtra(IntField):
 
     def parse(self, string):
         return int(string, 0) if string else None
+
+MAP_FIELDS = {'exmon': MonsterExtra}

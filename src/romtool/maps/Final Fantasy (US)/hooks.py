@@ -19,7 +19,6 @@ class SpellArgument(IntField):
     statuses or elements) or a scalar (representing spell power). Which it is
     depends on the spell routine the spell uses.
     """
-    handles = ['effect']
     _typemap = {0x03: 'statuses',
                 0x08: 'statuses',
                 0x12: 'statuses',
@@ -93,3 +92,5 @@ def sanitize_save(savefile):
     log.info(msg, oldsum, checksum)
     savefile.seek(_save_data_offset + _save_checksum_offset)
     savefile.write(bytes([checksum]))
+
+MAP_FIELDS = {'effect': SpellArgument}

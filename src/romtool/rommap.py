@@ -4,7 +4,9 @@ import os
 import logging
 import types
 from typing import Mapping, Sequence
+from collections import ChainMap
 from functools import partial
+from itertools import chain
 from dataclasses import dataclass, field, fields
 from os.path import relpath, basename
 from pathlib import Path
@@ -18,7 +20,7 @@ from . import util, text
 from .structures import Structure, BitField, Table, TableSpec
 from .text import TextTable
 from .exceptions import RomtoolError, MapError
-from .field import IntField
+from .field import Field, IntField, StructField, DEFAULT_FIELDS
 
 
 log = logging.getLogger(__name__)
@@ -53,6 +55,30 @@ class RomMap:
     tests: Sequence = list
     hooks: types.ModuleType = None
     meta: Mapping[str, str] = _adctfld()
+    handlers: Mapping[str, Type[Field]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """ Perform sanity checks after construction """
+        self.handlers = ChainMap(
+                self.handlers,
+                getattr(self.hooks, 'MAP_FIELDS', {}),
+                {name: StructField for name in self.structs},
+                DEFAULT_FIELDS,
+                )
+        # Sanity checks
+        assert all(issubclass(h, Field) for h in self.handlers.values())
+        for name, struct in self.structs.items():
+            assert name in self.handlers
+            assert issubclass(self.handlers[name], StructField)
+            for field in struct.fields:
+                if field.type not in self.handlers:
+                    # can't happen?
+                    msg = f"unknown type for {name}.{field.id}: {field.type}"
+                    raise MapError(msg)
+        for name, table in self.tables.items():
+            if table.type not in self.handlers:
+                msg = f"unknown type for table '{name}': {table.type}"
+                raise MapError(msg)
 
     @property
     def sets(self):
@@ -131,14 +157,18 @@ class RomMap:
         def load_enum(name, f):
             espec = {v: k for k, v in util.loadyaml(f).items()}
             ecls = util.RomEnum(name, espec)
-            IntField.handle(name, ecls)
             return ecls
 
         def load_struct(name, f):
-            return Structure.define_from_rows(name, util.readtsv(f))
+            rows = util.readtsv(f)
+            scls = Structure.define_from_rows(name, rows, kwargs.handlers)
+            return scls
 
         def load_bf(name, f):
-            return BitField.define_from_rows(name, util.readtsv(f))
+            rows = util.readtsv(f)
+            bfcls = BitField.define_from_rows(name, rows, kwargs.handlers)
+            kwargs.handlers[name] = StructField
+            return bfcls
 
         loaders = [
             ('text table', 'ttables', 'texttables', '.tbl',  load_tt),
@@ -147,6 +177,7 @@ class RomMap:
             ('struct',     'structs', 'structs',    '.tsv',  load_struct),
             ]
 
+        kwargs.handlers = getattr(kwargs.hooks, 'MAP_FIELDS', {})
         for otype, kwarg, parent, ext, loader in loaders:
             log.info("Loading %s", parent)
             for name, path in files(parent, ext):

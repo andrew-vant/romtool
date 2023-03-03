@@ -25,11 +25,11 @@ from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Table, Entity, EntityList
 from .rommap import RomMap
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
+from .field import DEFAULT_FIELDS
 
 
 log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
-
 
 class RomFormatError(RomError):
     pass
