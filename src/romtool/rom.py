@@ -123,7 +123,11 @@ class Rom(NodeMixin, util.RomObject):
         for _set in self.map.sets:
             path = pathjoin(folder, f'{_set}.tsv')
             log.debug("loading mod set '%s' from %s", _set, path)
-            contents = util.readtsv(path)
+            try:
+                contents = util.readtsv(path)
+            except FileNotFoundError as ex:
+                log.warning("skipping %s: %s", _set, ex)
+                continue
             byidx = lambda row: int(row['_idx'], 0)
             try:
                 contents = sorted(contents, key=byidx)
@@ -133,8 +137,12 @@ class Rom(NodeMixin, util.RomObject):
 
         with EntityList.cache_locate():
             # Crossref resolution is slow. Cache results during load. FIXME: I
-            # am *sure* there's a better way to do this.
+            # am *sure* there's a better way to do this. Should probably
+            # iterate over the input data rather than the entity list, for one
+            # thing, so missing entries are skipped instead of breaking.
             for etype, elist in self.entities.items():
+                if etype not in data:
+                    continue
                 log.info("Loading %s %s", len(elist), etype)
                 for i, (orig, new) in enumerate(zip(elist, data[etype])):
                     name = new.get('Name', 'nameless')
