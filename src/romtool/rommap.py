@@ -186,10 +186,10 @@ class RomMap:
                 with open(path) as f:
                     kwargs[kwarg][name] = loader(name, f)
 
-        # Now load the array definitions. Note that this doesn't instantiate
-        # them, just stores the appropriate kwargs for use by the program.
+        # Now load the rom tables. Note that this doesn't instantiate them,
+        # just stores the appropriate kwargs for use by the program.
 
-        path = root + "/arrays.tsv"
+        path = root + "/rom.tsv"
         log.info("Loading array specs from %s", path)
         kwargs.tables = Dict()
         for record in util.readtsv(path):

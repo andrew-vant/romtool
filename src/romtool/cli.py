@@ -543,7 +543,7 @@ def document(args):
             log.critical("Error while documenting %s structure: [%s:%s] %s",
                          name, ex.name, ex.lineno, ex.message)
             sys.exit(2)
-    path = os.path.join(rom.map.path, "arrays.tsv")
+    path = os.path.join(rom.map.path, "rom.tsv")
     log.info("Documenting data tables")
     indexes = {t.index: rom.map.tables[t.index]
                for t in rom.map.tables.values()}

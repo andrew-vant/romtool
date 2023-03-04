@@ -1,0 +1,22 @@
+id	fid	name	iname	set	type	offset	count	stride	size	index	priority	display	comment
+mname_ptrs	nmp	Monster Name Index	Name Pointer	monsters	uintle	0x02D4E0	128	2				pointer	
+spcname_ptrs	nmp	Special Name Index	Name Pointer	specials	uintle	0x02B600	26	2				pointer	
+aname_ptrs	nmp	Armor Name Index	Name Pointer	armor	uintle	0x02B788	40	2				pointer	
+cname_ptrs	nmp	Class Name Index	Name Pointer	classes	uintle	0x02B8E0	12	2				pointer	
+wname_ptrs	nmp	Weapon Name Index	Name Pointer	weapons	uintle	0x02B738	40	2				pointer	
+splname_ptrs	nmp	Special Name Index	Name Pointer	spells	uintle	0x02B860	64	2				pointer	
+mnames	name	Monster Names	Name	monsters	strz	0x24000	128		12	mname_ptrs		names	
+cnames	name	Class Names	Name	classes	strz	0x20000	6	8	12	cname_ptrs		names	
+anames	name	Armor Names	Name	armor	strz	0x20000	40		12	aname_ptrs		names	Hilarious. The 8-byte stride of this list is broken only by the ribbon name string - which is 9 bytes long.
+wnames	name	Weapon Names	Name	weapons	strz	0x20000	40	8	12	wname_ptrs		names	
+splnames	name	Spell Names	Name	spells	strz	0x20000	64	5	12	splname_ptrs		names	
+spcnames	name	Special Names	Name	specials	strz	0x20000	26		12	spcname_ptrs		names	
+classes		Classes	Class	classes	class	0x3040	12	16					The base stats for the six promotion classes are all zero, presumably because they are only used when starting a new game.
+monsters		Monsters	Monster	monsters	monster	0x030520	128	20					
+weapons		Weapons	Weapon	weapons	weapon	0x030000	40	8					
+armor		Armor	Armor	armor	armor	0x030140	40	4					
+spells		Spells	Spell	spells	spell	0x0301E0	64	8					
+specials		Specials	Special	specials	special	0x0303F0	26	8					
+wp_price	price	Weapon Prices	Price	weapons	uintle	0x037C38	40	2					
+a_price	price	Armor Prices	Price	armor	uintle	0x037C88	40	2					
+m_price	price	Spell Prices	Price	spells	uintle	0x037D60	64	2					
