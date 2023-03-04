@@ -65,9 +65,13 @@ class MonsterExtra(IntField):
         return value
 
     def write(self, obj, value):
+        # Probably this conversion should happen elsewhere...
+        value = None if value == '' else value
         view = self._view(obj)
         if view is None and value is None:
             return  # Nothing to do
+        elif value == self.read(obj):
+            return  # Still nothing to do
         elif view is None and value is not None:
             msg = f"Can't safely add {self.id} ({self.name}) to a monster (yet)"
             raise NotImplementedError(msg)
