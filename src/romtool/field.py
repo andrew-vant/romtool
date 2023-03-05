@@ -219,7 +219,11 @@ class Field(ABC):
         return self.read(instance, owner)
 
     def __set__(self, instance, value):
+        old = self.__get__(instance)
         self.write(instance, value)
+        new = self.__get__(instance)
+        if new != old:
+            log.debug("change: %s.%s %s -> %s", instance, self.id, old, new)
 
     def read(self, obj, objtype=None):
         """ Read from a structure field

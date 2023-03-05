@@ -10,12 +10,13 @@ from anytree import NodeMixin
 from anytree.search import find
 from collections import namedtuple
 from collections.abc import Hashable
-from functools import lru_cache
+from functools import lru_cache, partial
 from io import BytesIO
 
 from .util import bytes2ba, HexInt
 
 log = logging.getLogger(__name__)
+trace = partial(log.log, logging.NOTSET)
 
 
 class Unit(enum.IntEnum):
@@ -209,7 +210,7 @@ class BitArrayView(NodeMixin):
         self.ba[self.abs_slice] = ba
         new = self.bits
         if new != old:
-            log.debug("change detected: %s -> %s", old, new)
+            trace("change detected: %s -> %s", old, new)
 
     @property
     def bin(self):
@@ -238,7 +239,7 @@ class BitArrayView(NodeMixin):
         old = self.uint
         self.bits = int2ba(i, length=len(self), endian=self.ba.endian())
         if old != self.uint:
-            log.debug("change detected: %s -> %s", old, self.uint)
+            trace("change detected: %s -> %s", old, self.uint)
 
     @property
     def uintbe(self):
@@ -274,4 +275,4 @@ class BitArrayView(NodeMixin):
                 signed=True
                 )
         if old != self.int:
-            log.debug("change detected: %s -> %s", old, self.int)
+            trace("change detected: %s -> %s", old, self.int)
