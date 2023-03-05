@@ -135,6 +135,11 @@ class TestKnownMapBase(abc.ABC, unittest.TestCase):
             # will go horribly wrong with this eventually.
             emsg = f"expected '{expected}', found '{value}'"
             self.assertIn(expected, [value, str(value)], emsg)
+            if attr:
+                setattr(item, attr, getattr(item, attr))
+                value = getattr(item, attr)
+                emsg = f"noop wasn't noop; '{expected}' became '{value}'"
+                self.assertIn(expected, [value, str(value)], emsg)
         return testfunc
 
 
