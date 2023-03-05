@@ -292,6 +292,9 @@ class Structure(Mapping, NodeMixin, RomObject):
     def __iter__(self):
         # Keys are technically unordered, but in many places it's very
         # convenient for the name to come 'first'.
+        # FIXME: Causes issues with some subclasses, e.g. bitfields, where
+        # iteration order matters for purposes of parsing. Consider making this
+        # a separate iterator, perhaps part of keys().
         return (f.name for f in sorted(self.fields))
 
     def __len__(self):
@@ -422,7 +425,6 @@ class Structure(Mapping, NodeMixin, RomObject):
 
 
 class BitField(Structure):
-    # FIXME: this is the next thing that needs doing, I think.
     def __str__(self):
         return ''.join(field.display.upper() if self[field.name]
                        else field.display.lower()
@@ -437,8 +439,10 @@ class BitField(Structure):
     def parse(self, s):
         if len(s) != len(self):
             raise ValueError("String length must match bitfield length")
-        for k, letter in zip(self, s):
-            self[k] = letter.isupper()
+        if s.lower() != str(self).lower():
+            raise ValueError("String letters don't match field")
+        for field, letter in zip(self.fields, s):
+            self[field.name] = letter.isupper()
 
 
 @dc.dataclass

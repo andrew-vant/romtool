@@ -205,21 +205,32 @@ class TestBitField(unittest.TestCase):
     def setUp(self):
         self.data = bytes2ba(bytes([0b10000000]))
         self.specs = [{'id': 'one',
-                        'name': 'One Label',
-                        'type': 'uint',
-                        'offset': '0',
-                        'size': '1',
-                        'unit': 'bits',
-                        'display': 'J',
-                        'arg': '0'},
-                       {'id': 'two',
-                        'name': 'Two Label',
-                        'type': 'uint',
-                        'offset': '2',
-                        'size': '1',
-                        'unit': 'bits',
-                        'display': 'Q',
-                        'arg': '0'}]
+                       'name': 'One Label',
+                       'type': 'uint',
+                       'offset': '0',
+                       'size': '1',
+                       'unit': 'bits',
+                       'display': 'J',
+                       'arg': '0'},
+                      # the extra 'unknown' field is here to catch a bug where
+                      # parsing was iterating over fields in sorted order
+                      # instead of the order used in the definition
+                      {'id': 'unk',
+                       'name': 'Unknown',
+                       'type': 'uint',
+                       'offset': '1',
+                       'size': '1',
+                       'unit': 'bits',
+                       'display': 'U',
+                       'arg': '0'},
+                      {'id': 'two',
+                       'name': 'Two Label',
+                       'type': 'uint',
+                       'offset': '2',
+                       'size': '1',
+                       'unit': 'bits',
+                       'display': 'Q',
+                       'arg': '0'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = BitField.define('scratch', self.fields)
 
@@ -234,18 +245,18 @@ class TestBitField(unittest.TestCase):
 
     def test_str(self):
         bf = self.scratch(Stream(self.data))
-        self.assertEqual(str(bf), 'Jq')
+        self.assertEqual(str(bf), 'Juq')
 
     def test_repr(self):
         bf = self.scratch(Stream(self.data))
-        self.assertEqual(repr(bf), '<scratch@0x00 (Jq)>')
+        self.assertEqual(repr(bf), '<scratch@0x00 (Juq)>')
 
     def test_parse(self):
         bf = self.scratch(Stream(self.data))
-        bf.parse("jQ")
+        bf.parse("juQ")
         self.assertFalse(bf.one)
         self.assertTrue(bf.two)
-        self.assertEqual(str(bf), "jQ")
+        self.assertEqual(str(bf), "juQ")
 
 
 class TestIndex(unittest.TestCase):
