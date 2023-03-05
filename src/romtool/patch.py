@@ -137,10 +137,14 @@ class Patch(object):
             if line == _IPS_FOOTER:
                 break
 
-            # Normal records have three parts, RLE records have four.
+            # Normal records have three parts, RLE records have four. There's
+            # probably a cleaner way to do this.
             parts = line.split(":")
             if len(parts) == 3:
                 offset, size, data = parts
+                # No need to require size on constructed input. It's just
+                # there to ease inspecting actual IPS files.
+                size = size or hex(len(data) // 2)
                 length, expected = len(data) // 2, int(size, 16)
                 if length != expected:
                     msg = (f"Data length mismatch on line {line_number} "
@@ -149,6 +153,8 @@ class Patch(object):
                 for i, byte in enumerate(bytes.fromhex(data)):
                     changes[int(offset, 16)+i] = byte
             elif len(parts) == 4:
+                # For consistency with above, don't enforce the size field
+                parts[1] = parts[1] or '0000'
                 offset, size, rle_size, value = [int(part, 16)
                                                  for part in parts]
                 if value > 0xFF:
