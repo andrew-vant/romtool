@@ -215,7 +215,7 @@ class Field(ABC):
         end = offset + size
         return context[offset:end]
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner=None):
         return self.read(instance, owner)
 
     def __set__(self, instance, value):

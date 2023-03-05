@@ -237,10 +237,10 @@ class Structure(Mapping, NodeMixin, RomObject):
         self.parent = parent
 
     def __getitem__(self, key):
-        return self._fbnm(key).read(self)
+        return self._fbnm(key).__get__(self)
 
     def __setitem__(self, key, value):
-        self._fbnm(key).write(self, value)
+        self._fbnm(key).__set__(self, value)
 
     def __eq__(self, other):
         return object.__eq__(self, other)
@@ -564,11 +564,9 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             return self._struct(self._subview(i), self)
         else:
-            return self._field.read(self._subview(i))
+            return self._field.__get__(self._subview(i))
 
     def __setitem__(self, i, v):
-        if str(v) != str(self[i]):
-            log.debug("difference detected: %r != %r", v, self[i])
         if isinstance(i, slice):
             indices = list(range(i.start, i.stop, i.step))
             if len(indices) != len(v):
@@ -579,7 +577,7 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             self[i].copy(v)
         else:
-            self._field.write(self._subview(i), v)
+            self._field.__set__(self._subview(i), v)
 
     def lookup(self, name):
         try:
