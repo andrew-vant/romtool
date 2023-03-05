@@ -9,12 +9,18 @@ _IPS_FOOTER = "EOF"
 _IPS_BOGO_ADDRESS = 0x454f46
 _IPS_RLE_THRESHOLD = 10  # How many repeats before trying to use RLE?
 
+from .exceptions import RomtoolError
 
-class PatchFormatError(Exception):
+
+class PatchError(RomtoolError):
+    """ Exception raised for broken patches """
+
+
+class PatchFormatError(PatchError):
     """ A patch is 'broken' somehow."""
 
 
-class PatchValueError(Exception):
+class PatchValueError(PatchError):
     """ A patch's format is correct but it contains contradictory data."""
 
 
