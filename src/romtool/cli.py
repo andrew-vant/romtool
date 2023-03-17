@@ -952,7 +952,7 @@ def main(argv=None):
     util.debug_structure(args)
     util.debug_structure(dict(args.items()))
 
-    expected = () if args.debug else (FileNotFoundError, NotImplementedError, RomtoolError)
+    expected = (FileNotFoundError, NotImplementedError, RomtoolError)
 
     try:
         cmd = globals().get(args.command)
@@ -961,6 +961,8 @@ def main(argv=None):
                          args.command);
             sys.exit(1);
         args = Args(docopt(getdoc(cmd), argv, version=version))
+        if args.debug:
+            expected = ()  # dump all exceptions in debug mode
         initlog(args)  # because log opts may come before or after the command
         cmd(args)
         log.debug("total running time: %s", datetime.now()-ts_start)
