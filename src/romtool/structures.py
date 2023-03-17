@@ -7,7 +7,7 @@ import dataclasses as dc
 import logging
 from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, groupby
-from functools import partial, lru_cache
+from functools import partial
 from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
@@ -19,7 +19,7 @@ from anytree import NodeMixin
 
 from .field import Field, StructField, FieldExpr
 from . import util
-from .util import RomObject, SequenceView, CheckedDict, HexInt
+from .util import cache, RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -218,7 +218,7 @@ class EntityList(Sequence):
         the default behavior.
         """
         orig_locate = cls.locate
-        cls.locate = lru_cache(None)(cls.locate)
+        cls.locate = cache(cls.locate)
         try:
             yield cls
         finally:
@@ -228,7 +228,7 @@ class EntityList(Sequence):
 class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
 
-    @lru_cache(None)
+    @cache
     def __new__(cls, view, parent=None):
         return super().__new__(cls)
 

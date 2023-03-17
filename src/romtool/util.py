@@ -39,6 +39,14 @@ csv.register_dialect(
         )
 
 
+def cache(function):
+    """ Simple unbounded cache decorator
+
+    Backport of functools.cache. Here to avoid dependency on 3.9+.
+    """
+    return lru_cache(maxsize=None)(function)
+
+
 class CheckedDict(dict):
     """ A dictionary that warns you if you overwrite keys."""
 
@@ -493,7 +501,7 @@ def subregistry(cls):
     cls.__init_subclass__ = initsub
     return cls
 
-@lru_cache()
+@cache
 def nointro():
     """ Get the nointro database as a dict """
     return {item['sha1']: item['name']
@@ -552,7 +560,7 @@ def roundup(n, base):
     # credit: https://stackoverflow.com/a/14092788/
     return n - n % (-base)
 
-@lru_cache
+@cache
 def jinja_env():
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
     tpl_loader = jinja2.ChoiceLoader([

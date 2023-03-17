@@ -10,10 +10,10 @@ from anytree import NodeMixin
 from anytree.search import find
 from collections import namedtuple
 from collections.abc import Hashable
-from functools import lru_cache, partial
+from functools import partial
 from io import BytesIO
 
-from .util import bytes2ba, HexInt
+from .util import bytes2ba, HexInt, cache
 
 log = logging.getLogger(__name__)
 trace = partial(log.log, logging.NOTSET)
@@ -55,7 +55,7 @@ class BitArrayView(NodeMixin):
                 else super().__new__(cls))
 
     @classmethod
-    @lru_cache(None)
+    @cache
     def _newcache(cls, auto, *args, **kwargs):
         return super().__new__(cls)
 
