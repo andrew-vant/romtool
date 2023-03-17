@@ -2,6 +2,7 @@
 
 import csv
 import contextlib
+import importlib.resources as resources
 import logging
 import os
 import abc
@@ -504,8 +505,8 @@ def subregistry(cls):
 @cache
 def nointro():
     """ Get the nointro database as a dict """
-    return {item['sha1']: item['name']
-            for item in readtsv(pkgfile('nointro.tsv'))}
+    return {item['sha1']: item['name'] for item
+            in readtsv(resources.files(__package__).joinpath('nointro.tsv'))}
 
 class TSVLoader:
     """ Helper class for turning tsv rows into constructor arguments """
