@@ -1,5 +1,6 @@
 import os
 import logging
+from importlib.resources import files
 from pathlib import Path
 from functools import partial
 
@@ -7,18 +8,17 @@ import yaml
 from addict import Dict
 from appdirs import user_config_dir
 
+from ..util import cache
 
-CFG_DFLT = Path(__file__).resolve().parent
+
+_loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
 CFG_USER = user_config_dir('romtool')  # Default config search path
 CFG_EVAR = 'ROMTOOL_CONFIG_DIR'        # Environment var overrides default
+DEFAULTS = {f.name: _loadyaml(f.read_text())
+            for f in files(__name__).iterdir()
+            if f.suffix == '.yaml'}
 
-_LOADED = Dict()
-
-def known_files():
-    return [p.name for p
-            in CFG_DFLT.iterdir()
-            if p.suffix == '.yaml']
-
+@cache
 def load(name, search_paths=None, refresh=False):
     """ Load a yaml config file
 
@@ -26,19 +26,18 @@ def load(name, search_paths=None, refresh=False):
     Search paths can be specified via an environment variable, or as an
     argument.
 
-    Repeated calls will not reload the file unless `refresh` is given.
+    The contents of config files are cached, and repeated calls will not
+    reload them. To force a reload, call load.cache_clear().
     """
-    if name in _LOADED and not refresh:
-        return _LOADED[name]
-    if name not in known_files():
+    if name not in DEFAULTS:
         raise ValueError(f"not a known config file: {name}")
     if search_paths is None:
-        userdir = Path(os.environ.get(CFG_EVAR) or CFG_USER)
-        search_paths = [CFG_DFLT, userdir]
+        search_paths = [Path(os.environ.get(CFG_EVAR) or CFG_USER)]
 
     log = logging.getLogger(__name__)
     loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
     dataset = Dict()
+    dataset.update(DEFAULTS[name])
     for path in search_paths:
         try:
             with open(Path(path, name)) as f:
@@ -47,5 +46,4 @@ def load(name, search_paths=None, refresh=False):
             log.debug(ex)
         except IOError as ex:
             log.warning(ex)
-    _LOADED[name] = dataset
     return dataset
