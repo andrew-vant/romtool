@@ -370,21 +370,24 @@ def intify_items(dct, keys, default=None):
             continue
         dct[key] = int(dct[key], 0)
 
-def get_subfiles(root, folder, extension):
+def get_subfiles(root, folder, extension, empty_if_missing=True):
+    """ Get files under a given folder with a given extension
+
+    Meant to ease collecting structures, bitfields, etc. Yields Path objects.
+    If empty_if_missing is True (the default), a missing folder will be produce
+    an empty interable instead of FileNotFoundError.
+    """
     if root is None:
-        root = libroot
+        root = resources.files(__package__)
+    if isinstance(root, str):
+        root = Path(root)
+    catch = FileNotFoundError if empty_if_missing else ()
     try:
-        filenames = [filename for filename
-                     in os.listdir("{}/{}".format(root, folder))
-                     if filename.endswith(extension)]
-        names = [os.path.splitext(filename)[0]
-                 for filename in filenames]
-        paths = ["{}/{}/{}".format(root, folder, filename)
-                 for filename in filenames]
-        return zip(names, paths)
-    except FileNotFoundError:
-        log.info(f"{root}/{folder} not found, treating as empty")
-        return []
+        yield from (path for path
+                    in root.joinpath(folder).iterdir()
+                    if path.suffix == extension)
+    except catch as ex:
+        yield from iter(())
 
 def libpath(path):
     return pathjoin(libroot, path)

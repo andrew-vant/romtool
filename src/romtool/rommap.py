@@ -24,6 +24,7 @@ from .field import Field, IntField, StructField, DEFAULT_FIELDS
 
 
 log = logging.getLogger(__name__)
+ichain = chain.from_iterable  # convenience
 
 
 class MapTest:
@@ -121,11 +122,11 @@ class RomMap:
         #             log.info("Registering data type '%s'", name)
         #             field.register(cls)
 
-        kwargs = Dict()
-        kwargs.path = Path(root)
+        if isinstance(root, str):
+            root = Path(root)
+        kwargs = Dict(path=root)
         try:
-            path = Path(root, 'meta.yaml')
-            with open(path) as f:
+            with root.joinpath('meta.yaml').open() as f:
                 kwargs.meta = Dict(util.loadyaml(f))
         except FileNotFoundError as ex:
             log.warning(f"map metadata missing: {ex}")
@@ -135,7 +136,7 @@ class RomMap:
         # this correctly. In particular, if for some reason multiple maps are
         # loaded, multiple modules will be created with the name 'hooks', and I
         # am not sure if python will like that.
-        path = root + "/hooks.py"
+        path = root.joinpath("hooks.py")
         spec = importlib.util.spec_from_file_location("hooks", path)
         kwargs.hooks = importlib.util.module_from_spec(spec)
         try:
@@ -147,10 +148,6 @@ class RomMap:
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
-        def files(folder, ext):
-            yield from util.get_subfiles(None, folder, ext)
-            yield from util.get_subfiles(root, folder, ext)
-
         def load_tt(name, f):
             return text.add_tt(name, f)
 
@@ -180,17 +177,20 @@ class RomMap:
         kwargs.handlers = getattr(kwargs.hooks, 'MAP_FIELDS', {})
         for otype, kwarg, parent, ext, loader in loaders:
             log.info("Loading %s", parent)
-            for name, path in files(parent, ext):
+            paths = ichain((util.get_subfiles(source, parent, ext)
+                           for source in (None, root)))
+            for path in paths:
+                name = path.stem
                 rpath = relpath(path, root)
                 log.info("Loading %s '%s' from %s", otype, name, rpath)
-                with open(path) as f:
+                with path.open() as f:
                     kwargs[kwarg][name] = loader(name, f)
 
         # Now load the rom tables. Note that this doesn't instantiate them,
         # just stores the appropriate kwargs for use by the program.
 
-        path = root + "/rom.tsv"
-        log.info("Loading array specs from %s", path)
+        path = root.joinpath("rom.tsv")
+        log.info("Loading table specs from %s", path)
         kwargs.tables = Dict()
         for record in util.readtsv(path):
             record = Dict(((k, v) for k, v in record.items()

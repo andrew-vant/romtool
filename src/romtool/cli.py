@@ -532,10 +532,10 @@ def document(args):
     """
     rom = _init_rom(args.rom, args.map, args.patches)
     structures = {}
-    for name, path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
+    for path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
+        name = path.stem
         log.info("Generating doc table for %s", path)
-        name = splitext(basename(name))[0]
-        name = name[0].upper() + name[1:]
+        name = path.stem.title()
         try:
             with open(path) as f:
                 structures[name] = util.tsv2html(f, name)
