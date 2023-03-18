@@ -27,5 +27,5 @@ spells		Spells	Spell	spells	spell	-0xC00000	61	12		spell_ptr
 itemstats		Item Stats	Item Stats	items	item	-0xC00000	100	9		item_ptr			
 monsters		Monsters	Monster	monsters	monster	-0xC00000	98	42		mon_ptr			
 dropsets		Dropsets	Dropset	dropsets	dropset	0x8A18	16	16					
-ext_spell_palette	pal	Spell Palette Overrides	Palette Override	spells	uint	0x9E000	64	1					The default 255 does nothing; any other number overrides the palette set in the spell's gfx script.
+ext_spell_palette	pal	Spell Palette Overrides	Palette Override [ext]	spells	uint	0x9E000	64	1					The default 255 does nothing; any other number overrides the palette set in the spell's gfx script.
 shops	shop	Shops	Town Shops	shops	shops	-0xC00000	139	40		shops_ptr			
