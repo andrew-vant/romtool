@@ -87,11 +87,13 @@ class RomMap:
 
     def find(self, top):
         """ Find the ROM corresponding to this map under top """
+        if isinstance(top, str):
+            top = Path(top)
         for parent, dirs, files in os.walk(top):
             for filename in files:
                 if filename == self.meta.file:
                     path = Path(parent, filename)
-                    with open(path, 'rb') as f:
+                    with path.open('rb') as f:
                         if sha1(f.read()).hexdigest() == self.meta.sha1:
                             return path
         raise FileNotFoundError(f"no matching rom for {self.name}")

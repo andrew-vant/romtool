@@ -46,18 +46,19 @@ import textwrap
 import hashlib
 import os
 import shutil
+import importlib.resources as resources
 import itertools
 import csv
 import json
 import re
 import codecs
 from datetime import datetime
-from os.path import splitext, basename
 from itertools import chain, groupby
 from textwrap import dedent
 from functools import partial
 from collections import namedtuple
 from inspect import getdoc
+from pathlib import Path
 
 import jinja2
 import yaml
@@ -70,12 +71,13 @@ from . import util, config, charset
 from .rommap import RomMap
 from .rom import Rom
 from .patch import Patch
-from .util import pkgfile, slurp, loadyaml
+from .util import slurp, loadyaml
 from .util import pipeline, HexInt
 from .version import version
 from .exceptions import RomtoolError, RomDetectionError, ChangesetError
 
 log = logging.getLogger(__name__)
+pkgroot = resources.files(__package__)
 
 try:
     # Try to do the right thing when piping to head, etc.
@@ -100,10 +102,12 @@ def detect(romfile, maproot=None):
     """
     cfg = config.load('romtool.yaml')
     if maproot is None:
-        maproot = next(chain(cfg.map_paths, [pkgfile("maps")]))
+        maproot = next(chain(cfg.map_paths, [pkgroot.joinpath('maps')]))
+    if isinstance(maproot, str):
+        maproot = Path(maproot)
 
-    dbfile = os.path.join(maproot, 'hashdb.txt')
-    with open(dbfile) as hashdb, open(romfile, "rb") as rom:
+    dbfile = maproot.joinpath('hashdb.txt')
+    with dbfile.open() as hashdb, open(romfile, "rb") as rom:
         # FIXME: Reads whole file into memory, likely to fail on giant images,
         # e.g cds/dvds.
         log.info("Detecting ROM map for: %s.", romfile)
@@ -115,7 +119,7 @@ def detect(romfile, maproot=None):
             raise RomDetectionError(romhash, romfile)
         name = line.split(maxsplit=1)[1].strip()
         log.info("ROM map found: %s", name)
-        return os.path.join(maproot, name)
+        return maproot.joinpath(name)
 
 
 def loadrom(romfile, mapdir=None):
@@ -166,8 +170,7 @@ def dump(args):
         rom.dump(args.outdir, args.force)
     except FileExistsError as err:
         log.error(err)
-        dest = os.path.abspath(args.outdir)
-        log.error("Aborting, would overwrite files in %s", dest)
+        log.error("Aborting, would overwrite files in %s", args.outdir)
         log.error("you can use --force if you really mean it")
         sys.exit(2)
     log.info("Dump finished")
@@ -251,9 +254,9 @@ def build(args):
                    '.json': [slurp, json.loads, rom.apply],
                    '.asm': [rom.apply_assembly],}
     for path in args.input:
+        path = Path(path)
         log.info("Loading changes from: %s", path)
-        ext = splitext(path)[1]
-        loaders = typeloaders.get(ext, None)
+        loaders = typeloaders.get(path.suffix, None)
         if loaders:
             try:
                 pipeline(path, *loaders)
@@ -543,7 +546,7 @@ def document(args):
             log.critical("Error while documenting %s structure: [%s:%s] %s",
                          name, ex.name, ex.lineno, ex.message)
             sys.exit(2)
-    path = os.path.join(rom.map.path, "rom.tsv")
+    path = Path(rom.map.path, "rom.tsv")
     log.info("Documenting data tables")
     indexes = {t.index: rom.map.tables[t.index]
                for t in rom.map.tables.values()}

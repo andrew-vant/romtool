@@ -9,6 +9,7 @@ _IPS_FOOTER = "EOF"
 _IPS_BOGO_ADDRESS = 0x454f46
 _IPS_RLE_THRESHOLD = 10  # How many repeats before trying to use RLE?
 
+from . import util
 from .exceptions import RomtoolError
 
 
@@ -282,7 +283,7 @@ class Patch(object):
             ptype = os.path.splitext(outfile)[-1][1:]
         pfunc = getattr(self, "to_"+ptype)
         mode = 'wt' if ptype.endswith('t') else 'wb'
-        with open(outfile, mode) as f:
+        with util.flexopen(outfile, mode) as f:
             pfunc(f)
 
     @classmethod
@@ -297,6 +298,6 @@ class Patch(object):
             ptype = os.path.splitext(patchfile)[-1][1:]
         pfunc = getattr(cls, "from_"+ptype)
         mode = 'rt' if ptype.endswith('t') else 'rb'
-        with open(patchfile, mode) as f:
+        with util.flexopen(patchfile, mode) as f:
             patch = pfunc(f)
         return patch

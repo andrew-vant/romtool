@@ -3,6 +3,7 @@
 import csv
 import contextlib
 import importlib.resources as resources
+import io
 import logging
 import os
 import abc
@@ -24,7 +25,6 @@ from bitarray.util import bits2bytes
 from itertools import tee
 
 log = logging.getLogger(__name__)
-libroot = dirname(realpath(__file__))
 
 # romtool's expected format is tab-separated values, no quoting, no
 # escaping (i.e. tab literals aren't allowed)
@@ -389,35 +389,27 @@ def get_subfiles(root, folder, extension, empty_if_missing=True):
     except catch as ex:
         yield from iter(())
 
-def libpath(path):
-    return pathjoin(libroot, path)
-
-def libwalk(path):
-    for root, dirs, files in os.walk(libpath(path)):
-        for filename in (dirs + files):
-            yield pathjoin(root, filename)
 
 def load_builtins(path, extension, loader):
-    path = libpath(path)
     builtins = {}
-    for filename in os.listdir(path):
-        base, ext = os.path.splitext(filename)
-        if ext == extension:
-            log.debug("Loading builtin: %s", filename)
-            builtins[base] = loader(pathjoin(path, filename))
+    for path in get_subfiles(None, path, extension, False):
+        log.debug("Loading builtin: %s", path.name)
+        builtins[path.stem] = loader(path)
     return builtins
 
 
-def dumptsv(path, dataset, force=False, headers=None, index=None):
+def dumptsv(target, dataset, force=False, headers=None, index=None):
     """ Dump an iterable of mappings to a tsv file
 
     If an `index` string is provided, a matching column will be added to the
     output to indicate the original order of the data.
+
+    `target` may be a string, Path, or open file object.
     """
     mode = 'w' if force else 'x'
     writer = None
     desc = getattr(dataset, 'name', '')
-    with open(path, mode, newline='') as f:
+    with flexopen(target, mode, newline='') as f:
         # FIXME: Wonder if I can auto-generate per-struct dialects that do the
         # right thing with validate() on loading, so we find out about size or
         # type mismatches right away.
@@ -433,17 +425,43 @@ def dumptsv(path, dataset, force=False, headers=None, index=None):
             record.update(item.items())
             writer.writerow(record)
 
+
+@contextlib.contextmanager
+def flexopen(target, *args, **kwargs):
+    """ 'Open' a path or file object with a unified interface
+
+    `target` may be a string, Path object, or open file. Any additional
+    arguments will be passed to the underlying open() call. Returns the opened
+    file object.
+
+    If flexopen opens a file, it will close it on exit. If passed an
+    already-opened file, it will leave it open -- the assumption is that
+    whoever opened it will close it when needed.
+
+    It is safe to do 'with flexopen' to stdin/stdout; it won't close them.
+    """
+    if isinstance(target, io.IOBase):
+        if args or kwargs:
+            # This shouldn't be needed, but it will force things to break
+            # noisily if someone passes incompatible arguments.
+            target.reconfigure(*args, **kwargs)
+        yield target
+    else:
+        if isinstance(target, str):
+            target = Path(target)
+        with target.open(*args, **kwargs) as f:
+            yield f
+
+
 def readtsv(infile):
     """ Read in a tsv file
 
-    Accepts either a path or an open file object. Passed file objects should be
+    Accepts a string, Path, or open file object. File objects should be
     opened in text mode with newline=''.
     """
-    try:
-        with open(infile, newline='') as f:
-            return list(csv.DictReader(f, dialect='romtool'))
-    except TypeError:
-        return list(csv.DictReader(infile, dialect='romtool'))
+    with flexopen(infile, newline='') as f:
+        return list(csv.DictReader(f, dialect='romtool'))
+
 
 def filesize(f):
     """ Get the size of a file """
@@ -522,27 +540,14 @@ class TSVLoader:
         pass
 
 
-def whereami(path):
-    """ Get the full path to the containing directory of a file.
-
-    Intended to be called with __file__, mostly
-    """
-    # FIXME: should this go in util? Maybe not, nothing in romtool uses it.
-    return dirname(realpath(path))
-
-
-def pkgfile(filename):
-    return pathjoin(whereami(__file__), filename)
-
-
 def loadyaml(data):
     # Just so I don't have to remember the extra argument everywhere.
     # Should take anything yaml.load will take.
     return yaml.load(data, Loader=yaml.SafeLoader)
 
 
-def slurp(path):
-    with open(path) as f:
+def slurp(path, *args, **kwargs):
+    with flexopen(path, *args, **kwargs) as f:
         return f.read()
 
 def chunk(seq, chunksize):

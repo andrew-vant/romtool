@@ -191,7 +191,7 @@ class Rom(NodeMixin, util.RomObject):
         Expects the content of the file as a string.
         """
         re_ctrl = r'romtool: patch@([0-9A-Fa-f]+):(.*)$'
-        with open(path) as f:
+        with util.flexopen(path) as f:
             for i, line in enumerate(f):
                 match = re.search(re_ctrl, line)
                 if match:
@@ -214,12 +214,15 @@ class Rom(NodeMixin, util.RomObject):
             if not args:
                 raise RomtoolError(f"don't know how to assemble with {cmd}")
             log.info("assembling %s", basename(path))
-            log.debug("executing external command: %s", " ".join(args))
+            # FIXME: pretty sure this won't work for resources pulled from zip.
+            # Not sure what to do about that yet.
+            log.debug("executing external command: %s",
+                      " ".join(str(arg) for arg in args))
             proc = sp.run(args)
             if proc.returncode:
                 raise ChangesetError(f"external assembly failed with return "
                                      f"code {proc.returncode}")
-            with open(outfile, 'rb') as f:
+            with util.flexopen(outfile, 'rb') as f:
                 data = f.read()
         end = location + len(data)
         log.info("patching assembled %s to %s (%s bytes)",
@@ -305,10 +308,10 @@ class Rom(NodeMixin, util.RomObject):
         """
         self.map.lint(self)
 
-    def write(self, path, force=True):
-        """ Write a rom to a file """
+    def write(self, target, force=True):
+        """ Write a rom to a path or file object """
         mode = 'wb' if force else 'xb'
-        with open(path, mode) as f:
+        with util.flexopen(target, mode) as f:
             f.write(self.file.bytes)
 
 

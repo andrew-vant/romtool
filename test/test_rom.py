@@ -1,4 +1,5 @@
 import abc
+import importlib.resources as resources
 import os
 import unittest
 import logging
@@ -15,7 +16,7 @@ from romtool.rom import Rom
 from romtool.rommap import RomMap
 from romtool.structures import Structure
 from romtool.field import Field, DEFAULT_FIELDS
-from romtool.util import pkgfile, IndexInt
+from romtool.util import get_subfiles, IndexInt
 
 
 romenv = 'ROMLIB_TEST_ROM'
@@ -83,7 +84,7 @@ class TestRomMap(unittest.TestCase):
 
 class TestKnownMapBase(abc.ABC, unittest.TestCase):
     known_map_roots = [p for p
-                       in Path(pkgfile('maps')).iterdir()
+                       in resources.files('romtool').joinpath('maps').iterdir()
                        if p.is_dir()
                        and Path(p, 'meta.yaml').exists()]
     rom_dir = Path('~/.local/share/romtool/roms').expanduser()
