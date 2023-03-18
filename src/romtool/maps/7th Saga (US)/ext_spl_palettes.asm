@@ -1,3 +1,6 @@
+; vim: ft=snes
+; romtool: patch@9E100:xa65
+;
 ; This is intended to replace the contents of the routine that sets
 ; spell palettes. It's longer than the original routine, so put this
 ; elsewhere and have the original call it with JSL.
