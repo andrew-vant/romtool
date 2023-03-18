@@ -193,7 +193,7 @@ def initchg(args):
 def build(args):
     """ Build patches from a data set containing changes.
 
-    Usage: romtool build [--help] [options] <rom> <input>...
+    Usage: romtool build [--help] [options] <rom> [<input>...]
 
     Positional arguments:
         rom     ROM to generate a patch against
@@ -203,6 +203,7 @@ def build(args):
         -m, --map PATH      Manually specify rom map
         -o, --out FILE      Output filename (default stdout)
 
+        -E, --extend        Include any map-provided extension patches
         -S, --sanitize      Include corrected checksums in patches
 
         -h, --help          Print this help
@@ -253,9 +254,12 @@ def build(args):
                    '.yaml': [slurp, loadyaml, rom.apply],
                    '.json': [slurp, json.loads, rom.apply],
                    '.asm': [rom.apply_assembly],}
+    if args.extend:
+        args.input = rmap.extensions + args.input
     for path in args.input:
-        path = Path(path)
-        log.info("Loading changes from: %s", path)
+        if isinstance(path, str):
+            path = Path(path)
+        log.info("Applying changes from: %s", path)
         loaders = typeloaders.get(path.suffix, None)
         if loaders:
             try:

@@ -370,22 +370,26 @@ def intify_items(dct, keys, default=None):
             continue
         dct[key] = int(dct[key], 0)
 
-def get_subfiles(root, folder, extension, empty_if_missing=True):
-    """ Get files under a given folder with a given extension
+def get_subfiles(root, folder, ext=None, empty_if_missing=True):
+    """ Get files under a given folder with given extension(s)
 
     Meant to ease collecting structures, bitfields, etc. Yields Path objects.
-    If empty_if_missing is True (the default), a missing folder will be produce
-    an empty interable instead of FileNotFoundError.
+    `ext` may be a single string, a list of strings, or None. If it is None
+    (the default), all files under `folder` will be returned. If
+    empty_if_missing is True (the default), a missing folder will be produce an
+    empty interable instead of FileNotFoundError.
     """
     if root is None:
         root = resources.files(__package__)
     if isinstance(root, str):
         root = Path(root)
+    if isinstance(ext, str):
+        ext = [ext]
     catch = FileNotFoundError if empty_if_missing else ()
     try:
         yield from (path for path
                     in root.joinpath(folder).iterdir()
-                    if path.suffix == extension)
+                    if ext is None or path.suffix in ext)
     except catch as ex:
         yield from iter(())
 

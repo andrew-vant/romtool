@@ -17,6 +17,7 @@ import importlib.util
 from addict import Dict
 
 from . import util, text
+from .util import get_subfiles as subfiles
 from .structures import Structure, BitField, Table, TableSpec
 from .text import TextTable
 from .exceptions import RomtoolError, MapError
@@ -46,6 +47,7 @@ class RomMap:
     encoding.
     """
     _adctfld = partial(field, default_factory=Dict)
+    _ext_suffixes = ['.asm', '.ips', '.ipst', '.yaml', '.json']
 
     name: str = None
     path: Path = None
@@ -57,6 +59,7 @@ class RomMap:
     hooks: types.ModuleType = None
     meta: Mapping[str, str] = _adctfld()
     handlers: Mapping[str, Type[Field]] = field(default_factory=dict)
+    extensions: Sequence[os.PathLike] = list
 
     def __post_init__(self):
         """ Perform sanity checks after construction """
@@ -179,7 +182,7 @@ class RomMap:
         kwargs.handlers = getattr(kwargs.hooks, 'MAP_FIELDS', {})
         for otype, kwarg, parent, ext, loader in loaders:
             log.info("Loading %s", parent)
-            paths = ichain((util.get_subfiles(source, parent, ext)
+            paths = ichain((subfiles(source, parent, ext)
                            for source in (None, root)))
             for path in paths:
                 name = path.stem
@@ -201,6 +204,7 @@ class RomMap:
         # we should check that tables in the same set are the same length
 
         kwargs.tests = cls.get_tests(root)
+        kwargs.extensions = list(subfiles(root, 'ext', cls._ext_suffixes))
         return cls(basename(root), **kwargs)
 
     @classmethod

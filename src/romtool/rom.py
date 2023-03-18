@@ -206,6 +206,8 @@ class Rom(NodeMixin, util.RomObject):
 
         with TemporaryDirectory(prefix='romtool.') as tmp:
             outfile = f'{tmp}/{basename(path)}.bin'
+            # FIXME: cl65 leaves a .o file behind next to the original .asm,
+            # making it appear as a map extension on next run.
             known_assemblers = {
                 'cl65': [which('cl65'), '-t', 'none', '-o', outfile, path],
                 'xa65': [which('xa'), '-w', '-c', '-M', '-o', outfile, path],
