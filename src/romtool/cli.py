@@ -271,7 +271,7 @@ def build(args):
                 log.info("Optimizations disabled; building from a "
                          "directory may be slow. Consider setting "
                          "PYTHONOPTIMIZE=TRUE")
-            rom.load(path)
+            rom.apply_moddir(path)
         else:
             raise ValueError(f"Don't know what to do with input file: {path}")
     if args.debug:

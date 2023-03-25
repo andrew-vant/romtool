@@ -118,7 +118,7 @@ class Rom(NodeMixin, util.RomObject):
         else:
             raise LookupError(f"no table or set with id '{key}'")
 
-    def load(self, folder):
+    def apply_moddir(self, folder):
         data = {}
         for _set in self.map.sets:
             path = pathjoin(folder, f'{_set}.tsv')
