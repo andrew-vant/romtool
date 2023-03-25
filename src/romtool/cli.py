@@ -94,32 +94,35 @@ except ImportError:
 # Probably its output should advise the user that it's only what shipped with
 # romtool and they're free to supply their own.
 
-def detect(romfile, maproot=None):
-    """ Detect the map to use with a given ROM.
 
-    maproot -- A root directory containing a set of rom maps and a hashdb.txt
-               file associating sha1 hashes with map names.
+def detect(romfile, map_roots=None):
+    """ Detect the map to use with a given ROM
+
+    romfile:   a path-like object or open rom file object
+    map_roots: a sequence of path-like objects pointing to map
+               directories. Each directory must contain a hashdb.txt file
+               associating sha1 hashes with map names. Roots are checked in
+               the order they are given, and the first match wins.
+
+    Returns a path-like object that can be passed to load().
     """
     cfg = config.load('romtool.yaml')
-    if maproot is None:
-        maproot = next(chain(cfg.map_paths, [pkgroot.joinpath('maps')]))
-    if isinstance(maproot, str):
-        maproot = Path(maproot)
-
-    dbfile = maproot.joinpath('hashdb.txt')
-    with dbfile.open() as hashdb, open(romfile, "rb") as rom:
-        # FIXME: Reads whole file into memory, likely to fail on giant images,
-        # e.g cds/dvds.
-        log.info("Detecting ROM map for: %s.", romfile)
-        romhash = hashlib.sha1(rom.read()).hexdigest()
-        log.info("sha1 hash is: %s.", romhash)
-        try:
-            line = next(line for line in hashdb if line.startswith(romhash))
-        except StopIteration:
-            raise RomDetectionError(romhash, romfile)
-        name = line.split(maxsplit=1)[1].strip()
-        log.info("ROM map found: %s", name)
-        return maproot.joinpath(name)
+    map_roots = map_roots or chain(cfg.map_paths, [pkgroot.joinpath('maps')])
+    with util.flexopen(romfile, 'rb') as f:
+        filehash = hashlib.sha1()
+        for block in iter(partial(f.read, 2**20), b''):
+            filehash.update(block)
+        filehash = filehash.hexdigest()
+        log.info("Detecting ROM map for %s (sha1 hash %s)",
+                 f.name, filehash)
+    for root in map_roots:
+        dbfile = root.joinpath('hashdb.txt')
+        with dbfile.open() as hashdb:
+            for line in hashdb:
+                sha, name = line.split(maxsplit=1)
+                if filehash == sha:
+                    return root.joinpath(name)
+    raise RomDetectionError(filehash, romfile)
 
 
 def loadrom(romfile, mapdir=None):
@@ -127,13 +130,7 @@ def loadrom(romfile, mapdir=None):
 
     Helper function to reduce command boilerplate
     """
-    if not mapdir:
-        try:
-            mapdir = detect(romfile)
-        except RomDetectionError as ex:
-            ex.log()
-            sys.exit(2)
-    rmap = RomMap.load(mapdir)
+    rmap = RomMap.load(mapdir or detect(romfile))
     with open(romfile, 'rb') as f:
         rom = Rom.make(f, rmap)
     return rom
@@ -234,14 +231,7 @@ def build(args):
 
     if args.sanitize:
         raise NotImplementedError("--sanitize option not yet implemented")
-
-    if not args.map:
-        try:
-            args.map = detect(args.rom)
-        except RomDetectionError as e:
-            e.log()
-            sys.exit(2)
-
+    args.map = args.map or detect(args.rom)
     log.info("Loading ROM map at: %s", args.map)
     rmap = RomMap.load(args.map)
     log.info("Opening ROM file at: %s", args.rom)
@@ -391,13 +381,7 @@ def sanitize(args):
 
     FIXME: Supply separate sanitizer
     """
-    if args.map is None:
-        try:
-            args.map = detect(args.target)
-        except RomDetectionError as e:
-            e.log()
-            sys.exit(2)
-    rmap = RomMap.load(args.map)
+    rmap = RomMap.load(args.map or detect(args.target))
     _backup(args.target, args.nobackup)
     rom = Rom.make(args.target, rmap)
     log.info("Sanitizing '%s'", args.target)
@@ -497,13 +481,7 @@ def _init_rom(romfile, mapdir=None, patches=None):
                  "Consider setting PYTHONOPTIMIZE=TRUE")
     if patches:
         raise NotImplementedError("Pre-patching of dumps not yet implemented")
-    if not mapdir:
-        try:
-            mapdir = detect(romfile)
-        except RomDetectionError as ex:
-            ex.log()
-            sys.exit(2)
-    rmap = RomMap.load(mapdir)
+    rmap = RomMap.load(mapdir or detect(romfile))
     log.info("Opening ROM file: %s", romfile)
     with open(romfile, "rb") as f:
         rom = Rom.make(f, rmap)
@@ -978,7 +956,12 @@ def main(argv=None):
         sys.exit(2)
     except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
-        log.error(ex)
+        # Let exceptions provide an extended message. There has to be a better
+        # way to do this.
+        if hasattr(ex, 'log'):
+            ex.log()
+        else:
+            log.error(ex)
         sys.exit(2)
     except Exception as ex:  # pylint: disable=broad-except
         # I want to break this into a function and use it as excepthook, but
