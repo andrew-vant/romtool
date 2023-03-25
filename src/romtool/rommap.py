@@ -1,6 +1,7 @@
 """This module contains classes for locating data within a ROM."""
 
 import os
+import importlib.resources as resources
 import logging
 import types
 from typing import Mapping, Sequence
@@ -17,10 +18,10 @@ import importlib.util
 from addict import Dict
 
 from . import util, text
-from .util import get_subfiles as subfiles
+from .util import cache, get_subfiles as subfiles
 from .structures import Structure, BitField, Table, TableSpec
 from .text import TextTable
-from .exceptions import RomtoolError, MapError
+from .exceptions import RomtoolError, MapError, RomDetectionError
 from .field import Field, IntField, StructField, DEFAULT_FIELDS
 
 
@@ -220,3 +221,79 @@ class RomMap:
             return [MapTest(**row) for row in util.readtsv(path)]
         except FileNotFoundError:
             return []
+
+
+class MapDB(Mapping):
+    """ A RomMap database
+
+    A DB consists of a root directory with a hashdb.txt file in it, plus any
+    number of individual map directories. MapDB keys are sha1 hashes; lookups
+    return a RomMap object.
+
+    Individual maps are loaded on first lookup. The resulting RomMap is
+    cached, and multiple lookups return the same object. The cache can be
+    cleared with MapDB.cache_clear().
+
+    The MapDB root must be a string or path-like object.
+    """
+    _builtin_db_root = resources.files(__package__).joinpath('maps')
+
+    def __init__(self, root):
+        self.root = Path(root) if isinstance(root, str) else root
+        with self.root.joinpath('hashdb.txt').open() as f:
+            self.hashdb = dict((line.strip().split(maxsplit=1) for line in f))
+
+    # hash and eq implemented mainly to allow caching getitem results
+    def __hash__(self):
+        return hash((self.root))
+
+    def __eq__(self, other):
+        return self.root == other.root
+
+    def __iter__(self):
+        yield from self.hashdb
+
+    def __len__(self):
+        return len(self.hashdb)
+
+    def __str__(self):
+        clsname = type(self).__name__
+        return f'{clsname}({self.root})'
+
+    @cache
+    def __getitem__(self, sha):
+        try:
+            path = self.root.joinpath(self.hashdb[sha])
+        except KeyError:
+            raise KeyError(sha) from None
+        return RomMap.load(path)
+
+    @classmethod
+    def cache_clear(cls):
+        """ Clear the map cache """
+        cls.__getitem__.cache_clear()
+
+    @classmethod
+    def detect(cls, romfile, roots=None, include_builtins=True):
+        """ Detect the map to use with a given ROM
+
+        romfile: a path-like object or open rom file object
+        roots:   a sequence of path-like objects pointing to map
+                 directories. Each directory must contain a hashdb.txt file
+                 associating sha1 hashes with map names. Roots are checked in
+                 the order they are given, and the first match wins.
+
+        Returns a RomMap object, or raises RomDetectionError.
+        """
+        roots = roots or []
+        if include_builtins:
+            roots = chain(roots, [cls._builtin_db_root])
+        sha = util.sha1(romfile)
+        for root in roots:
+            db = cls(root)
+            log.debug("looking for %s under %s", sha, db.root)
+            try:
+                return db[sha]
+            except KeyError:
+                pass
+        raise RomDetectionError(sha, romfile)

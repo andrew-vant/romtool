@@ -68,7 +68,7 @@ from docopt import docopt
 from alive_progress import alive_bar
 
 from . import util, config, charset
-from .rommap import RomMap
+from .rommap import RomMap, MapDB
 from .rom import Rom
 from .patch import Patch
 from .util import slurp, loadyaml
@@ -95,45 +95,21 @@ except ImportError:
 # romtool and they're free to supply their own.
 
 
-def detect(romfile, map_roots=None):
-    """ Detect the map to use with a given ROM
-
-    romfile:   a path-like object or open rom file object
-    map_roots: a sequence of path-like objects pointing to map
-               directories. Each directory must contain a hashdb.txt file
-               associating sha1 hashes with map names. Roots are checked in
-               the order they are given, and the first match wins.
-
-    Returns a path-like object that can be passed to load().
-    """
-    cfg = config.load('romtool.yaml')
-    map_roots = map_roots or chain(cfg.map_paths, [pkgroot.joinpath('maps')])
-    with util.flexopen(romfile, 'rb') as f:
-        filehash = hashlib.sha1()
-        for block in iter(partial(f.read, 2**20), b''):
-            filehash.update(block)
-        filehash = filehash.hexdigest()
-        log.info("Detecting ROM map for %s (sha1 hash %s)",
-                 f.name, filehash)
-    for root in map_roots:
-        dbfile = root.joinpath('hashdb.txt')
-        with dbfile.open() as hashdb:
-            for line in hashdb:
-                sha, name = line.split(maxsplit=1)
-                if filehash == sha:
-                    return root.joinpath(name)
-    raise RomDetectionError(filehash, romfile)
-
-
-def loadrom(romfile, mapdir=None):
+def _loadrom(romfile, mapdir=None, patches=None):
     """ Load a rom from a file with an appropriate map
 
-    Helper function to reduce command boilerplate
+    Helper function to reduce command boilerplate.
     """
-    rmap = RomMap.load(mapdir or detect(romfile))
+    # Possibly this should be in Rom.__init__ or maybe a classmethod?
+    if __debug__:
+        log.info("Optimizations disabled; dumping may be slow. "
+                 "Consider setting PYTHONOPTIMIZE=TRUE")
+    if patches:
+        raise NotImplementedError("Pre-patching of dumps not yet implemented")
+    cfg = config.load('romtool.yaml')
     with open(romfile, 'rb') as f:
-        rom = Rom.make(f, rmap)
-    return rom
+        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(f, cfg.maproots)
+        return Rom.make(f, rmap)
 
 
 def dump(args):
@@ -160,7 +136,7 @@ def dump(args):
     dumping. This is intended to allow examining a patch's effects without
     physically modifying the rom.
     """
-    rom = _init_rom(args.rom, args.map, args.patches)
+    rom = _loadrom(args.rom, args.map, args.patches)
     log.info("Dumping ROM data to: %s", args.outdir)
     os.makedirs(args.outdir, exist_ok=True)
     try:
@@ -231,12 +207,7 @@ def build(args):
 
     if args.sanitize:
         raise NotImplementedError("--sanitize option not yet implemented")
-    args.map = args.map or detect(args.rom)
-    log.info("Loading ROM map at: %s", args.map)
-    rmap = RomMap.load(args.map)
-    log.info("Opening ROM file at: %s", args.rom)
-    with open(args.rom, "rb") as f:
-        rom = Rom.make(f, rmap)
+    rom = _loadrom(args.rom, args.map)
     # For each supported changeset type, specify a set of functions to apply in
     # sequence to the filename to load it.
     typeloaders = {'.ips': [Patch.load, rom.apply_patch],
@@ -245,7 +216,7 @@ def build(args):
                    '.json': [slurp, json.loads, rom.apply],
                    '.asm': [rom.apply_assembly],}
     if args.extend:
-        args.input = rmap.extensions + args.input
+        args.input = rom.map.extensions + args.input
     for path in args.input:
         if isinstance(path, str):
             path = Path(path)
@@ -381,9 +352,7 @@ def sanitize(args):
 
     FIXME: Supply separate sanitizer
     """
-    rmap = RomMap.load(args.map or detect(args.target))
-    _backup(args.target, args.nobackup)
-    rom = Rom.make(args.target, rmap)
+    rom = _loadrom(args.target, args.map)
     log.info("Sanitizing '%s'", args.target)
     rom.sanitize()
     rom.write(args.target)
@@ -471,23 +440,6 @@ def charmap(args):
             print("{:02X}={}".format(byte, char))
 
 
-def _init_rom(romfile, mapdir=None, patches=None):
-    """ Boilerplate for ROM object setup
-
-    Possibly this should be in Rom.__init__ or maybe a classmethod?
-    """
-    if __debug__:
-        log.info("Optimizations disabled; dumping may be slow. "
-                 "Consider setting PYTHONOPTIMIZE=TRUE")
-    if patches:
-        raise NotImplementedError("Pre-patching of dumps not yet implemented")
-    rmap = RomMap.load(mapdir or detect(romfile))
-    log.info("Opening ROM file: %s", romfile)
-    with open(romfile, "rb") as f:
-        rom = Rom.make(f, rmap)
-    return rom
-
-
 def document(args):
     """ Generate html documentation for a ROM
 
@@ -515,7 +467,7 @@ def document(args):
         * data structure formats
         * data table contents (optional, slow)
     """
-    rom = _init_rom(args.rom, args.map, args.patches)
+    rom = _loadrom(args.rom, args.map, args.patches)
     structures = {}
     for path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
         name = path.stem
@@ -658,9 +610,12 @@ def ident(args):
             first = False
         elif longfmt:
             print("%%")
-
+        try:
+            rmap = MapDB.detect(filename)
+        except RomDetectionError:
+            rmap = None
         with open(filename, 'rb') as f:
-            rom = Rom.make(f)
+            rom = Rom.make(f, rmap)
         info = Dict()
         info.name = rom.name
         info.file = filename
@@ -677,10 +632,7 @@ def ident(args):
                 info[alg + ' (file)'] = h_file
                 info[alg + ' (data)'] = h_data
 
-        try:
-            info.map = detect(filename)
-        except RomDetectionError:
-            info.map = "(no map found)"
+        info.map = rom.map.path or "(no map found)"
         if args['header-data']:
             for k, v in getattr(rom, 'header', {}).items():
                 info[f'header.{k}'] = v
@@ -748,7 +700,7 @@ def search(args):
         raise Exception("don't know how to search for that")
 
 def search_index(args):
-    rom = loadrom(args.rom, args.map)
+    rom = _loadrom(args.rom, args.map)
     log.info("searching for %s-byte %s-endian pointer index",
              args.psize, args.endian)
     ptr_bytes = int(args.psize, 0)
@@ -807,7 +759,7 @@ def search_index(args):
             print(fmt.format(*b))
 
 def search_strings(args):
-    rom = loadrom(args.rom, args.map)
+    rom = _loadrom(args.rom, args.map)
     log.info(f"searching for valid strings using encoding '{args.encoding}'")
     data = rom.data.bytes
     codec = codecs.lookup(args.encoding + '_clean')
@@ -829,7 +781,7 @@ def search_strings(args):
 
 
 def search_values(args):
-    rom = loadrom(args.rom, args.map)
+    rom = _loadrom(args.rom, args.map)
     data = rom.data.bytes
     size = int(args.size, 0)
     endian = args.endian

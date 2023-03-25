@@ -2,6 +2,7 @@
 
 import csv
 import contextlib
+import hashlib
 import importlib.resources as resources
 import io
 import logging
@@ -10,7 +11,7 @@ import abc
 from collections import OrderedDict, Counter
 from collections.abc import Mapping, MutableMapping, Sequence
 from itertools import chain
-from functools import lru_cache
+from functools import lru_cache, partial
 from os.path import dirname, realpath
 from os.path import join as pathjoin
 from pathlib import Path
@@ -431,7 +432,7 @@ def dumptsv(target, dataset, force=False, headers=None, index=None):
 
 
 @contextlib.contextmanager
-def flexopen(target, *args, **kwargs):
+def flexopen(target, mode=None, *args, **kwargs):
     """ 'Open' a path or file object with a unified interface
 
     `target` may be a string, Path object, or open file. Any additional
@@ -445,15 +446,19 @@ def flexopen(target, *args, **kwargs):
     It is safe to do 'with flexopen' to stdin/stdout; it won't close them.
     """
     if isinstance(target, io.IOBase):
-        if args or kwargs:
+        if kwargs:
             # This shouldn't be needed, but it will force things to break
             # noisily if someone passes incompatible arguments.
             target.reconfigure(*args, **kwargs)
+        if mode and mode != target.mode:
+            raise ValueError(f"tried to open {target} with mode '{mode}', but "
+                             f"it is already open in mode '{target.mode}'")
         yield target
     else:
         if isinstance(target, str):
             target = Path(target)
-        with target.open(*args, **kwargs) as f:
+        mode = mode or 'r'
+        with target.open(mode, *args, **kwargs) as f:
             yield f
 
 
@@ -553,6 +558,22 @@ def loadyaml(data):
 def slurp(path, *args, **kwargs):
     with flexopen(path, *args, **kwargs) as f:
         return f.read()
+
+
+def sha1(file):
+    """ Get sha1 hash of a file as a hexdigest
+
+    Accepts a string, path-like object, or open binary file.
+    """
+    filehash = hashlib.sha1()
+    with flexopen(file, 'rb') as f:
+        prev = f.tell()
+        f.seek(0)
+        for block in iter(partial(f.read, 2**20), b''):
+            filehash.update(block)
+        f.seek(prev)
+    return filehash.hexdigest()
+
 
 def chunk(seq, chunksize):
     for i in range(0, len(seq), chunksize):
