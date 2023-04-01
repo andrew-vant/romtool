@@ -61,6 +61,10 @@ deb :
 		setup.py
 	ls -t dist/*.deb | head -n1 | xargs dpkg --info
 
+lint :
+	pylint src test
+	pycodestyle src test
+
 test :
 	pytest-3 --cov src
 
