@@ -18,7 +18,7 @@ else
   all = wheel
 endif
 
-version = $(shell $(python) setup.py --version)
+version = $(shell $(python) -W ignore setup.py --version)
 wheel = romtool-$(version)-py2-none-any.whl
 deb = romtool_$(version)_all.deb
 nointro = src/romtool/nointro.tsv
