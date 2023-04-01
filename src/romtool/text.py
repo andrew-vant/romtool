@@ -13,6 +13,8 @@ import logging
 from patricia import trie
 
 log = logging.getLogger(__name__)
+tt_codecs = {}  # texttable codec registry
+
 
 class TextTable(codecs.Codec):
     """ A ROM text table, used for decoding and encoding text strings.
@@ -25,7 +27,8 @@ class TextTable(codecs.Codec):
     include_eos: Decoded strings include the [EOS] string literal if a
                  string terminator was encountered.
     """
-    def __init__(self, f, stop_on_eos=True, force_eos=True, include_eos=False):
+    def __init__(self, stream, stop_on_eos=True,
+                 force_eos=True, include_eos=False):
         self.id = None  # pylint: disable=invalid-name
         self.enc = trie()
         self.dec = trie()
@@ -36,7 +39,7 @@ class TextTable(codecs.Codec):
 
         # Skip blank lines when reading.
         lines = [line for line
-                 in f.read().split("\n")
+                 in stream.read().split("\n")
                  if line]
 
         for line in lines:
@@ -57,7 +60,8 @@ class TextTable(codecs.Codec):
             if prefix == "/":
                 self.eos.append(codeseq)
 
-    def encode(self, input, errors='strict'):  # pylint: disable=redefined-builtin
+    # pylint: disable-next=redefined-builtin
+    def encode(self, input, errors='strict'):
         """ Encode a string into a series of bytes."""
         codeseq = []
         i = 0
@@ -79,7 +83,8 @@ class TextTable(codecs.Codec):
 
         return bytes(codeseq), len(input)
 
-    def decode(self, input, errors='strict'):  # pylint: disable=redefined-builtin
+    # pylint: disable-next=redefined-builtin
+    def decode(self, input, errors='strict'):
         """ Decode a series of bytes.
 
         Any unrecognized bytes will be rendered as hex codes.
@@ -105,52 +110,59 @@ class TextTable(codecs.Codec):
         return text, i
 
     @classmethod
-    def std(cls, f):
+    def std(cls, stream):
         """ A TextTable with options matching the Nightcrawler quasi-standard
 
         Stops on EOS bytes and includes [EOS] markers when decoding. At time of
         writing, these are also the defaults.
         """
-        return cls(f, stop_on_eos=True, include_eos=True, force_eos=False)
+        return cls(stream, stop_on_eos=True,
+                   include_eos=True, force_eos=False)
 
     @classmethod
-    def clean(cls, f):
+    def clean(cls, stream):
         """ A TextTable with cleaner decoding output
 
         Omits [EOS] markers when decoding and adds them back when encoding.
         """
-        return cls(f, stop_on_eos=True, include_eos=False, force_eos=True)
+        return cls(stream, stop_on_eos=True,
+                   include_eos=False, force_eos=True)
 
     @classmethod
-    def raw(cls, f):
+    def raw(cls, stream):
         """ A TextTable that ignores EOS markers when decoding
 
         Useful when looking for strings in mixed data.
         """
-        return cls(f, stop_on_eos=False, include_eos=True, force_eos=False)
+        return cls(stream, stop_on_eos=False,
+                   include_eos=True, force_eos=False)
 
 
-tt_codecs = {}
-def add_tt(name, f):
+def add_tt(name, stream):
     """ Register all variations of a file's texttable """
     subs = {f"{name}":       TextTable.std,
             f"{name}_std":   TextTable.std,
             f"{name}_clean": TextTable.clean,
             f"{name}_raw":   TextTable.raw}
     for subname, factory in subs.items():
-        f.seek(0)
-        tt = factory(f)  # pylint: disable=invalid-name
+        stream.seek(0)
+        tt = factory(stream)  # pylint: disable=invalid-name
         codec = codecs.CodecInfo(tt.encode, tt.decode, name=subname)
         log.debug("Adding text codec: %s", subname)
         tt_codecs[subname] = codec
     return tt
 
+
 def get_tt_codec(name):
+    """ Look up a TextTable codec """
     return tt_codecs.get(name, None)
 
+
 def clear_tt_codecs():
+    """ Clear any registered texttables """
     codecs.unregister(get_tt_codec)
     tt_codecs.clear()
     codecs.register(get_tt_codec)
+
 
 codecs.register(get_tt_codec)

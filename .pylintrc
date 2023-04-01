@@ -1,3 +1,5 @@
 [MESSAGES CONTROL]
 
 disable=fixme,logging-format-interpolation
+max-line-length=79
+good-names=i,j,k,ex,Run,_,tt
