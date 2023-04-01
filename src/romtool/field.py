@@ -320,7 +320,7 @@ class StringZField(StringField):
         # a texttable. The default codecs don't stop on nulls, but we probably
         # want to. FIXME: Awful, find a better way to do this.
         view = self.view(obj)
-        b_old = (view.bytes if hasattr(self.codec, 'eos')
+        b_old = (view.bytes if hasattr(self.codec.decode.__self__, 'eos')
                  else view.bytes.partition(b'\0')[0])
         s_old, bct_old = self.codec.decode(b_old)
         return s_old, bct_old

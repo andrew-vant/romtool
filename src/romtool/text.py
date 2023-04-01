@@ -9,20 +9,30 @@ codec capabilities.
 import re
 import codecs
 import logging
-import functools
 
 from patricia import trie
 
 log = logging.getLogger(__name__)
 
-class TextTable(object):
-    """ A ROM text table, used for decoding and encoding text strings."""
-    def __init__(self, name, f):
+class TextTable(codecs.Codec):
+    """ A ROM text table, used for decoding and encoding text strings.
+
+    Provide a file object for input. Some options control encoding/decoding:
+
+    force_eos: Encoding adds a string terminator if the input
+                 doesn't include one.
+    stop_on_eos: Decoding stops on encountering a string terminator.
+    include_eos: Decoded strings include the [EOS] string literal if a
+                 string terminator was encountered.
+    """
+    def __init__(self, f, stop_on_eos=True, force_eos=True, include_eos=False):
         self.id = None  # pylint: disable=invalid-name
-        self.name = name
         self.enc = trie()
         self.dec = trie()
         self.eos = []
+        self.force_eos = force_eos
+        self.stop_on_eos = stop_on_eos
+        self.include_eos = include_eos
 
         # Skip blank lines when reading.
         lines = [line for line
@@ -47,31 +57,29 @@ class TextTable(object):
             if prefix == "/":
                 self.eos.append(codeseq)
 
-    def encode(self, string, enforce_eos=True):
+    def encode(self, input, errors='strict'):  # pylint: disable=redefined-builtin
         """ Encode a string into a series of bytes."""
-
-        # FIXME: Needs to append EOS if called for.
         codeseq = []
         i = 0
         raw = r"^\[\$[a-fA-F0-9]{2}\]"
         last = None
-        while i < len(string):
-            if re.match(raw, string[i:]):
+        while i < len(input):
+            if re.match(raw, input[i:]):
                 # Oops, raw byte listing.
-                code = int(string[i+2:i+4], 16)
+                code = int(input[i+2:i+4], 16)
                 codeseq.append(code)
                 i += 5
             else:
-                match, code = self.enc.item(string[i:])
+                match, code = self.enc.item(input[i:])
                 codeseq.extend(code)
                 i += len(match)
             last = code
-        if enforce_eos and last not in self.eos:
+        if self.force_eos and last not in self.eos:
             codeseq.extend(self.eos[0])
 
-        return bytes(codeseq), len(string)
+        return bytes(codeseq), len(input)
 
-    def decode(self, data, include_eos=True, stop_on_eos=True):
+    def decode(self, input, errors='strict'):  # pylint: disable=redefined-builtin
         """ Decode a series of bytes.
 
         Any unrecognized bytes will be rendered as hex codes.
@@ -80,47 +88,61 @@ class TextTable(object):
         i = 0
         # the python codec infrastructure passes decode a memoryview, not
         # bytes, which makes patricia-trie choke
-        if isinstance(data, memoryview):
-            data = bytes(data)
-        while i < len(data):
-            raw = "[${:02X}]".format(data[i])
-            match, string = self.dec.item(data[i:], default=raw)
+        if isinstance(input, memoryview):
+            input = bytes(input)
+        while i < len(input):
+            raw = f"[${input[i]:02X}]"
+            match, string = self.dec.item(input[i:], default=raw)
             if match is None:
-                match = data[i:i+1]
-            if include_eos or (match not in self.eos):
+                match = input[i:i+1]
+            if self.include_eos or (match not in self.eos):
                 text += string
-            if stop_on_eos and (match in self.eos):
+            if self.stop_on_eos and (match in self.eos):
+                log.error("string eos: %s", match)
                 i += len(match)
                 break
             i += len(match)
         return text, i
 
+    @classmethod
+    def std(cls, f):
+        """ A TextTable with options matching the Nightcrawler quasi-standard
+
+        Stops on EOS bytes and includes [EOS] markers when decoding. At time of
+        writing, these are also the defaults.
+        """
+        return cls(f, stop_on_eos=True, include_eos=True, force_eos=False)
+
+    @classmethod
+    def clean(cls, f):
+        """ A TextTable with cleaner decoding output
+
+        Omits [EOS] markers when decoding and adds them back when encoding.
+        """
+        return cls(f, stop_on_eos=True, include_eos=False, force_eos=True)
+
+    @classmethod
+    def raw(cls, f):
+        """ A TextTable that ignores EOS markers when decoding
+
+        Useful when looking for strings in mixed data.
+        """
+        return cls(f, stop_on_eos=False, include_eos=True, force_eos=False)
+
 
 tt_codecs = {}
 def add_tt(name, f):
-    tt = TextTable(name, f)
-    # Arguments to pass to tt.decode for each codec.
-    args = {"":       (True, True, False),
-            "_std":   (True, True, False),
-            "_clean": (False, True, True),
-            "_raw":   (True, False, False)}
-
-    for subcodec, (include_eos, stop_on_eos, enforce_eos) in args.items():
-        # There has got to be a cleaner way to do this...
-        decoder = functools.partial(tt.decode,
-                                    include_eos=include_eos,
-                                    stop_on_eos=stop_on_eos)
-        encoder = functools.partial(tt.encode,
-                                    enforce_eos=enforce_eos)
-        fullname = name + subcodec
-        codec = codecs.CodecInfo(
-                name=fullname,
-                encode=encoder,
-                decode=decoder
-                )
-        codec.eos = tt.eos
-        log.debug("Adding text codec: %s", fullname)
-        tt_codecs[fullname] = codec
+    """ Register all variations of a file's texttable """
+    subs = {f"{name}":       TextTable.std,
+            f"{name}_std":   TextTable.std,
+            f"{name}_clean": TextTable.clean,
+            f"{name}_raw":   TextTable.raw}
+    for subname, factory in subs.items():
+        f.seek(0)
+        tt = factory(f)  # pylint: disable=invalid-name
+        codec = codecs.CodecInfo(tt.encode, tt.decode, name=subname)
+        log.debug("Adding text codec: %s", subname)
+        tt_codecs[subname] = codec
     return tt
 
 def get_tt_codec(name):
