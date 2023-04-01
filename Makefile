@@ -1,4 +1,4 @@
-.PHONY : all wheel nointro winpkg venv clean test FORCE
+.PHONY : all wheel nointro winpkg venv clean test ctags FORCE
 
 # NOTE: Tabs for recipe indentation, spaces for logic indentation,
 # because WHYYYYYYYYYYYYYYYY?!?!???
@@ -63,6 +63,9 @@ deb :
 
 test :
 	pytest-3 --cov src
+
+ctags :
+	ctags -Rf .tags .
 
 cov :
 	pytest-3 --cov src --cov-report term-missing

@@ -5,6 +5,9 @@ src/romtool/nointro.tsv
 # Also generated during build
 pynsist.cfg
 
+# ctags
+.tags
+
 # Vim swapfiles.
 *.swp
 
