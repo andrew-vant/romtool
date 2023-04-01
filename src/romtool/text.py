@@ -150,6 +150,7 @@ def get_tt_codec(name):
 
 def clear_tt_codecs():
     codecs.unregister(get_tt_codec)
+    tt_codecs.clear()
     codecs.register(get_tt_codec)
 
 codecs.register(get_tt_codec)
