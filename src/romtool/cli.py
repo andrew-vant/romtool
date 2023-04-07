@@ -214,27 +214,26 @@ def build(args):
                    '.ipst': [Patch.load, rom.apply_patch],
                    '.yaml': [slurp, loadyaml, rom.apply_changeset],
                    '.json': [slurp, json.loads, rom.apply_changeset],
-                   '.asm': [rom.apply_assembly],}
+                   '.asm': [rom.apply_assembly],
+                   '<dir>': [rom.apply_moddir],}
     if args.extend:
         args.input = rom.map.extensions + args.input
     for path in args.input:
         if isinstance(path, str):
             path = Path(path)
         log.info("Applying changes from: %s", path)
-        loaders = typeloaders.get(path.suffix, None)
-        if loaders:
-            try:
-                pipeline(path, *loaders)
-            except ChangesetError as ex:
-                raise ChangesetError(f"Error in '{path}': {ex}")
-        elif os.path.isdir(path):
-            if __debug__:
-                log.info("Optimizations disabled; building from a "
-                         "directory may be slow. Consider setting "
-                         "PYTHONOPTIMIZE=TRUE")
-            rom.apply_moddir(path)
-        else:
-            raise ValueError(f"Don't know what to do with input file: {path}")
+        if __debug__ and path.is_dir():
+            log.info("Optimizations disabled; building from a "
+                     "directory may be slow. Consider setting "
+                     "PYTHONOPTIMIZE=TRUE")
+        try:
+            loaders = typeloaders['<dir>' if path.is_dir() else path.suffix]
+        except KeyError:
+            raise RomtoolError(f"Don't know what to do with input file: {path}")
+        try:
+            pipeline(path, *loaders)
+        except ChangesetError as ex:
+            raise ChangesetError(f"Error in '{path}': {ex}")
     if args.debug:
         for node in rom, rom.data:
             for line in yaml.dump(util.nodestats(node)).splitlines():
