@@ -16,9 +16,10 @@ from typing import Type
 import importlib.util
 
 from addict import Dict
+from appdirs import AppDirs
 
-from . import util, text
-from .util import cache, get_subfiles as subfiles
+from . import util, text, config
+from .util import cache, get_subfiles as subfiles, Handler
 from .structures import Structure, BitField, Table, TableSpec
 from .text import TextTable
 from .exceptions import RomtoolError, MapError, RomDetectionError
@@ -27,6 +28,7 @@ from .field import Field, IntField, StructField, DEFAULT_FIELDS
 
 log = logging.getLogger(__name__)
 ichain = chain.from_iterable  # convenience
+dirs = AppDirs("romtool")
 
 
 class MapTest:
@@ -262,6 +264,7 @@ class MapDB(Mapping):
 
     @cache
     def __getitem__(self, sha):
+        log.debug("looking for %s under %s", sha, self.root)
         try:
             path = self.root.joinpath(self.hashdb[sha])
         except KeyError:
@@ -274,26 +277,44 @@ class MapDB(Mapping):
         cls.__getitem__.cache_clear()
 
     @classmethod
-    def detect(cls, romfile, roots=None, include_builtins=True):
+    @cache
+    def defaults(cls):
+        """ Get a list of the default map databases
+
+        The resulting list will be in lookup-priority order: First paths
+        specified in the config file, then the user data directory, then the DB
+        that ships with romtool.
+        """
+        paths = [
+            *[Path(p) for p in config.load('romtool.yaml').map_paths],
+            Path(dirs.user_data_dir, 'maps'),
+            cls._builtin_db_root,
+            ]
+        dbs = []
+        for path in paths:
+            with Handler.missing(log):
+                dbs.append(cls(path))
+                log.debug("mapdb present at %s", path)
+        return dbs
+
+    @classmethod
+    def detect(cls, romfile, sources=None, nodefaults=False):
         """ Detect the map to use with a given ROM
 
         romfile: a path-like object or open rom file object
-        roots:   a sequence of path-like objects pointing to map
-                 directories. Each directory must contain a hashdb.txt file
-                 associating sha1 hashes with map names. Roots are checked in
-                 the order they are given, and the first match wins.
+        sources: map databases to search. Sources are checked in the order
+                 they are given, and the first match wins. If None, maps
+                 will be looked for in the default locations.
+        nodefaults: Do not search the default locations.
 
         Returns a RomMap object, or raises RomDetectionError.
         """
-        roots = roots or []
-        if include_builtins:
-            roots = chain(roots, [cls._builtin_db_root])
         sha = util.sha1(romfile)
-        for root in roots:
-            db = cls(root)
-            log.debug("looking for %s under %s", sha, db.root)
-            try:
-                return db[sha]
-            except KeyError:
-                pass
-        raise RomDetectionError(sha, romfile)
+        db = ChainMap(
+            *(sources or []),
+            *([] if nodefaults else cls.defaults()),
+        )
+        try:
+            return db[sha]
+        except KeyError:
+            raise RomDetectionError(sha, romfile)

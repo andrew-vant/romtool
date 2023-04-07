@@ -108,7 +108,7 @@ def _loadrom(romfile, mapdir=None, patches=None):
         raise NotImplementedError("Pre-patching of dumps not yet implemented")
     cfg = config.load('romtool.yaml')
     with open(romfile, 'rb') as f:
-        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(f, cfg.maproots)
+        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(f)
         return Rom.make(f, rmap)
 
 
