@@ -150,7 +150,7 @@ class Rom(NodeMixin, util.RomObject):
                     with util.loading_context(etype, name, i):
                         orig.update(new)
 
-    def apply(self, changeset):
+    def apply_changeset(self, changeset):
         """ Apply a dictionary of changes to a ROM
 
         The changeset should be a nested dictionary describing key paths in the

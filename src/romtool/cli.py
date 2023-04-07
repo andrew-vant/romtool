@@ -212,8 +212,8 @@ def build(args):
     # sequence to the filename to load it.
     typeloaders = {'.ips': [Patch.load, rom.apply_patch],
                    '.ipst': [Patch.load, rom.apply_patch],
-                   '.yaml': [slurp, loadyaml, rom.apply],
-                   '.json': [slurp, json.loads, rom.apply],
+                   '.yaml': [slurp, loadyaml, rom.apply_changeset],
+                   '.json': [slurp, json.loads, rom.apply_changeset],
                    '.asm': [rom.apply_assembly],}
     if args.extend:
         args.input = rom.map.extensions + args.input
