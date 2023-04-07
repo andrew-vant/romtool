@@ -91,7 +91,7 @@ class TextTable(codecs.Codec):
         """
         text = ""
         i = 0
-        # the python codec infrastructure passes decode a memoryview, not
+        # the python codec infrastructure passes a memoryview, not
         # bytes, which makes patricia-trie choke
         if isinstance(input, memoryview):
             input = bytes(input)
@@ -102,11 +102,9 @@ class TextTable(codecs.Codec):
                 match = input[i:i+1]
             if self.include_eos or (match not in self.eos):
                 text += string
-            if self.stop_on_eos and (match in self.eos):
-                log.error("string eos: %s", match)
-                i += len(match)
-                break
             i += len(match)
+            if self.stop_on_eos and (match in self.eos):
+                break
         return text, i
 
     @classmethod
