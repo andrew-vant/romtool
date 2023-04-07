@@ -227,6 +227,7 @@ class EntityList(Sequence):
 
 class Structure(Mapping, NodeMixin, RomObject):
     """ A structure in the ROM."""
+    fields = []  # provided by subclasses
 
     @cache
     def __new__(cls, view, parent=None):
