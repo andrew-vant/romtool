@@ -74,6 +74,49 @@ class CheckedDict(dict):
         super().update(other)
 
 
+class Handler(contextlib.suppress):
+    """ Exception suppressor that calls a function on suppressed exceptions
+
+    If any of the listed exceptions are raised, the handler will be called with
+    the exception object as an argument. Otherwise this behaves as
+    contextlib.suppress.
+
+    To use handler functions with more than one argument, supply the additional
+    arguments in advance using partial().
+    """
+    def __init__(self, handler, *exceptions):
+        super().__init__(*exceptions)
+        self.handler = handler
+
+    def __exit__(self, extp, ex, traceback):
+        suppressible = super().__exit__(extp, ex, traceback)
+        if suppressible:
+            self.handler(ex)
+        return suppressible
+
+    @classmethod
+    def log(cls, exceptions, logger, level=logging.DEBUG, msg='%s'):
+        """ Get a Handler that logs suppressed exceptions
+
+        Supply the logger to use and an optional level and msg. The default is
+        to log the object alone as DEBUG. `exceptions` may be an exception type
+        or tuple of same.
+        """
+        if not isinstance(exceptions, tuple):
+            exceptions = (exceptions,)
+        handler = partial(logger.log, level, msg)
+        return cls(handler, *exceptions)
+
+    @classmethod
+    def missing(cls, logger, *args, **kwargs):
+        """ Get a Handler that logs missing files
+
+        Useful when looking for a file in multiple locations. Arguments are the
+        same as Handler.log, except that the exception list may be omitted.
+        """
+        return cls.log(FileNotFoundError, logger, *args, **kwargs)
+
+
 class HexInt(int):
     """ An int that always prints as hex
 
