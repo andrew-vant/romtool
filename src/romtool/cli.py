@@ -43,17 +43,16 @@ import sys
 import logging
 import logging.config
 import textwrap
-import hashlib
 import os
+import pdb
 import shutil
-import importlib.resources as resources
 import itertools
-import csv
 import json
 import re
 import codecs
 from datetime import datetime
-from itertools import chain, groupby
+from importlib import resources
+from itertools import groupby
 from textwrap import dedent
 from functools import partial
 from collections import namedtuple
@@ -106,10 +105,9 @@ def _loadrom(romfile, mapdir=None, patches=None):
                  "Consider setting PYTHONOPTIMIZE=TRUE")
     if patches:
         raise NotImplementedError("Pre-patching of dumps not yet implemented")
-    cfg = config.load('romtool.yaml')
-    with open(romfile, 'rb') as f:
-        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(f)
-        return Rom.make(f, rmap)
+    with open(romfile, 'rb') as file:
+        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(file)
+        return Rom.make(file, rmap)
 
 
 def dump(args):
@@ -228,12 +226,13 @@ def build(args):
                      "PYTHONOPTIMIZE=TRUE")
         try:
             loaders = typeloaders['<dir>' if path.is_dir() else path.suffix]
-        except KeyError:
-            raise RomtoolError(f"Don't know what to do with input file: {path}")
+        except KeyError as ex:
+            msg = f"Don't know what to do with input file: {path}"
+            raise RomtoolError(msg) from ex
         try:
             pipeline(path, *loaders)
         except ChangesetError as ex:
-            raise ChangesetError(f"Error in '{path}': {ex}")
+            raise ChangesetError(f"Error in '{path}': {ex}") from ex
     if args.debug:
         for node in rom, rom.data:
             for line in yaml.dump(util.nodestats(node)).splitlines():
@@ -336,11 +335,11 @@ def apply(args):
     # copy it back to its original name, then patch it there.
     tgt = args.rom
     _backup(args.rom, args.nobackup)
-    with open(tgt, "r+b") as f:
+    with open(tgt, "r+b") as file:
         for path in args.patches:
             log.info("Applying patch: %s", path)
             patch = Patch.load(path)
-            patch.apply(f)
+            patch.apply(file)
 
 
 def sanitize(args):
@@ -386,8 +385,8 @@ def charmap(args):
     # FIXME: Much of this should probably be moved into the text module or
     # something.
     log.info("Loading strings")
-    with open(args.strings) as f:
-        strings = [s.strip() for s in f]
+    with open(args.strings, encoding='utf-8') as file:
+        strings = [s.strip() for s in file]
 
     log.info("Loading rom")
     with open(args.rom, "rb") as rom:
@@ -397,30 +396,30 @@ def charmap(args):
 
     log.info("Starting search")
     maps = {s: [] for s in strings}
-    for s in strings:
-        log.debug("Searching for %s", s)
-        pattern = charset.Pattern(s)
-        for i in range(len(data) - len(s) + 1):
-            chunk = view[i:i+len(s)]
+    for string in strings:
+        log.debug("Searching for %s", string)
+        pattern = charset.Pattern(string)
+        for i in range(len(data) - len(string) + 1):
+            chunk = view[i:i+len(string)]
             try:
                 cmap = pattern.buildmap(chunk)
             except charset.NoMapping:
                 continue
-            log.debug("Found match for %s at %s", s, i)
-            if cmap in maps[s]:
+            log.debug("Found match for %s at %s", string, i)
+            if cmap in maps[string]:
                 log.debug("Duplicate mapping, skipping")
             else:
-                log.info("New mapping found for '%s' at %s", s, i)
-                maps[s].append(cmap)
+                log.info("New mapping found for '%s' at %s", string, i)
+                maps[string].append(cmap)
 
-        found = len(maps[s])
+        found = len(maps[string])
         msg = "Found %s possible mappings for '%s'"
-        log.info(msg, found, s)
+        log.info(msg, found, string)
 
     charsets = []
-    for m in itertools.product(*maps.values()):
+    for mapping in itertools.product(*maps.values()):
         try:
-            merged = charset.merge(*m)
+            merged = charset.merge(*mapping)
         except charset.MappingConflictError:
             log.debug("Mapping conflict")
         else:
@@ -432,11 +431,11 @@ def charmap(args):
     else:
         log.info("Found %s consistent character sets", len(charsets))
 
-    for i, cs in enumerate(charsets):
-        print("### {} ###".format(i))
-        out = sorted((byte, char) for char, byte in cs.items())
+    for i, cset in enumerate(charsets):
+        print(f"### {i} ###")
+        out = sorted((byte, char) for char, byte in cset.items())
         for byte, char in out:
-            print("{:02X}={}".format(byte, char))
+            print(f"{byte:02X}={char}")
 
 
 def document(args):
@@ -473,8 +472,8 @@ def document(args):
         log.info("Generating doc table for %s", path)
         name = path.stem.title()
         try:
-            with open(path) as f:
-                structures[name] = util.tsv2html(f, name)
+            with open(path, encoding='utf-8') as file:
+                structures[name] = util.tsv2html(file, name)
         except jinja2.TemplateSyntaxError as ex:
             log.critical("Error while documenting %s structure: [%s:%s] %s",
                          name, ex.name, ex.lineno, ex.message)
@@ -594,27 +593,27 @@ def ident(args):
     # passing an ips patch, or something else entirely) Probably each rom class
     # needs a checker, or something. Suggest use of `file` if romtool can't
     # identify it.
-    if (args.format or 'auto') not in ('short', 'long', 'auto'):
-        raise RomtoolError(f"invalid output format: '{args.format}'")
-    if sum(1 for arg in [args.long, args.short, args.format] if arg) > 1:
-        raise RomtoolError("multiple output formats specified")
-    longfmt = (True if args.long or args.format == 'long'
-               else False if args.short or args.format == 'short'
-               else False if len(args.roms) > 1
-               else True)
+    def use_long_format():
+        if (args.format or 'auto') not in ('long', 'short', 'auto'):
+            raise RomtoolError(f"invalid output format: '{args.format}'")
+        if sum(1 for arg in [args.long, args.short, args.format] if arg) > 1:
+            raise RomtoolError("multiple output formats specified")
+        return (False if args.short or args.format == 'short'
+                else True if args.long or args.format == 'long'
+                else len(args.rom) <= 1)
 
     first = True
     for filename in args.roms:
         if first:
             first = False
-        elif longfmt:
+        elif use_long_format():
             print("%%")
         try:
             rmap = MapDB.detect(filename)
         except RomDetectionError:
             rmap = None
-        with open(filename, 'rb') as f:
-            rom = Rom.make(f, rmap)
+        with open(filename, 'rb') as file:
+            rom = Rom.make(file, rmap)
         info = Dict()
         info.name = rom.name
         info.file = filename
@@ -633,36 +632,41 @@ def ident(args):
 
         info.map = rom.map.path or "(no map found)"
         if args['header-data']:
-            for k, v in getattr(rom, 'header', {}).items():
-                info[f'header.{k}'] = v
-        if not longfmt:
-            prefix = (f"{filename}:\t"
-                      if args.name or not args['no-name'] and len(args.roms) > 1
-                      else "")
+            for key, value in getattr(rom, 'header', {}).items():
+                info[f'header.{key}'] = value
+        if not use_long_format():
+            prefix = (
+                f"{filename}:\t"
+                if args.name or not args['no-name'] and len(args.roms) > 1
+                else ""
+            )
             print(f"{prefix}{rom}")
         else:
-            for k, v in info.items():
-                print(f"{k+':':16}{v}")
+            for key, value in info.items():
+                print(f"{key+':':16}{value}")
 
 
-def _matchlength(values, maxdiff, alignment):
+def _matchlength(offsets, maxdiff, alignment):
     """ Get prospective pointer-index length
 
     Look for offsets that are no further separated than the underlying
     array, and relatively aligned with the stride of the array.
+    Return the number of contiguous offsets that match said conditions.
     """
-    minv = maxv = values[0]
+    minv = maxv = offsets[0]
     if minv in (0, 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF):
         return 0
-    for i, v in enumerate(values, 1):
-        if (v - minv) % alignment:
+    i = None
+    for i, offset in enumerate(offsets, 1):
+        if (offset - minv) % alignment:
             return i
-        if v < minv:
-            minv = v
-        if v > maxv:
-            maxv = v
+        if offset < minv:
+            minv = offset
+        if offset > maxv:
+            maxv = offset
         if maxv - minv > maxdiff:
             return i
+    assert i is not None
     return i
 
 def search(args):
@@ -699,6 +703,7 @@ def search(args):
         raise Exception("don't know how to search for that")
 
 def search_index(args):
+    """ Search for pointer indexes """
     rom = _loadrom(args.rom, args.map)
     log.info("searching for %s-byte %s-endian pointer index",
              args.psize, args.endian)
@@ -714,11 +719,12 @@ def search_index(args):
     prg_interval = 701
     data = rom.data.bytes
     log.info("creating pointers")
-    cm = partial(alive_bar, disable=not args.progress, title_length=25)
-    with cm(len(data), title='generating pointers') as progress:
+    pbar = partial(alive_bar, disable=not args.progress, title_length=25)
+    with pbar(len(data), title='generating pointers') as progress:
         def mkptrs(data, sz_ptr):
-            for i, c in enumerate(util.chunk(data, sz_ptr)):
-                yield int.from_bytes(c, endian)
+            i = 0
+            for i, chunk in enumerate(util.chunk(data, sz_ptr)):
+                yield int.from_bytes(chunk, endian)
                 if not i % prg_interval:
                     progress(prg_interval)
             progress(i % prg_interval)
@@ -727,22 +733,23 @@ def search_index(args):
 
     hits = []
     Hit = namedtuple('Hit', 'offset ml head')
-    with cm(len(data), title='searching') as progress:
+    with pbar(len(data), title='searching') as progress:
         for offset, ptrs in pointers.items():
             log.info("looking for hits at starting offset %s", offset)
             for i in range(len(ptrs)):
-                ml = _matchlength(
+                length = _matchlength(
                         ptrs[i:i+count*2],
                         coverage,
                         align
                         )
-                if ml > threshold and len(set(ptrs[i:i+ml])) > threshold:
+                uniques = len(set(ptrs[i:i+length]))
+                if length > threshold and uniques > threshold:
                     abs_start = HexInt(offset + i * ptr_bytes)
                     log.info("reasonable match found at 0x%X (%s length)",
-                             abs_start, ml)
+                             abs_start, length)
                     head = ', '.join(str(HexInt(p, ptr_bytes*8))
                                      for p in ptrs[i:i+5])
-                    hits.append(Hit(abs_start, ml, head))
+                    hits.append(Hit(abs_start, length, head))
                 if not i % prg_interval:
                     progress(prg_interval)
             progress(i % prg_interval)
@@ -753,44 +760,53 @@ def search_index(args):
     print("possible index starts:")
     fmt = "{}\t{} items\t[{}...]"
     print(fmt.format(*hits[0]))
-    for a, b in util.pairwise(hits):
+    for a, b in util.pairwise(hits):  # pylint: disable=invalid-name
         if b.ml > a.ml or b.offset != a.offset + ptr_bytes:
             print(fmt.format(*b))
 
 def search_strings(args):
+    """ Search for strings in a rom """
     rom = _loadrom(args.rom, args.map)
-    log.info(f"searching for valid strings using encoding '{args.encoding}'")
+    log.info("searching for valid strings using encoding '%s'", args.encoding)
     data = rom.data.bytes
     codec = codecs.lookup(args.encoding + '_clean')
     offset = 0
-    vowels = re.compile('[AEIOUaeiou]')
-    binary = re.compile('\[\$[ABCDEF1234567890]+\]')
-    cm = partial(alive_bar, disable=not args.progress, enrich_print=False)
-    with cm(len(data), title='searching for strings') as progress:
+    vowels = re.compile(r'[AEIOUaeiou]')
+    binary = re.compile(r'\[\$[ABCDEF1234567890]+\]')
+    pbar = partial(alive_bar, disable=not args.progress, enrich_print=False)
+
+    def report_hit(string):
+        """ Check whether a decoded string counts as a hit """
+        return (len(string) > 3
+                and vowels.search(string)
+                and binary.search(string))
+
+    with pbar(len(data), title='searching for strings') as progress:
         while offset < len(data):
             # Not a great way to do this, breaks strings at 20 chars because
             # passing the whole thing is dog-slow and it's unclear why. This is
             # good enough to eyeball the results to get string table offsets,
             # though.
-            s, consumed = codec.decode(data[offset:offset+20])
-            if len(s) > 3 and vowels.search(s) and not binary.search(s):
-                print(f"0x{offset:X}\t{s}")
+            string, consumed = codec.decode(data[offset:offset+20])
+            if report_hit(string):
+                print(f"0x{offset:X}\t{string}")
             offset += consumed
             progress(consumed)
 
 
 def search_values(args):
+    """ Search for known values in a ROM """
     rom = _loadrom(args.rom, args.map)
     data = rom.data.bytes
     size = int(args.size, 0)
     endian = args.endian
     expected = [int(v, 0) for v in args.expected]
-    cm = partial(alive_bar, disable=not args.progress, enrich_print=False)
+    pbar = partial(alive_bar, disable=not args.progress, enrich_print=False)
 
     def value(offset):
         return int.from_bytes(data[offset:offset+size], endian)
 
-    with cm(len(data)) as progress:
+    with pbar(len(data)) as progress:
         for offset in range(len(data)):
             actual = (value(offset+i*size) for i in range(len(expected)))
             if all(e == a for e, a in zip(expected, actual)):
@@ -798,7 +814,7 @@ def search_values(args):
             progress()
 
 
-def dirs(args):
+def dirs(args):  # pylint: disable=unused-argument
     """ Print romtool directory paths
 
     Usage: romtool dirs [--help]
@@ -807,7 +823,7 @@ def dirs(args):
     that vary between platforms. This command prints the directories used on
     your current platform.
     """
-    ad = AppDirs("romtool")
+    ad = AppDirs("romtool")  # pylint: disable=invalid-name
     out = f"""
         config:     {ad.user_config_dir}
         data:       {ad.user_data_dir}
@@ -872,6 +888,7 @@ class Args(Dict):
 
 
 def initlog(args):
+    """ Set up logging """
     key = ('debug' if args.debug
            else 'verbose' if args.verbose
            else 'quiet' if args.quiet
@@ -883,7 +900,8 @@ def initlog(args):
 def main(argv=None):
     """ Entry point for romtool."""
     ts_start = datetime.now()
-    args = Args(docopt(__doc__.strip(), argv, version=version, options_first=True))
+    args = Args(docopt(__doc__.strip(), argv,
+                version=version, options_first=True))
     initlog(args)
     util.debug_structure(args)
     util.debug_structure(dict(args.items()))
@@ -894,16 +912,16 @@ def main(argv=None):
         cmd = globals().get(args.command)
         if not cmd:
             log.critical("'%s' is not a valid command; see romtool --help",
-                         args.command);
-            sys.exit(1);
+                         args.command)
+            sys.exit(1)
         args = Args(docopt(getdoc(cmd), argv, version=version))
         if args.debug:
             expected = ()  # dump all exceptions in debug mode
         initlog(args)  # because log opts may come before or after the command
         cmd(args)
         log.debug("total running time: %s", datetime.now()-ts_start)
-    except KeyboardInterrupt as ex:
-        log.error(f"keyboard interrupt; aborting")
+    except KeyboardInterrupt:
+        log.error("keyboard interrupt; aborting")
         sys.exit(2)
     except expected as ex:
         # I'd rather not separately handle this in every command that uses it.
@@ -920,7 +938,6 @@ def main(argv=None):
         log.exception(ex)
         if not args.pdb:
             sys.exit(2)
-        import pdb
         print("\n\nCRASH -- UNHANDLED EXCEPTION")
         msg = ("Starting debugger post-mortem. If you got here by "
                "accident (perhaps by trying to see what --pdb does), "
