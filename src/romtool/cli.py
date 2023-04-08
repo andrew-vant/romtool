@@ -110,7 +110,7 @@ def _loadrom(romfile, mapdir=None, patches=None):
         return Rom.make(file, rmap)
 
 
-def dump(args):
+def cmd_dump(args):
     """ Dump all known data from a ROM
 
     Usage: romtool dump [--help] [options] <rom> <outdir> [<patches>...]
@@ -147,7 +147,7 @@ def dump(args):
     log.info("Dump finished")
 
 
-def initchg(args):
+def cmd_initchg(args):
     """ Generate a starter changeset file
 
     Usage: romtool initchg <rom> <filename>
@@ -161,7 +161,7 @@ def initchg(args):
     raise NotImplementedError("`initchg` command not implemented yet")
 
 
-def build(args):
+def cmd_build(args):
     """ Build patches from a data set containing changes.
 
     Usage: romtool build [--help] [options] <rom> [<input>...]
@@ -240,7 +240,7 @@ def build(args):
     _writepatch(rom.patch, args.out)
 
 
-def convert(args):
+def cmd_convert(args):
     """ Convert a patch from one format to another
 
     Usage: romtool convert [--help] [options] <infile> [<outfile>]
@@ -265,7 +265,7 @@ def convert(args):
     _writepatch(patch, args.outfile)
 
 
-def diff(args):
+def cmd_diff(args):
     """ Build a patch by diffing two roms.
 
     Usage: romtool diff [--help] [options] <original> <modified>
@@ -297,7 +297,7 @@ def diff(args):
     _writepatch(patch, args.out)
 
 
-def fix(args):
+def cmd_fix(args):
     """ Fix header/checksum issues in a ROM
 
     Usage: romtool fix [--help] [options] <rom>
@@ -307,7 +307,7 @@ def fix(args):
     raise NotImplementedError("`fix` command not implemented yet")
 
 
-def apply(args):
+def cmd_apply(args):
     """ Apply patches to a file
 
     Usage: romtool apply [--help] [options] <rom> <patches>...
@@ -344,7 +344,7 @@ def apply(args):
             patch.apply(file)
 
 
-def sanitize(args):
+def cmd_sanitize(args):
     """ Sanitize a ROM or save file
 
     This uses map-specific hooks to correct any checksum errors or similar
@@ -358,7 +358,7 @@ def sanitize(args):
     rom.write(args.target)
 
 
-def charmap(args):
+def cmd_charmap(args):
     """ Generate a texttable from known strings
 
     Usage: romtool charmap <rom> <strings>...
@@ -440,7 +440,7 @@ def charmap(args):
             print(f"{byte:02X}={char}")
 
 
-def document(args):
+def cmd_document(args):
     """ Generate html documentation for a ROM
 
     Usage: romtool document [--help] [options] <rom> [<outdir>] [<patches>...]
@@ -498,7 +498,7 @@ def document(args):
     # log.info("Dump finished")
 
 
-def findblocks(args):
+def cmd_findblocks(args):
     """ Search for unused blocks in a rom
 
     Usage: romtool findblocks [--help] [options] <rom>
@@ -562,7 +562,7 @@ def findblocks(args):
         print(fmt.format(offset, offset+length, byte, length, length))
 
 
-def ident(args):
+def cmd_ident(args):
     """ Print identifying information for a ROM
 
     Usage: romtool ident [--help] [options] <roms>...
@@ -672,7 +672,7 @@ def _matchlength(offsets, maxdiff, alignment):
     return i
 
 
-def search(args):
+def cmd_search(args):
     """ Search a rom for...things.
 
     NOTE: The search command is experimental, slow, poorly documented, and of
@@ -819,7 +819,7 @@ def search_values(args):
             progress()
 
 
-def dirs(args):  # pylint: disable=unused-argument
+def cmd_dirs(args):  # pylint: disable=unused-argument
     """ Print romtool directory paths
 
     Usage: romtool dirs [--help]
@@ -914,7 +914,7 @@ def main(argv=None):
     expected = (FileNotFoundError, NotImplementedError, RomtoolError)
 
     try:
-        cmd = globals().get(args.command)
+        cmd = globals().get(f'cmd_{args.command}')
         if not cmd:
             log.critical("'%s' is not a valid command; see romtool --help",
                          args.command)
