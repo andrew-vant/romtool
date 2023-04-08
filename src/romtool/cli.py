@@ -213,7 +213,7 @@ def build(args):
                    '.yaml': [slurp, loadyaml, rom.apply_changeset],
                    '.json': [slurp, json.loads, rom.apply_changeset],
                    '.asm': [rom.apply_assembly],
-                   '<dir>': [rom.apply_moddir],}
+                   '<dir>': [rom.apply_moddir]}
     if args.extend:
         args.input = rom.map.extensions + args.input
     for path in args.input:
@@ -296,6 +296,7 @@ def diff(args):
             patch = Patch.from_diff(original, changed)
     _writepatch(patch, args.out)
 
+
 def fix(args):
     """ Fix header/checksum issues in a ROM
 
@@ -304,6 +305,7 @@ def fix(args):
     Not implemented yet.
     """
     raise NotImplementedError("`fix` command not implemented yet")
+
 
 def apply(args):
     """ Apply patches to a file
@@ -489,13 +491,12 @@ def document(args):
                        tables=tables,
                        indexes=indexes,
                        structures=structures))
-
-
     #     rom.document(args.outdir, args.force)
     # except FileExistsError as ex:
     #     log.error("%s (use --force to permit overwriting)", ex)
     #     sys.exit(1)
     # log.info("Dump finished")
+
 
 def findblocks(args):
     """ Search for unused blocks in a rom
@@ -559,6 +560,7 @@ def findblocks(args):
     for length, offset, byte in blocks[0:limit]:
         fmt = "{:06X}\t{:06X}\t0x{:02X}\t{}\t{:X}"
         print(fmt.format(offset, offset+length, byte, length, length))
+
 
 def ident(args):
     """ Print identifying information for a ROM
@@ -669,6 +671,7 @@ def _matchlength(offsets, maxdiff, alignment):
     assert i is not None
     return i
 
+
 def search(args):
     """ Search a rom for...things.
 
@@ -701,6 +704,7 @@ def search(args):
         search_values(args)
     else:
         raise Exception("don't know how to search for that")
+
 
 def search_index(args):
     """ Search for pointer indexes """
@@ -763,6 +767,7 @@ def search_index(args):
     for a, b in util.pairwise(hits):  # pylint: disable=invalid-name
         if b.ml > a.ml or b.offset != a.offset + ptr_bytes:
             print(fmt.format(*b))
+
 
 def search_strings(args):
     """ Search for strings in a rom """
