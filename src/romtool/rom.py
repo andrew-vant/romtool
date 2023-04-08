@@ -32,14 +32,15 @@ log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
 
 class RomFormatError(RomError):
-    pass
+    """ Input file not the expected type of ROM """
 
 
 class HeaderError(RomFormatError):
-    pass
+    """ ROM header failed to validate """
 
 
 class Rom(NodeMixin, util.RomObject):
+    """ Base class for ROMs """
     romtype = 'unknown'
     prettytype = "Unknown ROM type"
     registry = {}
@@ -89,6 +90,7 @@ class Rom(NodeMixin, util.RomObject):
 
     @property
     def name(self):
+        """ The name of this ROM, if known """
         return (util.nointro().get(self.data.sha1)
                 or util.nointro().get(self.data.sha1)
                 or self.map.name
@@ -96,6 +98,7 @@ class Rom(NodeMixin, util.RomObject):
 
     @property
     def data(self):
+        """ A bitview of the ROM's data, omitting any header """
         return self.file
 
     def dump(self, folder, force=False):
@@ -110,6 +113,8 @@ class Rom(NodeMixin, util.RomObject):
             util.dumptsv(path, elist, force, elist.columns(), '_idx')
 
     def lookup(self, key):
+        """ Look up a rom table or entityset by ID """
+        # FIXME: hate the whole call chain this is involved in
         if key in self.map.sets:
             log.debug(f"set found for {key}")
             return util.Searchable(self.entities[key])
@@ -119,6 +124,7 @@ class Rom(NodeMixin, util.RomObject):
             raise LookupError(f"no table or set with id '{key}'")
 
     def apply_moddir(self, folder):
+        """ Apply ROM changes from a modified dump directory """
         data = {}
         for _set in self.map.sets:
             path = pathjoin(folder, f'{_set}.tsv')
@@ -233,7 +239,10 @@ class Rom(NodeMixin, util.RomObject):
 
     @property
     def patch(self):
-        return self.make_patch()
+        """ Generate a patch incorporating any changes to this ROM """
+        old = io.BytesIO(self.orig.bytes)
+        new = io.BytesIO(self.file.bytes)
+        return Patch.from_diff(old, new)
 
     def changes(self):
         """ Generate changeset dictionary """
@@ -241,18 +250,19 @@ class Rom(NodeMixin, util.RomObject):
         # between orig and self, emit table:name:key:value dict tree
         raise Exception("Changeset generator not implemented yet")
 
-    def make_patch(self):
-        old = io.BytesIO(self.orig.bytes)
-        new = io.BytesIO(self.file.bytes)
-        return Patch.from_diff(old, new)
-
     def apply_patch(self, patch):
+        """ Apply a Patch to this ROM """
         contents = io.BytesIO(self.file.bytes)
         patch.apply(contents)
         contents.seek(0)
         self.file.bytes = contents.read()
 
     def validate(self):
+        """ Validate the format of this ROM
+
+        Subclasses are expected to override this method, and should raise a
+        RomFormatError if there is a problem with the ROM format.
+        """
         raise NotImplementedError(f"No validator available for {type(self)}")
 
     def __init_subclass__(cls, extensions=None, **kwargs):
@@ -270,6 +280,7 @@ class Rom(NodeMixin, util.RomObject):
 
     @classmethod
     def make(cls, romfile, rommap=None, ignore_extension=False):
+        """ Construct a Rom from a file of unknown type """
         # Check file extension first, if possible
         ext = splitext(romfile.name)[1]
         if rommap and hasattr(rommap.hooks, 'Rom'):
@@ -318,6 +329,7 @@ class Rom(NodeMixin, util.RomObject):
 
 
 class INESRom(Rom, extensions=('.nes', '.ines')):
+    """ An NES ROM in .ines format """
     romtype = 'ines'
     prettytype = "INES ROM"
     hdr_ident = b"NES\x1a"
@@ -343,6 +355,7 @@ class INESRom(Rom, extensions=('.nes', '.ines')):
 
 
 class SNESRom(Rom, extensions=['.sfc', '.smc']):
+    """ An SNES ROM """
     romtype = 'snes'
     prettytype = "SNES ROM"
     sz_smc = 0x200
@@ -365,6 +378,7 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
     @property
     def prettytype(self):  # pylint: disable=function-redefined
+        """ Override of prettytype that includes SMC header status """
         wh = "headered" if self.smc else "unheadered"
         return f'SNES ROM, {wh}'
 
@@ -376,6 +390,14 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
     @property
     def header(self):
+        """ The SNES internal metadata header
+
+        Note that this is distinct from the SMC header.
+        """
+        # FIXME: This 'header' has three slightly-different possible formats,
+        # registration data isn't always included, and I don't think I'm
+        # handling this very well. *Probably* I should have three variations of
+        # the `snes-hdr` structure.
         for offset in set(self.header_locations.values()):
             log.debug("Looking for header at 0x%X", offset)
             try:
@@ -421,6 +443,7 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
     @property
     def registration(self):
+        """ The ROM's registration data, if available """
         if self.header.devid != self.devid_magic:
             return None
         offset = self.header_locations[self.header.mapmode] - 0x10
@@ -428,6 +451,7 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
     @property
     def smc(self):
+        """ The SMC header, if present """
         sz_smc = self.file.ct_bytes % 1024
         if sz_smc == 0:
             return None
@@ -438,6 +462,10 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
     @property
     def checksum(self):
+        """ The ROM's data checksum
+
+        For comparison against the expected checksum in the metadata header.
+        """
         if not math.log(self.data.ct_bytes, 2).is_integer():
             msg = "Rom size {self.data.ct_bytes} is not a power of two"
             raise NotImplementedError(msg)
@@ -448,6 +476,7 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
 
 
 class GBARom(Rom, extensions=['.gba']):
+    """ A Gameboy Advance ROM """
     romtype = 'gba'
     prettytype = "GBA ROM"
     hdr_offset = 0xA0
