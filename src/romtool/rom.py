@@ -4,14 +4,9 @@ import math
 import io
 import re
 import subprocess as sp
-from operator import itemgetter
+from itertools import groupby
 from os.path import splitext, basename
 from os.path import join as pathjoin
-from itertools import groupby, chain
-from functools import reduce, partial
-from operator import itemgetter
-from collections.abc import Mapping
-from contextlib import ExitStack
 from shutil import which
 from tempfile import TemporaryDirectory
 
@@ -22,10 +17,9 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, Entity, EntityList
+from .structures import Structure, Table, EntityList
 from .rommap import RomMap
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
-from .field import DEFAULT_FIELDS
 
 
 log = logging.getLogger(__name__)
@@ -82,7 +76,7 @@ class Rom(NodeMixin, util.RomObject):
             parts = [self.tables[tspec.id] for tspec in tspecs]
             # FIXME: add format dunder to types involved?
             pdesc = ', '.join(p.name or p.id for p in parts)
-            log.debug("Creating entityset '%s' from table(s) [%s]", tset, pdesc)
+            log.debug("making entityset '%s' from table(s): [%s]", tset, pdesc)
             self.entities[tset] = EntityList(tset, parts)
 
     def __str__(self):
@@ -103,10 +97,6 @@ class Rom(NodeMixin, util.RomObject):
 
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
-
-        byset = lambda tbl: tbl.set or tbl.id
-        tablespecs = sorted(self.map.tables.values(), key=byset)
-
         for name, elist in self.entities.items():
             log.info("Dumping %s (%s items)", name, len(elist))
             path = pathjoin(folder, f'{name}.tsv')
@@ -116,12 +106,11 @@ class Rom(NodeMixin, util.RomObject):
         """ Look up a rom table or entityset by ID """
         # FIXME: hate the whole call chain this is involved in
         if key in self.map.sets:
-            log.debug(f"set found for {key}")
+            log.debug("set found for %s", key)
             return util.Searchable(self.entities[key])
-        elif key in self.map.tables:
+        if key in self.map.tables:
             return self.map.tables[key]
-        else:
-            raise LookupError(f"no table or set with id '{key}'")
+        raise LookupError(f"no table or set with id '{key}'")
 
     def apply_moddir(self, folder):
         """ Apply ROM changes from a modified dump directory """
@@ -138,7 +127,7 @@ class Rom(NodeMixin, util.RomObject):
             try:
                 contents = sorted(contents, key=byidx)
             except KeyError:
-                log.warning('_idx field not present; assuming input order is correct')
+                log.warning('%s._idx not present; using input order', _set)
             data[_set] = contents
 
         with EntityList.cache_locate():
@@ -179,13 +168,13 @@ class Rom(NodeMixin, util.RomObject):
                 except LookupError as ex:
                     path = ':'.join(str(k) for k in path)
                     msg = f"Bad lookup path '{path}' (typo?)"
-                    raise ChangesetError(msg)
+                    raise ChangesetError(msg) from ex
             try:
                 setattr(parent, attr, value)
             except AttributeError as ex:
                 path = ':'.join(str(k) for k in path)
                 msg = f"{attr} is not a valid attribute of {path}"
-                raise ChangesetError(msg)
+                raise ChangesetError(msg) from ex
 
     def apply_assembly(self, path):
         """ Insert assembly code into the ROM
@@ -197,18 +186,19 @@ class Rom(NodeMixin, util.RomObject):
         Expects the content of the file as a string.
         """
         re_ctrl = r'romtool: patch@([0-9A-Fa-f]+):(.*)$'
-        with util.flexopen(path) as f:
-            for i, line in enumerate(f):
+        with util.flexopen(path) as stream:
+            for i, line in enumerate(stream):
                 match = re.search(re_ctrl, line)
                 if match:
                     try:
                         location = int(match.group(1), 16)
                         cmd = match.group(2)
                     except ValueError as ex:
-                        raise ChangesetError(f"error on line {i}: {ex}")
+                        msg = f"error on line {i}: {ex}"
+                        raise ChangesetError(msg) from ex
                     break
             else:
-                raise ChangesetError(f"no patch location given")
+                raise ChangesetError("no patch location given")
 
         with TemporaryDirectory(prefix='romtool.') as tmp:
             outfile = f'{tmp}/{basename(path)}.bin'
@@ -226,12 +216,12 @@ class Rom(NodeMixin, util.RomObject):
             # Not sure what to do about that yet.
             log.debug("executing external command: %s",
                       " ".join(str(arg) for arg in args))
-            proc = sp.run(args)
+            proc = sp.run(args, check=False)
             if proc.returncode:
                 raise ChangesetError(f"external assembly failed with return "
                                      f"code {proc.returncode}")
-            with util.flexopen(outfile, 'rb') as f:
-                data = f.read()
+            with util.flexopen(outfile, 'rb') as stream:
+                data = stream.read()
         end = location + len(data)
         log.info("patching assembled %s to %s (%s bytes)",
                  basename(path), hex(location), len(data))
@@ -324,8 +314,8 @@ class Rom(NodeMixin, util.RomObject):
     def write(self, target, force=True):
         """ Write a rom to a path or file object """
         mode = 'wb' if force else 'xb'
-        with util.flexopen(target, mode) as f:
-            f.write(self.file.bytes)
+        with util.flexopen(target, mode) as stream:
+            stream.write(self.file.bytes)
 
 
 class INESRom(Rom, extensions=('.nes', '.ines')):
@@ -373,14 +363,13 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
     devid_magic = 0x33  # Indicates extended registration data available
 
     def __str__(self):
-        wh = "headered" if self.smc else "unheadered"
-        return f'{self.name} (SNES ROM, {wh})'
+        return f'{self.name} ({self.prettytype})'
 
     @property
     def prettytype(self):  # pylint: disable=function-redefined
         """ Override of prettytype that includes SMC header status """
-        wh = "headered" if self.smc else "unheadered"
-        return f'SNES ROM, {wh}'
+        detail = "headered" if self.smc else "unheadered"
+        return f'SNES ROM, {detail}'
 
     @property
     def data(self):
@@ -430,14 +419,16 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
                 log.debug(msg, offset, sz_real, sz_min, sz_max)
                 continue
 
-            # Header version 2 has a null byte where the last printable character
-            # would be, so strip it for this check.
+            # Header version 2 has a null byte where the last printable
+            # character would be, so strip it for this check.
             if all(chr(c) in string.printable for c in hdr.b_name[:-1]):
                 log.debug("0x%X: name check: ok", offset)
             else:
-                log.debug("0x%X: name check: failed (unprintable chars in name)", offset)
+                log.debug("0x%X: name check: failed "
+                          "(unprintable chars in name)",
+                          offset)
 
-            log.debug("0x%X: all header checks passed, using this header", offset)
+            log.debug("0x%X: valid header found", offset)
             return hdr
         raise HeaderError("No valid SNES header found")
 
@@ -455,10 +446,9 @@ class SNESRom(Rom, extensions=['.sfc', '.smc']):
         sz_smc = self.file.ct_bytes % 1024
         if sz_smc == 0:
             return None
-        elif sz_smc == self.sz_smc:
+        if sz_smc == self.sz_smc:
             return self.file[0:sz_smc:Unit.bytes]
-        else:
-            raise HeaderError("Bad rom file size or corrupt SMC header")
+        raise HeaderError("Bad rom file size or corrupt SMC header")
 
     @property
     def checksum(self):
@@ -494,13 +484,14 @@ class GBARom(Rom, extensions=['.gba']):
         end = start + self.hdr_sz
         try:
             return hcls(self.file[start:end:Unit.bytes])
-        except IndexError:
+        except IndexError as ex:
             msg = "Header would be off the end of the data"
-            raise RomFormatError(msg)
+            raise RomFormatError(msg) from ex
 
     def validate(self):
-        ev = self.hdr_magic      # Expected value
-        av = self.header.magic  # Actual value
-        if av != ev:
-            raise HeaderError(f"Bad magic number in header ({av} != {ev})")
+        expected = self.hdr_magic      # Expected value
+        actual = self.header.magic  # Actual value
+        if actual != expected:
+            msg = f"Bad magic number in header ({actual} != {expected})"
+            raise HeaderError(msg)
         return True
