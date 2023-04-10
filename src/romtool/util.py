@@ -292,26 +292,56 @@ class SequenceView:
     Usually produced by slicing a table. Item lookups against the view are
     relative to the slice. As with dictionary views, changes to the underlying
     object are visible in the view.
+
+    Multiple parent sequences may be provided, and are treated as if chained;
+    that is, mapped index N would reference the Nth item of the second parent.
     """
-    def __init__(self, sequence, sl):
-        self.sequence = sequence
-        self.slice = sl
-        self.indices = sl.indices(len(sequence))
+    def __init__(self, slice_, *parents):
+        self.parents = parents
+        self.slice = slice_ or slice(None, None, None)
 
     def __len__(self):
-        return len(self.indices)
+        total_len = sum(len(p) for p in self.parents)
+        if self.slice is None:
+            return total_len
+        return len(range(*self.slice.indices(total_len)))
 
-    def __getitem__(self, i):
-        if isinstance(i, slice):
-            return type(self)(self, i)
-        return self.sequence[self.indices[i]]
+    def __repr__(self):
+        addr_parents = ', '.join(hex(id(p)) for p in self.parents)
+        return f'SequenceView<len={len(self)}, slice_={self.slice}, parents@[{addr_parents}]>'
 
-    def __setitem__(self, i, v):
-        if isinstance(i, slice):
-            for i, v in zip(i.indices(len(self)), v):
+    def __str__(self):
+        ct_parents = len(self.parents)
+        return f'SequenceView({len(self)} item(s) over {ct_parents} parent(s))'
+
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(a == b for a, b in zip(self, other)))
+
+    def _map_index(self, i):
+        """ Map i to a parent sequence and index """
+        len_parents = sum(len(p) for p in self.parents)
+        target = range(*self.slice.indices(len_parents))[i]
+        for parent in self.parents:
+            if target < len(parent):
+                return parent, target
+            target -= len(parent)
+        raise IndexError(f"index {i} out of range")
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return type(self)(key, self)
+        parent, i = self._map_index(key)
+        return parent[i]
+
+    def __setitem__(self, key, value):
+        if isinstance(key, slice):
+            for i, v in zip(key.indices(len(self)), value):
                 self[i] = v
         else:
-            self.sequence[self.indices[i]] = v
+            parent, i = self._map_index(key)
+            parent[i] = v
+
 
 def flatten_dicts(dct, _parent_keys=None):
     """ Turn nested dicts into a sequence of paths-to-values """
