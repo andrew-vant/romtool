@@ -2,4 +2,4 @@
 
 disable=fixme,logging-format-interpolation
 max-line-length=79
-good-names=i,j,k,ex,Run,_,tt,ba
+good-names=i,j,k,v,ex,Run,_,tt,ba
