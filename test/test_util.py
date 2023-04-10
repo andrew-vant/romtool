@@ -42,33 +42,43 @@ class TestHexInt(unittest.TestCase):
 class TestSequenceView(unittest.TestCase):
     def test_noop_view(self):
         parent = [0, 1, 2, 3]
-        view = util.SequenceView(None, parent)
+        view = util.SequenceView(parent)
         self.assertEqual(view, parent)
         self.assertEqual(parent, view)
 
-    def test_sliced_view(self):
+    def test_view_lookup(self):
         parent = [0, 1, 2, 3]
-        view = util.SequenceView(slice(0, 2), parent)
+        view = util.SequenceView(parent)
+        for i, v in enumerate(parent):
+            self.assertEqual(view[i], v)
+
+    def test_view_slice(self):
+        parent = [0, 1, 2, 3]
+        view = util.SequenceView(parent)[:2]
         self.assertEqual(view, [0, 1])
         self.assertEqual(list(view), [0, 1])
 
+
+class TestChainView(unittest.TestCase):
+    def test_noop_chain(self):
+        parent = [0, 1, 2]
+        schain = util.ChainView(parent)
+        self.assertEqual(schain, parent)
+
     def test_multiple_parents(self):
         parents = [[0, 1, 2], [3, 4, 5]]
-        view = util.SequenceView(None, *parents)
-        self.assertEqual(view, list(chain(*parents)))
+        schain = util.ChainView(*parents)
+        self.assertEqual(list(schain), list(chain(*parents)))
+        self.assertEqual(schain, list(chain(*parents)))
+        for a, b in zip(schain, chain(*parents)):
+            self.assertEqual(a, b)
 
-    def test_multiple_parents_sliced(self):
+    def test_schain_slice(self):
         parents = [[0, 1, 2], [3, 4, 5]]
-        view = util.SequenceView(slice(2, 4), *parents)
-        self.assertEqual(view, [2, 3])
+        schain = util.ChainView(*parents)[2:4]
+        self.assertEqual(schain, [2, 3])
 
-    def test_view_from_view(self):
+    def test_schain_stepped_slice(self):
         parents = [[0, 1, 2], [3, 4, 5]]
-        view = util.SequenceView(None, *parents)[2:4]
-        self.assertEqual(view, [2, 3])
-
-    def test_view_with_step(self):
-        parents = [[0, 1, 2], [3, 4, 5]]
-        view = util.SequenceView(None, *parents)[1:5:2]
-        self.assertEqual(list(view), [1, 3])
-        self.assertEqual(view, [1, 3])
+        schain = util.ChainView(*parents)[2:5:2]
+        self.assertEqual(schain, [2, 4])

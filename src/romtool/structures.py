@@ -556,7 +556,7 @@ class Table(Sequence, NodeMixin, RomObject):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return SequenceView(i, self)
+            return SequenceView(self, i)
         elif i >= len(self):
             raise IndexError(f"Table index out of range ({i} >= {len(self)})")
         elif self._struct:

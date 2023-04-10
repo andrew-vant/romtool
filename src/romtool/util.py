@@ -292,55 +292,79 @@ class SequenceView:
     Usually produced by slicing a table. Item lookups against the view are
     relative to the slice. As with dictionary views, changes to the underlying
     object are visible in the view.
-
-    Multiple parent sequences may be provided, and are treated as if chained;
-    that is, mapped index N would reference the Nth item of the second parent.
     """
-    def __init__(self, slice_, *parents):
-        self.parents = parents
+    def __init__(self, sequence, slice_=None):
+        self.sequence = sequence
         self.slice = slice_ or slice(None, None, None)
 
+    def _indices(self):
+        """ Helper equivalent of slice._indices """
+        return self.slice.indices(len(self.sequence))
+
+    def _map_index(self, i):
+        """ Helper that maps an index to the underlying sequence """
+        return range(*self._indices())[i]
+
     def __len__(self):
-        total_len = sum(len(p) for p in self.parents)
-        if self.slice is None:
-            return total_len
-        return len(range(*self.slice.indices(total_len)))
-
-    def __repr__(self):
-        addr_parents = ', '.join(hex(id(p)) for p in self.parents)
-        return f'SequenceView<len={len(self)}, slice_={self.slice}, parents@[{addr_parents}]>'
-
-    def __str__(self):
-        ct_parents = len(self.parents)
-        return f'SequenceView({len(self)} item(s) over {ct_parents} parent(s))'
+        return len(range(*self._indices()))
 
     def __eq__(self, other):
         return (len(self) == len(other)
                 and all(a == b for a, b in zip(self, other)))
 
-    def _map_index(self, i):
-        """ Map i to a parent sequence and index """
-        len_parents = sum(len(p) for p in self.parents)
-        target = range(*self.slice.indices(len_parents))[i]
-        for parent in self.parents:
-            if target < len(parent):
-                return parent, target
-            target -= len(parent)
-        raise IndexError(f"index {i} out of range")
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return type(self)(self, i)
+        return self.sequence[self._map_index(i)]
 
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return type(self)(key, self)
-        parent, i = self._map_index(key)
-        return parent[i]
-
-    def __setitem__(self, key, value):
-        if isinstance(key, slice):
-            for i, v in zip(key.indices(len(self)), value):
+    def __setitem__(self, i, v):
+        if isinstance(i, slice):
+            for i, v in zip(range(*i.indices(len(self))), v):
                 self[i] = v
         else:
-            parent, i = self._map_index(key)
-            parent[i] = v
+            self.sequence[self._map_index(i)] = v
+
+
+class ChainView(Sequence):
+    """ Variant of chain() that is a real indexable sequence
+
+    Item lookups are forwarded to the corresponding underlying parent sequence
+    in the order they were specified. So e.g.
+    """
+    def __init__(self, *parents):
+        self.parents = parents
+
+    def __len__(self):
+        return sum(len(p) for p in self.parents)
+
+    def __eq__(self, other):
+        return (len(self) == len(other)
+                and all(a == b for a, b in zip(self, other)))
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return SequenceView(self, i)
+        for parent in self.parents:
+            if i < len(parent):
+                return parent[i]
+            i -= len(parent)
+        raise IndexError(f"{i} out of range")
+
+    def __setitem__(self, i, v):
+        if isinstance(i, slice):
+            SequenceView(self)[i] = v
+        else:
+            for parent in self.parents:
+                if i < len(parent):
+                    parent[i] = v
+                    return
+                i -= len(parent)
+        raise IndexError(f"{i} out of range")
+
+
+def seqview(sequence, slice):
+    # will something like this work?
+    return partial(sequence.__getitem__, slice)
 
 
 def flatten_dicts(dct, _parent_keys=None):
