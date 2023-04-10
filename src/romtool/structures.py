@@ -341,10 +341,7 @@ class Structure(Mapping, NodeMixin, RomObject):
 
     @classmethod
     def define(cls, name, fields):
-        """ Define a type of structure from a list of Fields
-
-        The newly-defined type will be registered and returned.
-        """
+        """ Define a type of structure from a list of Fields """
         attrs = {f.id: f for f in fields}
         names = [f.name for f in attrs.values()]
         for identifier in chain(attrs, names):
