@@ -776,25 +776,37 @@ def search_strings(args):
     data = rom.data.bytes
     codec = codecs.lookup(args.encoding + '_clean')
     offset = 0
-    vowels = re.compile(r'[AEIOUaeiou]')
+    vowels = re.compile(r'[AEIOUYaeiouy]')
     binary = re.compile(r'\[\$[ABCDEF1234567890]+\]')
+    special = re.compile(r'\[[A-Z0-9]+\]')
+    nonword = re.compile(r'\W+')
     pbar = partial(alive_bar, disable=not args.progress, enrich_print=False)
 
-    def report_hit(string):
-        """ Check whether a decoded string counts as a hit """
-        return (len(string) > 3
-                and vowels.search(string)
-                and binary.search(string))
+    def report_hit(string, consumed, minlen=3): # FIXME: take minlen from args
+        """ Check whether a decoded string counts as a hit
+
+        Tries to determine whether a string is Actual Text rather than
+        coincidentally decodable. At the moment it does so by stripping
+        whitespace and control characters, then checking if the result is
+        >minlen characters and contains at least one vowel.
+        """
+        string = special.sub('', string)
+        string = nonword.sub('', string)
+        string = string.strip()
+        return (len(string) > minlen
+                and consumed > minlen
+                and vowels.search(string))
 
     with pbar(len(data), title='searching for strings') as progress:
         while offset < len(data):
-            # Not a great way to do this, breaks strings at 20 chars because
-            # passing the whole thing is dog-slow and it's unclear why. This is
-            # good enough to eyeball the results to get string table offsets,
-            # though.
-            string, consumed = codec.decode(data[offset:offset+20])
-            if report_hit(string):
-                print(f"0x{offset:X}\t{string}")
+            try:
+                string, consumed = codec.decode(data[offset:], 'stop')
+            except UnicodeError as ex:
+                # doesn't work yet...decode doesn't raise
+                consumed = ex.end
+            else:
+                if report_hit(string, consumed):
+                    print(f"0x{offset:X}\t{string}")
             offset += consumed
             progress(consumed)
 

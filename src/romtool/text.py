@@ -89,6 +89,10 @@ class TextTable(codecs.Codec):
 
         Any unrecognized bytes will be rendered as hex codes.
         """
+        # FIXME: Register proper error handlers. `hex` for the default
+        # behavior here, `stop` to stop decoding and return what we have so
+        # far (so treat anything nondecodable as EOS -- useful for string
+        # searching when the encoding doesn't have an EOS marker)
         text = ""
         i = 0
         # the python codec infrastructure passes a memoryview, not
@@ -99,6 +103,8 @@ class TextTable(codecs.Codec):
             raw = f"[${input[i]:02X}]"
             match, string = self.dec.item(input[i:], default=raw)
             if match is None:
+                if errors == 'stop':
+                    return text, i+1
                 match = input[i:i+1]
             if self.include_eos or (match not in self.eos):
                 text += string
