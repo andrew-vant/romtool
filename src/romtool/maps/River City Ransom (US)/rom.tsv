@@ -1,7 +1,8 @@
 id	fid	name	iname	set	type	offset	count	stride	size	index	priority	order	display	comment
-members		Member Stats		members	mstats	0x139D6	9	9	9					Adjustment to base gang stats for each member.
-levels		Gang Levels	All	statmods	uint	0x13AA5	9	1	1			-1		All-stats buff for each gang
-statmods		Statmods		statmods	mstats	0x13AAE	9	9	9					Base stats for each gang
+members		Member Stats		members	mstats	0x139D6	9	9	9					Per-member stat modifiers
+levels		Gang Levels	Stat Bonus	gangs	uint	0x13AA5	9	1	1	gangs		-1		Base value for gang stats
+gmods		Gang Mods	Stat Mods	gangs	mstats	0x13AAE	9	9	9	gangs*9				Per-gang stat modifiers
+statmods		Statmods	Stat Mods	statmods	mstats	0x13AAE	9	9	9					Per-gang stat modifiers
 gdesc_ptrs	desc_ptr	Gang Desc Ptrs	Description Pointer	gangs	uintle	0x4116	9	2	2				pointer	Pointer index to description strings
-gdescs	name	Gang Descriptions	Description	gangs	strz	-0x4000	9	32	32	gdesc_ptrs		-1	main	Gang description strings
-gstats_idx		Statmod Index		gangs	uint	0x135E8	9	1	1					Gang stat array indices
+gdescs	name	Gang Descriptions	Description	gangs	strz	-0x4000	9		32	gdesc_ptrs		-1	main	Gang description strings
+gangs	id	Gang Statblock Indices	Statblock Index	gangs	uint	0x135E8	9	1	1					Index into gang-related arrays

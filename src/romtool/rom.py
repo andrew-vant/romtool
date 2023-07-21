@@ -17,7 +17,7 @@ from addict import Dict
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, EntityList
+from .structures import Structure, Table, EntityList, CalculatedIndex
 from .rommap import RomMap
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
 
@@ -60,10 +60,9 @@ class Rom(NodeMixin, util.RomObject):
         byidx = lambda spec: bool(spec.index)
         for spec in sorted(self.map.tables.values(), key=byidx):
             log.debug("creating table: %s", spec.id)
-            if spec.index and spec.index not in self.tables:
-                raise MapError(f"table '{spec.id}' uses index '{spec.index}' "
-                               f"but no such index exists")
-            index = self.tables.get(spec.index)
+            index = (None if not spec.index
+                     else self.tables[spec.index] if spec.index in self.tables
+                     else CalculatedIndex(spec.count, spec.index, self.tables))
             self.tables[spec.id] = Table(self, self.data, spec, index)
 
         self.entities = Dict()
