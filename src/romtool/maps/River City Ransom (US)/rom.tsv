@@ -2,7 +2,10 @@ id	fid	name	iname	set	type	offset	count	stride	size	index	priority	order	display
 members		Member Stats		members	mstats	0x139D6	9	9	9					Per-member stat modifiers
 levels		Gang Levels	Stat Bonus	gangs	uint	0x13AA5	9	1	1	gangs		-1		Base value for gang stats
 gmods		Gang Mods	Stat Mods	gangs	mstats	0x13AAE	9	9	9	gangs*9				Per-gang stat modifiers
-statmods		Statmods	Stat Mods	statmods	mstats	0x13AAE	9	9	9					Per-gang stat modifiers
 gdesc_ptrs	desc_ptr	Gang Desc Ptrs	Description Pointer	gangs	uintle	0x4116	9	2	2				pointer	Pointer index to description strings
 gdescs	name	Gang Descriptions	Description	gangs	strz	-0x4000	9		32	gdesc_ptrs		-1	main	Gang description strings
 gangs	id	Gang Statblock Indices	Statblock Index	gangs	uint	0x135E8	9	1	1					Index into gang-related arrays
+members		Member Names	Name	gangs	gangnames	0x3D24	9			gangs*18				
+names	name	Member Names	Name	names	strz	-0x8000	81		10	name_ptrs			main	Gang member names
+name_ptrs	name_ptr	Name Pointers	Name Pointer	names	uint	0x3D24	100	2	2				pointer	Gang member name blocks are in gang ID order -- i.e. first nine names are the members of gang 0 (Cowboys)
+cash	cash	Cash Dropped	Cash	gangs	nbcdle	0x1EC2A	9		2	gangs*2				
