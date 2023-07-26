@@ -209,6 +209,7 @@ class Field(ABC):
         # Get the parent view that this field is "relative to"
         context = (obj.view if not self.origin
                    else obj.view.root if self.origin == 'root'
+                   else obj.root.data if self.origin == 'rom'
                    else obj.view.root.find(self.origin))
         offset = self.offset.eval(obj) * self.unit
         size = self.size.eval(obj) * self.unit
