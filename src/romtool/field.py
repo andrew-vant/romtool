@@ -462,6 +462,8 @@ DEFAULT_FIELDS = {
     'uint': IntField,
     'uintbe': IntField,
     'uintle': IntField,
+    'nbcdle': IntField,
+    'nbcdbe': IntField,
     'str': StringField,
     'strz': StringZField,
     }

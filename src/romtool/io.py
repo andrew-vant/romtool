@@ -13,7 +13,7 @@ from collections.abc import Hashable
 from functools import partial
 from io import BytesIO
 
-from .util import bytes2ba, HexInt, cache
+from .util import bytes2ba, HexInt, cache, chunk
 
 log = logging.getLogger(__name__)
 trace = partial(log.log, logging.NOTSET)
@@ -276,3 +276,25 @@ class BitArrayView(NodeMixin):
                 )
         if old != self.int:
             trace("change detected: %s -> %s", old, self.int)
+
+    @property
+    def nbcdle(self):
+        """ Natural binary-coded decimal integers, little-endian """
+        return sum(10 ** n * nybble.uint
+                   for n, nybble
+                   in enumerate(chunk(self, 4)))
+
+    @nbcdle.setter
+    def nbcdle(self, i):
+        for nybble in chunk(self, 4):
+            i, digit = divmod(i, 10)
+            nybble.uint = digit
+
+    @property
+    def nbcdbe(self):
+        """ Natural binary-coded decimal integers, big-endian """
+        raise NotImplementedError
+
+    @nbcdbe.setter
+    def nbcdbe(self, i):
+        raise NotImplementedError
