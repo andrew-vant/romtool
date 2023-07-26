@@ -293,8 +293,21 @@ class BitArrayView(NodeMixin):
     @property
     def nbcdbe(self):
         """ Natural binary-coded decimal integers, big-endian """
-        raise NotImplementedError
+        raise NotImplementedError("nbcdbe encoding not implemented yet")
 
     @nbcdbe.setter
     def nbcdbe(self, i):
-        raise NotImplementedError
+        raise NotImplementedError("nbcdbe encoding not implemented yet")
+
+    @property
+    def nbcd(self):
+        """ Natural binary-coded decimal integers, <1 byte """
+        if len(self) > Unit.bytes:
+            raise ValueError("nbcd values of >1 byte must specify endianness")
+        return self.nbcdle
+
+    @nbcd.setter
+    def nbcd(self, i):
+        if len(self) > Unit.bytes:
+            raise ValueError("nbcd values of >1 byte must specify endianness")
+        self.nbcdle = i
