@@ -16,6 +16,7 @@ from abc import ABC
 import yaml
 from addict import Dict
 from anytree import NodeMixin
+from asteval import Interpreter
 
 from .field import Field, StructField, FieldExpr
 from . import util
@@ -642,3 +643,55 @@ class Index(Sequence):
             return False
         else:
             return all(a == b for a, b in zip(self, other))
+
+
+class CalculatedIndex(Sequence):
+    """ A calculated pseudo-index """
+    class EvalContext(Mapping):
+        """ A dict-like context for asteval that does lazy lookups """
+        def __init__(self, tables, i):
+            self.tables = tables
+            self.i = i
+
+        def __len__(self):
+            return len(self.tables)
+
+        def __iter__(self):
+            yield from self.tables
+
+        def __getitem__(self, key):
+            return self.tables[key][self.i]
+
+    def __init__(self, count, expr, tables):
+        self.count = count
+        self.expr = expr
+        self.tables = tables
+        self.interpreter = Interpreter({}, minimal=True)
+
+    def __len__(self):
+        return self.count
+
+    def __str__(self):
+        return self.expr
+
+    def __repr__(self):
+        return f"{type(self)}({self.expr:r}, {self.tables})"
+
+    def __getitem__(self, i):
+        if i >= len(self):
+            raise IndexError(f"i >= {len(self)}")
+
+        if isinstance(i, slice):
+            return SequenceView(self, i)
+        # skip the expensive bits if we can
+        if self.expr in self.tables:
+            return self.tables[self.expr]
+        self.interpreter.symtable = self.EvalContext(self.tables, i)
+        result = self.interpreter.eval(self.expr)
+        errs = self.interpreter.error or []
+        for err in self.interpreter.error or []:
+            msg = f"error evaluating crossref: '{self.expr}': {err.msg}"
+            log.error(msg)
+        if errs:
+            raise RomtoolError(msg)
+        return result

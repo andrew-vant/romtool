@@ -1,0 +1,10 @@
+id	name	offset	size	type	display	order	comment
+punch	Punch	0	1	int			
+kick	Kick	1	1	int			
+wp	Weapon	2	1	int			
+throw	Throwing	3	1	int			
+agi	Agility	4	1	int			
+def	Defense	5	1	int			
+str	Strength	6	1	int			
+will	Willpower	7	1	int			
+mp	Max Power	8	1	int			
