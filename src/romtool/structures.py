@@ -20,7 +20,7 @@ from asteval import Interpreter
 
 from .field import Field, StructField, FieldExpr
 from . import util
-from .util import cache, RomObject, SequenceView, CheckedDict, HexInt
+from .util import cache, locate, RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -193,37 +193,6 @@ class EntityList(Sequence):
 
     def columns(self):
         return self.etype._keys
-
-    def locate(self, name):
-        """ Get the index of the entity with the given name """
-        try:
-            return next(i for i, e in enumerate(self) if e.name == name)
-        except AttributeError:
-            raise LookupError(f"Tried to look up {self.name} by name, "
-                               "but they are nameless")
-        except StopIteration:
-            raise ValueError(f"No object with name: {name}")
-
-    @classmethod
-    @contextmanager
-    def cache_locate(cls):
-        """ Temporarily cache locate calls
-
-        This is supposed to help with the abysmal slowness of resolving
-        cross-references in tsv input files. I'm pretty sure this is a terrible
-        idea and will bite me at some point.
-
-        The cache will return stale results if the name of an entity changes
-        between cross-references. This *shouldn't* happen during changeset
-        loading, but could easily happen during other use, hence it not being
-        the default behavior.
-        """
-        orig_locate = cls.locate
-        cls.locate = cache(cls.locate)
-        try:
-            yield cls
-        finally:
-            cls.locate = orig_locate
 
 
 class Structure(Mapping, NodeMixin, RomObject):
@@ -405,7 +374,7 @@ class Structure(Mapping, NodeMixin, RomObject):
             elif field.ref:
                 etbl = self.root.entities[field.ref]
                 try:
-                    self[key] = etbl.locate(tsv_row[key])
+                    self[key] = locate(etbl, tsv_row[key])
                 except ValueError:
                     try:
                         stdparse(field)
@@ -586,17 +555,6 @@ class Table(Sequence, NodeMixin, RomObject):
                                   "but they are nameless")
         except StopIteration:
             raise LookupError(f"No object with name: {name}")
-
-    def locate(self, name):
-        """ Get the index of a structure with the given name """
-        try:
-            return next(i for i, item in enumerate(self)
-                        if item == name or item.name == name)
-        except AttributeError:
-            raise LookupError(f"Tried to look up {self.spec.type} by name, "
-                               "but they are nameless")
-        except StopIteration:
-            raise ValueError(f"No {self.id} named {name}")
 
     @property
     def has_index(self):

@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from asteval import Interpreter
 
 from .io import Unit, BitArrayView
-from .util import HexInt, IndexInt
+from .util import HexInt, IndexInt, locate
 
 from .exceptions import RomtoolError, MapError
 
@@ -402,7 +402,7 @@ class IntField(Field):
                 for source in obj.root.entities, obj.root.tables:
                     if self.ref in source:
                         key = value
-                        value = source[self.ref].locate(value)
+                        value = locate(source[self.ref], value)
                         if source[value].name == key:
                             return
                         break

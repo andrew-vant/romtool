@@ -19,6 +19,7 @@ from .patch import Patch
 from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Table, EntityList, CalculatedIndex
 from .rommap import RomMap
+from .util import locate
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
 
 
@@ -129,7 +130,7 @@ class Rom(NodeMixin, util.RomObject):
                 log.warning('%s._idx not present; using input order', _set)
             data[_set] = contents
 
-        with EntityList.cache_locate():
+        with locate.cached():
             # Crossref resolution is slow. Cache results during load. FIXME: I
             # am *sure* there's a better way to do this. Should probably
             # iterate over the input data rather than the entity list, for one

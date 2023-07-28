@@ -10,6 +10,7 @@ import os
 import abc
 from collections import OrderedDict, Counter
 from collections.abc import Mapping, MutableMapping, Sequence
+from contextlib import contextmanager
 from itertools import chain
 from functools import lru_cache, partial
 from os.path import dirname, realpath
@@ -179,7 +180,7 @@ class IndexInt(int):
             try:
                 value = int(value, 0)
             except ValueError:
-                value = table.locate(value)
+                value = locate(table, value)
         self = int.__new__(cls, value)
         self.table = table
         return self
@@ -194,6 +195,62 @@ class IndexInt(int):
 
     def __str__(self):
         return self.obj.name
+
+
+class Locator:
+    def __init__(self):
+        self.locate = type(self).locate
+
+    def __call__(self, sequence, name):
+        return self.locate(sequence, name)
+
+    @contextmanager
+    def cached(self):
+        """ Temporarily cache locate calls
+
+        This is supposed to help with the abysmal slowness of resolving
+        cross-references in tsv input files. I'm pretty sure this is a terrible
+        idea and will bite me at some point. FIXME: test if this is still an
+        issue.
+
+        The cache will return stale results if the name of an entity changes
+        between cross-references. This *shouldn't* happen during changeset
+        loading, but could easily happen during other use, hence it not being
+        the default behavior.
+        """
+        orig = self.locate
+        self.locate = cache(self.locate)
+        log.debug("locate() caching enabled")
+        try:
+            yield self
+        finally:
+            self.locate = orig
+            log.debug("locate() caching disabled")
+
+    @staticmethod
+    def locate(sequence, name):
+        """ Look up a sequence item by name
+
+        Returns the index of the first item that is either a matching string, or
+        has a .name attribute that is a matching string.
+        """
+        # TODO: Made a util function so lookups don't require all sequences to
+        # have a locate() methods. Can't do it in-place because I need to
+        # preserve the ability to toggle a cache in a way that will be seen by
+        # other parts of the program. (which is terrible, but I don't have a
+        # better way to get around the EntityList perf problem right
+        # now...double check that it's still a problem.)
+        try:
+            return next(i for i, e in enumerate(sequence) if e.name == name)
+        except AttributeError:
+            raise MapError(f"Tried to look up {sequence.name} by name, "
+                            "but they are nameless")
+        except StopIteration:
+            seqname = getattr(sequence, 'id', 'sequence')
+            raise ValueError(f"No object named {name} in {seqname}")
+
+
+locate = Locator()
 
 
 class RomObject(abc.ABC):
@@ -336,10 +393,6 @@ class ChainView(Sequence):
 
     def __len__(self):
         return sum(len(p) for p in self.parents)
-
-    def __eq__(self, other):
-        return (len(self) == len(other)
-                and all(a == b for a, b in zip(self, other)))
 
     def __getitem__(self, i):
         if isinstance(i, slice):
