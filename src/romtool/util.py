@@ -194,7 +194,7 @@ class IndexInt(int):
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
-        return self.obj.name
+        return getattr(self.obj, 'name', str(int(self)))
 
 
 class Locator:
