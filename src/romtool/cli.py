@@ -687,7 +687,7 @@ def cmd_search(args):
         romtool search -h | --help
 
     Options:
-        -m, --map           Specify ROM map
+        -m, --map PATH      Specify ROM map
         -P, --progress      Display progress bar
 
         -h, --help          Print this help
