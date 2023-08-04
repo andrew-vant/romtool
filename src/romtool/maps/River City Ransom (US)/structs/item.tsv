@@ -1,0 +1,15 @@
+id	name	offset	size	type	arg	unit	display	order	comment
+name	Name	0	16	strz			main		
+price	Price	len(name)+1	3	nbcdle					
+unk1	Unknown 1	len(name)+4	2	uintle			hex		Pointer to item function?
+unk2	Unknown 2	len(name)+6	1	uint					Possible function arg. Is 255 whenever unk1 is 0.
+buffs	Buff Flags	len(name)+7	2	statflags					
+stamina	Stamina	15	1	buff					MP is item.stamina // 4 - (char.mp - char.stamina)
+punch	Punch Buff	7	1	buff					Offset is of the flag within statflags
+kick	Kick Buff	6	1	buff					
+wp	Weapon Buff	5	1	buff					
+throw	Throw Buff	4	1	buff					
+agi	Agi Buff	3	1	buff					
+def	Defense Buff	2	1	buff					
+str	Strength Buff	1	1	buff					
+will	Willpower Buff	0	1	buff					

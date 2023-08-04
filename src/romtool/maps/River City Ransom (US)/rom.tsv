@@ -13,3 +13,5 @@ bnm_ptrs	name_ptr	Name Pointers (Bosses)	Name Pointer	bosses	uint	0x3DC6	14	2	2	
 bnames	name	Boss Names	Name	bosses	strz	-0x8000	14		10	bnm_ptrs			main	
 names	name	Member Names	Name	names	strz	-0x8000	81		10	name_ptrs			main	Gang member names
 name_ptrs	name_ptr	Name Pointers	Name Pointer	names	uint	0x3D24	100	2	2				pointer	Gang member name blocks are in gang ID order -- i.e. first nine names are the members of gang 0 (Cowboys)
+items	item	Items	Item	items	item	0	124			item_ptrs				For once the index is relative to the ROM.
+item_ptrs	item_ptr	Item Pointers	Item Pointer	items	uint	0xA4FB	124	2	2				pointer	FIXME: includes nothing/no thanks/etc, which have bogus stats that break things on build; adjust range

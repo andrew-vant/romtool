@@ -1,0 +1,10 @@
+id	name	unit	offset	size	type	display	comment
+punch	Punch	bits	7	1	uint	P	
+kick	Kick	bits	6	1	uint	K	
+wp	Weapons	bits	5	1	uint	W	
+throw	Throwing	bits	4	1	uint	T	
+agi	Agility	bits	3	1	uint	A	
+def	Defense	bits	2	1	uint	D	
+str	Strength	bits	1	1	uint	R	
+will	Willpower	bits	0	1	uint	L	
+stamina	Stamina	bits	15	1	uint	S	The rest of this byte is unused
