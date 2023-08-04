@@ -13,7 +13,8 @@ from collections.abc import Hashable
 from functools import partial
 from io import BytesIO
 
-from .util import bytes2ba, HexInt, cache, chunk, throw
+from .util import FormatSpecifier, HexInt
+from .util import bytes2ba, cache, chunk, throw
 
 log = logging.getLogger(__name__)
 trace = partial(log.log, logging.NOTSET)
@@ -135,6 +136,12 @@ class BitArrayView(NodeMixin):
             excess = len(self) - len(bits)
             bits += f'...({excess} more)'
         return f'BitArrayView({bits})'
+
+    def __format__(self, format_spec):
+        spec = FormatSpecifier.parse(format_spec)
+        if spec.type in 'Xx':
+            return format(self.uintbe, format_spec)
+        return super().__format__(format_spec)
 
     def __repr__(self):
         _inobj = 'parent' if self.parent else 'ba'

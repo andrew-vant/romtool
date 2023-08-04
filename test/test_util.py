@@ -5,7 +5,7 @@ from tempfile import TemporaryFile, NamedTemporaryFile
 
 import romtool
 from romtool import util
-from romtool.util import HexInt
+from romtool.util import FormatSpecifier, HexInt
 
 
 class TestUtilFuncs(unittest.TestCase):
@@ -82,3 +82,35 @@ class TestChainView(unittest.TestCase):
         parents = [[0, 1, 2], [3, 4, 5]]
         schain = util.ChainView(*parents)[2:5:2]
         self.assertEqual(schain, [2, 4])
+
+
+class TestFormatSpecifier(unittest.TestCase):
+    def test_parse_simple_spec(self):
+        spec = FormatSpecifier.parse('d')
+        self.assertEqual(str(spec), 'd')
+
+    def test_parse_full_spec(self):
+        spec = FormatSpecifier.parse('0>#10_.2f')
+        self.assertEqual(spec.fill, '0')
+        self.assertEqual(spec.align, '>')
+        self.assertEqual(spec.sign, None)
+        self.assertEqual(spec.alt, True)
+        self.assertEqual(spec.zero_pad, False)
+        self.assertEqual(spec.width, 10)
+        self.assertEqual(spec.grouping_option, '_')
+        self.assertEqual(spec.precision, 2)
+        self.assertEqual(spec.type, 'f')
+        self.assertEqual(str(spec), '0>#10_.2f')
+
+    def test_parse_empty_spec(self):
+        spec = FormatSpecifier.parse('')
+        self.assertEqual(str(spec), '')
+
+    def test_parse_invalid_spec(self):
+        with self.assertRaises(ValueError):
+            FormatSpecifier.parse('invalid_spec')
+
+    def test_str_method(self):
+        spec = FormatSpecifier(fill='0', align='>', width=10,
+                               precision=2, type='f')
+        self.assertEqual(str(spec), '0>10.2f')

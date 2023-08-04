@@ -7,10 +7,12 @@ import importlib.resources as resources
 import io
 import logging
 import os
+import re
 import abc
 from collections import OrderedDict, Counter
 from collections.abc import Mapping, MutableMapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from itertools import chain
 from functools import lru_cache, partial
 from os.path import dirname, realpath
@@ -386,6 +388,68 @@ class SequenceView:
         else:
             self.sequence[self._map_index(i)] = v
 
+
+@dataclass
+class FormatSpecifier:
+    fill: str = None
+    align: str = None
+    sign: str = None
+    alt: bool = False
+    zero_pad: bool = False
+    width: int = None
+    grouping_option: str = None
+    precision: int = None
+    type: str = None
+
+    pattern = re.compile(
+        r'^'
+        r'(?:'
+        r'(?P<fill>.)?'
+        r'(?P<align>[<>=^])?'
+        r'(?P<sign>[+\- ])?'
+        r'(?P<alt>#)?'
+        r'(?P<zero_pad>0)?'
+        r'(?P<width>\d+)?'
+        r'(?P<grouping_option>[_\,])?'
+        r'(?:\.(?P<precision>\d+))?'
+        r'(?P<type>[bdoxXneEfFgG%]?)'
+        r')?'
+        r'$'
+    )
+
+    def __str__(self):
+        fmt = ("{fill}{align}{sign}{alt}{zero_pad}{width}"
+               "{grouping_option}{precision_dot}{precision}{type}")
+        return fmt.format(
+            fill=self.fill or '',
+            align=self.align or '',
+            sign=self.sign or '',
+            alt='#' if self.alt else '',
+            zero_pad='0' if self.zero_pad else '',
+            width=self.width or '',
+            grouping_option=self.grouping_option or '',
+            precision_dot='.' if self.precision is not None else '',
+            precision=self.precision or '',
+            type=self.type or '',
+        )
+
+    @classmethod
+    def parse(cls, spec):
+        match = cls.pattern.match(spec)
+        if not match:
+            raise ValueError("Invalid format specifier")
+        groups = match.groupdict()
+        return cls(
+            fill=groups['fill'],
+            align=groups['align'],
+            sign=groups['sign'],
+            alt=bool(groups['alt']),
+            zero_pad=bool(groups['zero_pad']),
+            width=int(groups['width']) if groups['width'] else None,
+            grouping_option=groups['grouping_option'],
+            precision=int(groups['precision']) if groups['precision'] else None,
+            type=groups['type'],
+        )
 
 class ChainView(Sequence):
     """ Variant of chain() that is a real indexable sequence
