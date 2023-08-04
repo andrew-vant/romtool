@@ -28,6 +28,8 @@ from bitarray import bitarray
 from bitarray.util import bits2bytes
 from itertools import tee
 
+from .exceptions import MapError
+
 log = logging.getLogger(__name__)
 
 # romtool's expected format is tab-separated values, no quoting, no
@@ -235,7 +237,7 @@ class Locator:
             log.debug("locate() caching disabled")
 
     @staticmethod
-    def locate(sequence, name):
+    def locate(sequence, name):  # pylint: disable=method-hidden
         """ Look up a sequence item by name
 
         Returns the index of the first item that is either a matching string, or
