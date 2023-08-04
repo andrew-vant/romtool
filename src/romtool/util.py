@@ -197,6 +197,11 @@ class IndexInt(int):
         return getattr(self.obj, 'name', str(int(self)))
 
 
+def throw(ex, *args, **kwargs):
+    """ Raise an exception from an expression """
+    raise ex(*args, **kwargs)
+
+
 class Locator:
     def __init__(self):
         self.locate = type(self).locate
