@@ -457,19 +457,13 @@ class ChainView(Sequence):
     """ Variant of chain() that is a real indexable sequence
 
     Item lookups are forwarded to the corresponding underlying parent sequence
-    in the order they were specified.
+    in the order they were specified. So e.g.
     """
     def __init__(self, *parents):
         self.parents = parents
 
     def __len__(self):
         return sum(len(p) for p in self.parents)
-
-    def __eq__(self, other):
-        if hasattr(other, 'parents'):
-            return self.parents == other.parents
-        return (len(self) == len(other)
-                and all(a == b for a, b in zip(self, other)))
 
     def __getitem__(self, i):
         if isinstance(i, slice):
