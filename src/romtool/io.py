@@ -243,11 +243,13 @@ class BitArrayView(NodeMixin):
 
     @property
     def uintbe(self):
-        return self.uint
+        return int.from_bytes(self.bytes, 'big')
 
     @uintbe.setter
     def uintbe(self, i):
-        self.uint = i
+        if isinstance(i, str):
+            i = int(i, 0)
+        self.bytes = (i).to_bytes(bits2bytes(len(self)), 'big')
 
     @property
     def uintle(self):
