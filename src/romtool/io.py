@@ -13,7 +13,7 @@ from collections.abc import Hashable
 from functools import partial
 from io import BytesIO
 
-from .util import bytes2ba, HexInt, cache, chunk
+from .util import bytes2ba, HexInt, cache, chunk, throw
 
 log = logging.getLogger(__name__)
 trace = partial(log.log, logging.NOTSET)
@@ -283,6 +283,8 @@ class BitArrayView(NodeMixin):
     def nbcdle(self):
         """ Natural binary-coded decimal integers, little-endian """
         return sum(10 ** n * nybble.uint
+                   if nybble.uint < 10
+                   else throw(ValueError, f'invalid nbcd encoding: 0x{self:X}')
                    for n, nybble
                    in enumerate(chunk(self, 4)))
 

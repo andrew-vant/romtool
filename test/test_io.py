@@ -92,8 +92,12 @@ class TestBAVInterpretation(TestCase):
     def setUp(self):
         self.ba1 = hex2ba('0000')
         self.ba2 = hex2ba('FF00')
+        self.ba3 = hex2ba('1234')
+        self.ba3 = bitarray(endian='little')
+        self.ba3.frombytes(b'\x12\x34')  # hex2ba is odd with littles
         self.view1 = BitArrayView(self.ba1)
         self.view2 = BitArrayView(self.ba2)
+        self.view3 = BitArrayView(self.ba3)
 
     def test_bad_input_length(self):
         bad = hex2ba('')
@@ -124,9 +128,9 @@ class TestBAVInterpretation(TestCase):
     def test_uintle(self):
         self.assertEqual(self.view1.uintle, 0)
         self.assertEqual(self.view2.uintle, 0x00FF)
-        self.view2.uintle = 0xFF00
-        self.assertEqual(self.view2.uintle, 0xFF00)
-        self.assertEqual(self.view2.bits, hex2ba('00FF'))
+        self.view2.uintle = 0x1234
+        self.assertEqual(self.view2.uintle, 0x1234)
+        self.assertEqual(self.view2.bits, hex2ba('3412'))
 
     def test_bytes(self):
         self.assertEqual(self.view1.bytes, b'\x00\x00')
@@ -134,3 +138,11 @@ class TestBAVInterpretation(TestCase):
         self.view2.bytes = b'\x00\xFF'
         self.assertEqual(self.view2.bytes, b'\x00\xFF')
         self.assertEqual(self.view2.bits, hex2ba('00FF'))
+
+    def test_nbcdle(self):
+        self.assertEqual(self.view1.nbcdle, 0)
+        self.assertRaises(ValueError, getattr, self.view2, 'nbcdle')
+        self.assertEqual(self.view3.nbcdle, 3412)
+        self.view3.nbcdle = 4321
+        self.assertEqual(self.view3.nbcdle, 4321)
+        self.assertEqual(self.view3.bytes, b'\x21\x43')
