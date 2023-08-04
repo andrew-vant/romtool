@@ -255,7 +255,10 @@ class Field(ABC):
 
     @classmethod
     def from_tsv_row(cls, row, extra_fieldtypes=None):
-        cls = ChainMap(extra_fieldtypes or {}, DEFAULT_FIELDS)[row['type']]
+        try:
+            cls = ChainMap(extra_fieldtypes or {}, DEFAULT_FIELDS)[row.get('type')]
+        except KeyError as ex:
+            raise MapError(f"unknown field type: {ex}") from ex
         kwargs = {}
         convtbl = {int: partial(int, base=0),
                    Unit: Unit.__getitem__,
