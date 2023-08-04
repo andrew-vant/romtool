@@ -1,3 +1,4 @@
+import builtins
 import codecs
 import logging
 from collections import ChainMap
@@ -45,6 +46,9 @@ class FieldContext(Mapping):
             raise NotImplementedError
         if key in self.struct.fids:
             return getattr(self.struct, key)
+        bif = getattr(builtins, key, None)
+        if bif:
+            return bif
         raise KeyError(f"name not in context: {key}")
 
     def __iter__(self):
