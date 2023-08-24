@@ -35,15 +35,16 @@ log = logging.getLogger(__name__)
 # romtool's expected format is tab-separated values, no quoting, no
 # escaping (i.e. tab literals aren't allowed)
 
-csv.register_dialect(
-        'romtool',
-        delimiter='\t',
-        lineterminator=os.linesep,
-        quoting=csv.QUOTE_NONE,
-        doublequote=False,
-        quotechar=None,
-        strict=True,
-        )
+class TSV(csv.Dialect):
+    delimiter = '\t'
+    lineterminator = os.linesep
+    quoting = csv.QUOTE_NONE
+    doublequote = False
+    quotechar=None
+    strict = True
+csv.register_dialect('rt_tsv', TSV)
+TSVReader = partial(csv.DictReader, dialect='rt_tsv')
+TSVWriter = partial(csv.DictWriter, dialect='rt_tsv')
 
 
 def cache(function):
@@ -644,7 +645,7 @@ def dumptsv(target, dataset, force=False, headers=None, index=None):
                 headers = list(headers or item.keys())
                 if index:
                     headers.append(index)
-                writer = csv.DictWriter(f, headers, dialect='romtool')
+                writer = TSVWriter(f, headers)
                 writer.writeheader()
             log.debug("Dumping %s #%s", desc, i)
             record = {index: i} if index else {}
@@ -690,7 +691,7 @@ def readtsv(infile):
     opened in text mode with newline=''.
     """
     with flexopen(infile, newline='') as f:
-        return list(csv.DictReader(f, dialect='romtool'))
+        return list(TSVReader(f))
 
 
 def filesize(f):
@@ -828,7 +829,7 @@ def jinja_env():
             )
 
 def tsv2html(infile, caption=None):
-    reader = csv.reader(infile, dialect='romtool')
+    reader = csv.reader(infile, dialect='rt_tsv')
     template = jinja_env().get_template('tsv2html.html')
     return template.render(
             caption=caption,
