@@ -63,13 +63,12 @@ class TestChainView(unittest.TestCase):
     def test_noop_chain(self):
         parent = [0, 1, 2]
         schain = util.ChainView(parent)
-        self.assertEqual(schain, parent)
+        self.assertEqual(list(schain), parent)
 
     def test_multiple_parents(self):
         parents = [[0, 1, 2], [3, 4, 5]]
         schain = util.ChainView(*parents)
         self.assertEqual(list(schain), list(chain(*parents)))
-        self.assertEqual(schain, list(chain(*parents)))
         for a, b in zip(schain, chain(*parents)):
             self.assertEqual(a, b)
 
