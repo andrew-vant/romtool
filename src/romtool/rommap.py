@@ -267,9 +267,13 @@ class MapDB(Mapping):
         log.debug("looking for %s under %s", sha, self.root)
         try:
             path = self.root.joinpath(self.hashdb[sha])
-        except KeyError:
-            raise KeyError(sha) from None
-        return RomMap.load(path)
+        except KeyError as ex:
+            raise RomDetectionError(str(ex), romfile) from ex
+        try:
+            return RomMap.load(path)
+        except KeyError as ex:
+            msg = f"unrelated keyerror during rmap lookup: {ex}"
+            raise Exception(msg) from ex
 
     @classmethod
     def cache_clear(cls):
@@ -316,5 +320,5 @@ class MapDB(Mapping):
         )
         try:
             return db[sha]
-        except KeyError:
-            raise RomDetectionError(sha, romfile)
+        except KeyError as ex:
+            raise RomDetectionError(str(ex), romfile) from ex

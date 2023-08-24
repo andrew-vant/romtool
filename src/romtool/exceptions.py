@@ -13,7 +13,27 @@ class RomError(RomtoolError):
     """ Exception raised for broken ROMs """
 
 class MapError(RomtoolError):
-    """ Exceptions involving broken map definitions """
+    """ Exceptions involving broken map definitions
+
+    The optional `source` argument indicates where in the map the error
+    occurred (for example, which structure or field definition). The intent is
+    for it to act as a sort of dot-path to which a series of except blocks can
+    add whichever elements are locally known before re-raising.
+
+    If `source` is given, `msg` should be only the cause of the error --
+    usually another exception's message string. A standard-ish error message
+    can be generated from these. If only `msg` is given, it will be used
+    as-is.
+    """
+    def __init__(self, msg, source=None):
+        self.args = (msg, source)
+        self.msg = msg
+        self.source = source
+
+    def __str__(self):
+        return (self.msg if not self.source
+                else f"map error in {self.source} definition: {self.msg}")
+
 
 class ChangesetError(RomtoolError):
     """ Exception raised for broken changesets """

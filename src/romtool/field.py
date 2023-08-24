@@ -268,11 +268,18 @@ class Field(ABC):
                    Unit: Unit.__getitem__,
                    FieldExpr: FieldExpr,
                    str: str}
+        # Keep in mind that here we're iterating over the dataclass-fields of
+        # the field type object. As if this wasn't confusing enough.
         for field in fields(cls):
             k = field.name
-            v = row.get(k, None) or None  # ignore missing or empty values
-            if v is not None:
+            v = row.get(k)
+            if not v:  # ignore missing or empty values
+                continue
+            try:
                 kwargs[k] = convtbl[field.type](v)
+            except (KeyError, ValueError) as ex:
+                fid = row.get('id') or None
+                raise MapError(f'invalid {k}: {ex}', fid) from ex
         return cls(**kwargs)
 
     def asdict(self):

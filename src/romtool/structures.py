@@ -337,8 +337,14 @@ class Structure(Mapping, NodeMixin, RomObject):
 
     @classmethod
     def define_from_rows(cls, name, rows, extra_fieldtypes=None):
-        fields = [Field.from_tsv_row(row, extra_fieldtypes)
-                  for row in rows]
+        fields = []
+        for row in rows:
+            try:
+                field = Field.from_tsv_row(row, extra_fieldtypes)
+            except MapError as ex:
+                ex.source = f'{name}.{ex.source}' if ex.source else name
+                raise
+            fields.append(field)
         return cls.define(name, fields)
 
     def copy(self, other):
