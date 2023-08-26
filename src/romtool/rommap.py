@@ -265,14 +265,11 @@ class MapDB(Mapping):
     @cache
     def __getitem__(self, sha):
         log.debug("looking for %s under %s", sha, self.root)
-        try:
-            path = self.root.joinpath(self.hashdb[sha])
-        except KeyError as ex:
-            raise RomDetectionError(str(ex), romfile) from ex
+        path = self.root.joinpath(self.hashdb[sha])
         try:
             return RomMap.load(path)
         except KeyError as ex:
-            msg = f"unrelated keyerror during rmap lookup: {ex}"
+            msg = f"unrelated keyerror during rmap load: {ex}"
             raise Exception(msg) from ex
 
     @classmethod
