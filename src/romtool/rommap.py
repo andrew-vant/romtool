@@ -275,7 +275,7 @@ class MapDB(Mapping):
     @classmethod
     def cache_clear(cls):
         """ Clear the map cache """
-        cls.__getitem__.cache_clear()
+        cls.__getitem__.cache_clear()  # pylint: disable=no-member
 
     @classmethod
     @cache
