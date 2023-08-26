@@ -801,7 +801,7 @@ def search_strings(args):
         while offset < len(data):
             try:
                 string, consumed = codec.decode(data[offset:], 'stop')
-            except UnicodeError as ex:
+            except UnicodeDecodeError as ex:
                 # doesn't work yet...decode doesn't raise
                 consumed = ex.end
             else:
