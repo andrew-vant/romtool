@@ -39,16 +39,15 @@ class TestTextTable(unittest.TestCase):
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF7])
         self.assertEqual(text.encode(self.clean), binary)
 
-    def test_decode_miss(self):
+    def test_bracketreplace_handler(self):
         text = "Esuna[$F0][$0A]"
         binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF0, 0x0A])
-        self.assertEqual(binary.decode(self.codec), text)
+        self.assertEqual(binary.decode(self.codec, errors='bracketreplace'), text)
 
-    @unittest.skip("Test not implemented yet.")
-    # Note to self, separately test for raw hex encode (which should work)
-    # and no valid encoding (which should fail)
-    def test_encode_miss(self):
-        pass
+    def test_encode_bracketreplace_codes(self):
+        text = "Esuna[$F0][$0A]"
+        binary = bytes([0x24, 0x4C, 0x4E, 0x47, 0x3A, 0xF0, 0x0A])
+        self.assertEqual(text.encode(self.codec, errors='bracketreplace'), binary)
 
     def test_eos_override(self):
         text = "Esuna[EOS]00"

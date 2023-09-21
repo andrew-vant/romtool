@@ -5,6 +5,7 @@ import importlib.resources as resources
 import logging
 import types
 from typing import Mapping, Sequence
+from codecs import CodecInfo
 from collections import ChainMap
 from functools import partial
 from itertools import chain
@@ -56,7 +57,7 @@ class RomMap:
     path: Path = None
     structs: Mapping[str, Type[Structure]] = _adctfld()
     tables: Mapping[str, TableSpec] = _adctfld()
-    ttables: Mapping[str, TextTable] = _adctfld()
+    ttables: Mapping[str, CodecInfo] = _adctfld()
     enums: Mapping[str, Type[util.RomEnum]] = _adctfld()
     tests: Sequence = list
     hooks: types.ModuleType = None
@@ -157,7 +158,7 @@ class RomMap:
         # whatever. That makes it possible to handle things like compressed
         # text.
         def load_tt(name, f):
-            return text.add_tt(name, f)
+            return TextTable.variants(f)
 
         def load_enum(name, f):
             espec = {v: k for k, v in util.loadyaml(f).items()}

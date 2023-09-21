@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import yaml
 from addict import Dict
 
+import romtool.text as text
 from romtool.io import BitArrayView as Stream
 from romtool.field import Field, StructField
 from romtool.rom import Rom
@@ -14,7 +15,6 @@ from romtool.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
     def setUp(self):
-        self.data = bytes2ba(b'\x01\x02\x03\x04abcdef\x00')
         self.specs =  [{'id': 'one',
                         'name': 'One Label',
                         'type': 'uint',
@@ -63,96 +63,91 @@ class TestStructure(unittest.TestCase):
                         'display': 'ascii'}]
         self.fields = [Field.from_tsv_row(row) for row in self.specs]
         self.scratch = Structure.define('scratch', self.fields)
+        self.rom = Rom(b'\x01\x02\x03\x04abcdef\x00DEADBEEFDEADBEEF',
+                       RomMap(ttables=text.tt_codecs))
+        self.struct = self.scratch(self.rom.data, self.rom)
 
     def test_define_struct(self):
         self.assertTrue(issubclass(self.scratch, Structure))
 
     def test_instantiate_struct(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         self.assertIsInstance(struct, self.scratch)
 
     def test_read_struct_attr(self):
-        stream = Stream(self.data)
-        struct = self.scratch(stream)
+        struct = self.struct
         self.assertEqual(struct.one, 1)
 
     def test_read_struct_item(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         self.assertEqual(struct['One Label'], 1)
 
     def test_write_struct_attr(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         struct.one = 2
         self.assertEqual(struct.one, 2)
         self.assertEqual(struct['One Label'], 2)
 
     def test_write_struct_item(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         struct['One Label'] = 2
         self.assertEqual(struct.one, 2)
         self.assertEqual(struct['One Label'], 2)
 
-
     def test_write_struct_stream_contents(self):
+        struct = self.struct
         # Test that writes do the right thing with the underlying stream
-        stream = Stream(self.data)
-        struct = self.scratch(stream)
         struct.one = 2
-        stream.pos = 0
-        self.assertEqual(stream.bytes[0], 2)
+        struct.view.pos = 0
+        self.assertEqual(struct.view.bytes[0], 2)
 
     def test_read_field_with_offset(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         self.assertEqual(struct.two, 2)
         self.assertEqual(struct['Two Label'], 2)
 
     def test_write_field_with_offset(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         struct.two = 4
         self.assertEqual(struct.two, 4)
         self.assertEqual(struct['Two Label'], 4)
 
     def test_modded_field(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         self.assertEqual(struct.modded, 4)
         struct.modded = 4
         self.assertEqual(struct.view.bytes[2], 3)
         self.assertEqual(struct.modded, 4)
 
     def test_read_string_field(self):
-        struct = self.scratch(Stream(self.data))
-        self.assertEqual(struct.str, 'abcdef')
+        self.assertEqual(self.struct.str, 'abcdef')
 
     def test_write_string_field(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         struct.str = 'zyxwvu'
-        expected = b'\x01\x02\x03\x04zyxwvu\x00'
+        expected = b'\x01\x02\x03\x04zyxwvu\x00DEADBEEFDEADBEEF'
         self.assertEqual(struct.str, 'zyxwvu')
         self.assertEqual(struct.view.bytes, expected)
 
     def test_oversized_string(self):
-        struct = self.scratch(Stream(self.data))
         with self.assertRaises(ValueError):
-            struct.str = 'abcdefghy'
+            self.struct.str = 'abcdefghy'
 
     def test_overrun_warning(self):
-        struct = self.scratch(Stream(self.data))
         with self.assertLogs('romtool.field', logging.WARNING):
-            struct.strz = 'abcdefg'
+            self.struct.strz = 'abcdefg'
 
     def test_undersized_string(self):
-        struct = self.scratch(Stream(self.data))
+        struct = self.struct
         struct.str = 'abc'
         self.assertEqual(struct.strb, b'abc   ')
         self.assertEqual(struct.str, 'abc')
 
     def test_repr(self):
-        struct = self.scratch(Stream(self.data))
-        self.assertEqual(repr(struct), "<scratch@0x00 (abcdef)>")
+        self.assertEqual(repr(self.struct), "<scratch@0x00 (abcdef)>")
 
     def test_iteration_keys(self):
-        struct = self.scratch(Stream(self.data))
-        self.assertEqual(set(struct.keys()),
+        self.assertEqual(set(self.struct.keys()),
                          set(f['name'] for f in self.specs))
 
     @unittest.skip("Test not implemented yet")

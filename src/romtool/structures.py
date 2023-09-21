@@ -15,7 +15,6 @@ from abc import ABC
 
 import yaml
 from addict import Dict
-from anytree import NodeMixin
 from asteval import Interpreter
 
 from .field import Field, StructField, FieldExpr
@@ -195,7 +194,7 @@ class EntityList(Sequence):
         return self.etype._keys
 
 
-class Structure(Mapping, NodeMixin, RomObject):
+class Structure(Mapping, RomObject):
     """ A structure in the ROM."""
     fields = []  # provided by subclasses
 
@@ -454,7 +453,7 @@ class TableSpec:
         return cls(**kwargs)
 
 
-class Table(Sequence, NodeMixin, RomObject):
+class Table(Sequence, RomObject):
     """ A ROM data table
 
     For tables without an index, 'offset' is relative to the start of the ROM,
@@ -538,7 +537,8 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             return self._struct(self._subview(i), self)
         else:
-            return self._field.__get__(self._subview(i))
+            item = RomObject(self._subview(i), self)
+            return self._field.__get__(item)
 
     def __setitem__(self, i, v):
         if isinstance(i, slice):
@@ -551,7 +551,8 @@ class Table(Sequence, NodeMixin, RomObject):
         elif self._struct:
             self[i].copy(v)
         else:
-            self._field.__set__(self._subview(i), v)
+            item = RomObject(self._subview(i), self)
+            self._field.__set__(item, v)
 
     def lookup(self, name):
         try:

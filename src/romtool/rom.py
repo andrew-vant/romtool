@@ -11,7 +11,6 @@ from shutil import which
 from tempfile import TemporaryDirectory
 
 from bitarray import bitarray
-from anytree import NodeMixin
 from addict import Dict
 
 from . import util
@@ -34,7 +33,7 @@ class HeaderError(RomFormatError):
     """ ROM header failed to validate """
 
 
-class Rom(NodeMixin, util.RomObject):
+class Rom(util.RomObject):
     """ Base class for ROMs """
     romtype = 'unknown'
     prettytype = "Unknown ROM type"
@@ -89,6 +88,10 @@ class Rom(NodeMixin, util.RomObject):
                 or util.nointro().get(self.data.sha1)
                 or self.map.name
                 or "Unknown ROM")
+
+    @property
+    def rom(self):
+        return self.data
 
     @property
     def data(self):

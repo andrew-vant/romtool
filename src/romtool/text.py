@@ -10,7 +10,10 @@ import re
 import codecs
 import logging
 
+from addict import Dict
 from patricia import trie
+
+from . import util
 
 log = logging.getLogger(__name__)
 tt_codecs = {}  # texttable codec registry
@@ -62,13 +65,19 @@ class TextTable(codecs.Codec):
 
     # pylint: disable-next=redefined-builtin
     def encode(self, input, errors='strict'):
-        """ Encode a string into a series of bytes."""
+        """ Stateless encoder for text tables
+
+        If the error handler is set to 'bracketreplace', bracketed hex
+        sequences will be interpreted as bytes.
+
+        FIXME: Previous should maybe be done with a separate function? Unsure.
+        """
         codeseq = []
         i = 0
         raw = r"^\[\$[a-fA-F0-9]{2}\]"
         last = None
         while i < len(input):
-            if re.match(raw, input[i:]):
+            if errors == 'bracketreplace' and re.match(raw, input[i:]):
                 # Oops, raw byte listing.
                 code = int(input[i+2:i+4], 16)
                 codeseq.append(code)
@@ -85,14 +94,8 @@ class TextTable(codecs.Codec):
 
     # pylint: disable-next=redefined-builtin
     def decode(self, input, errors='strict'):
-        """ Decode a series of bytes.
-
-        Any unrecognized bytes will be rendered as hex codes.
-        """
-        # FIXME: Register proper error handlers. `hex` for the default
-        # behavior here, `stop` to stop decoding and return what we have so
-        # far (so treat anything nondecodable as EOS -- useful for string
-        # searching when the encoding doesn't have an EOS marker)
+        """ Stateless decoder for text tables """
+        handle = codecs.lookup_error(errors)
         text = ""
         i = 0
         # the python codec infrastructure passes a memoryview, not
@@ -100,15 +103,19 @@ class TextTable(codecs.Codec):
         if isinstance(input, memoryview):
             input = bytes(input)
         while i < len(input):
-            raw = f"[${input[i]:02X}]"
-            match, string = self.dec.item(input[i:], default=raw)
-            if match is None:
+            try:
+                match, string = self.dec.item(input[i:])
+            except KeyError:
                 if errors == 'stop':
                     return text, i+1
-                match = input[i:i+1]
+                err = UnicodeDecodeError('ttable',  input, i, i+1,
+                                         'no valid encoding')
+                string, i = handle(err)
+                match = None
+            else:
+                i += len(match)
             if self.include_eos or (match not in self.eos):
                 text += string
-            i += len(match)
             if self.stop_on_eos and (match in self.eos):
                 break
         return text, i
@@ -141,6 +148,41 @@ class TextTable(codecs.Codec):
         return cls(stream, stop_on_eos=False,
                    include_eos=True, force_eos=False)
 
+    @classmethod
+    def variants(cls, stream):
+        """ Yield all texttable codec variants as variant-codec pairs """
+        loaders = {"clean": TextTable.clean,
+                   "std":   TextTable.std,
+                   "raw":   TextTable.raw}
+        variants = Dict()
+        for variant, loader in loaders.items():
+            stream.seek(0)
+            variants[variant] = loader(stream)
+        return variants
+
+    @classmethod
+    def from_path(cls, path, loader=None):
+        loader = loader or cls.variants
+        with open(path) as f:
+            return loader(f)
+
+
+
+def bracketreplace_errors(ex):
+    """ Bracket invalid characters by nightcrawler's quasi-standard """
+    bad = ex.object[ex.start:ex.end]
+    replacement = ''.join(f'[${byte:02X}]' for byte in bad)
+    return (replacement, ex.end)
+
+
+def stop_errors(ex):
+    """ Treat invalid characters as end-of-string.
+
+    Useful for string searching when the encoding doesn't have an EOS marker.
+    I haven't figured out how to do this from an error handler yet.
+    """
+    raise NotImplementedError
+
 
 def add_tt(name, stream):
     """ Register all variations of a file's texttable """
@@ -169,4 +211,7 @@ def clear_tt_codecs():
     codecs.register(get_tt_codec)
 
 
+tt_codecs.update(util.load_builtins('texttables', '.tbl', TextTable.from_path))
 codecs.register(get_tt_codec)
+codecs.register_error('bracketreplace', bracketreplace_errors)
+codecs.register_error('stop', stop_errors)

@@ -774,7 +774,7 @@ def search_strings(args):
     rom = _loadrom(args.rom, args.map)
     log.info("searching for valid strings using encoding '%s'", args.encoding)
     data = rom.data.bytes
-    codec = codecs.lookup(args.encoding + '_clean')
+    codec = rom.map.ttables[args.encoding].clean
     offset = 0
     vowels = re.compile(r'[AEIOUYaeiouy]')
     binary = re.compile(r'\[\$[ABCDEF1234567890]+\]')

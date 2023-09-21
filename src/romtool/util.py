@@ -24,6 +24,7 @@ import yaml
 import asteval
 import appdirs
 import jinja2
+from anytree import NodeMixin
 from bitarray import bitarray
 from bitarray.util import bits2bytes
 from itertools import tee
@@ -263,14 +264,16 @@ class Locator:
 locate = Locator()
 
 
-class RomObject(abc.ABC):
-    """ Base class for rom objects that act as collections
+class RomObject(NodeMixin):
+    """ Base class for rom objects
 
     Defines a common interface intended to permit "do what I mean" operations
     across different types.
     """
+    def __init__(self, view, parent=None):
+        self.parent = parent
+        self.view = view
 
-    @abc.abstractmethod
     def lookup(self, key):
         """ Look up a sub-object within this container
 
@@ -281,6 +284,7 @@ class RomObject(abc.ABC):
 
         Implementations should raise LookupError if the key isn't present.
         """
+        raise NotImplementedError
 
 class Searchable:
     """ Generator wrapper that supports lookups by name """

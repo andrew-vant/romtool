@@ -205,11 +205,6 @@ class Field(ABC):
 
     def view(self, obj):
         """ Get the bitview corresponding to this field's data """
-        # FIXME: Terrible. Mostly for cases where Tables need to read strings
-        # that aren't part of a struct. Should read() take a view instead of an
-        # object, and let __get__ handle cases where there is an actual parent?
-        if isinstance(obj, BitArrayView):
-            return obj
         # Get the parent view that this field is "relative to"
         context = (obj.view if not self.origin
                    else obj.view.root if self.origin == 'root'
@@ -289,14 +284,18 @@ class Field(ABC):
 class StringField(Field):
     """ Field for fixed-width strings """
 
-    @property
-    def codec(self):
-        return codecs.lookup(self.display or 'ascii')
+    def codec(self, obj):
+        _codec = obj.root.map.ttables[self.display or 'ascii']
+        if not _codec:
+            raise LookupError(f"no such codec: {self.display}")
+        return _codec
 
     def read(self, obj, objtype=None):
         if obj is None:
             return self
-        return self.view(obj).bytes.decode(self.display).rstrip()
+        view = self.view(obj)
+        codec = self.codec(obj).std
+        return codec.decode(view.bytes, 'bracketreplace')[0].rstrip()
 
     def write(self, obj, value):
         """ Write a fixed-width string
@@ -312,8 +311,9 @@ class StringField(Field):
         # Pad fixed-length strings with spaces. I feel like there should be a
         # better way to do this.
         view = self.view(obj)
-        content = BytesIO(self.codec.encode(' ')[0] * len(view.bytes))
-        content.write(value.encode(self.display))
+        codec = self.codec(obj).std
+        content = BytesIO(codec.encode(' ')[0] * len(view.bytes))
+        content.write(codec.encode(value, 'bracketreplace')[0])
         content.seek(0)
         view.bytes = content.read()
 
@@ -324,21 +324,11 @@ class StringField(Field):
 class StringZField(StringField):
     """ Field for strings with a terminator """
 
-    @property
-    def codec(self):
-        return codecs.lookup('ascii' if not self.display
-                             else f'{self.display}_clean')
-
     def _decode(self, obj):
         """ Get the string and bytecount of the current value """
-        # Evil way to figure out if we're using a default codec, like ascii, or
-        # a texttable. The default codecs don't stop on nulls, but we probably
-        # want to. FIXME: Awful, find a better way to do this.
         view = self.view(obj)
-        b_old = (view.bytes if hasattr(self.codec.decode.__self__, 'eos')
-                 else view.bytes.partition(b'\0')[0])
-        s_old, bct_old = self.codec.decode(b_old)
-        return s_old, bct_old
+        codec = self.codec(obj).clean
+        return codec.decode(view.bytes, 'bracketreplace')
 
     def read(self, obj, objtype=None):
         if obj is None:
@@ -356,14 +346,16 @@ class StringZField(StringField):
         but some use cases call for it. Doing so is allowed, but emits a
         warning.
         """
+        codec = self.codec(obj).clean
         s_old, bct_old = self._decode(obj)
         if value == s_old:
             return
-        b_new = self.codec.encode(value)[0]
+        b_new = codec.encode(value, 'bracketreplace')[0]
         overrun = len(b_new) - bct_old
         if overrun > 0:
             log.warning(f"replacement string '{value}' overruns end of old "
-                        f"string '{s_old}' by {overrun} bytes")
+                        f"string '{s_old}' by {overrun} bytes "
+                        f"({len(b_new)} > {bct_old})")
         else:
             log.debug(f"replacing string '{s_old}' (len {bct_old}) "
                       f"with '{value}' (len {len(b_new)})")
@@ -371,7 +363,8 @@ class StringZField(StringField):
         content = BytesIO(view.bytes)
         content.write(b_new)
         content.seek(0)
-        view.bytes = content.read()
+        b_new = content.read()
+        view[0:len(b_new):Unit.bytes].bytes = b_new
 
 
 class IntField(Field):
