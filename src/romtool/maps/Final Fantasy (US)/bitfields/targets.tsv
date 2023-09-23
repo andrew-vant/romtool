@@ -1,0 +1,9 @@
+id	name	unit	offset	size	type	display
+hostiles	All Enemies	bits	0	1	uint	H
+enemy	One Enemy	bits	1	1	uint	E
+caster	Caster	bits	2	1	uint	C
+party	All Allies	bits	3	1	uint	P
+ally	One Ally	bits	4	1	uint	A
+u1	Unknown 1	bits	5	1	uint	X
+u2	Unknown 2	bits	6	1	uint	X
+u3	Unknown 3	bits	7	1	uint	X

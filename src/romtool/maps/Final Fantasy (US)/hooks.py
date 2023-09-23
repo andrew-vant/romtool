@@ -4,8 +4,6 @@ from romtool.field import Field, IntField, StructField
 from romtool.structures import Structure
 
 
-_statusbits = 'dspbtlmc'
-_elembits = 'sptdfile'
 _save_data_offset = 0x400
 _save_data_length = 0x400
 _save_checksum_offset = 0xFD
@@ -19,38 +17,30 @@ class SpellArgument(IntField):
     statuses or elements) or a scalar (representing spell power). Which it is
     depends on the spell routine the spell uses.
     """
+    # Map spell codes to union fields
     _typemap = {0x03: 'statuses',
                 0x08: 'statuses',
                 0x12: 'statuses',
                 0x0A: 'elements'}
 
-    # I feel like there should be a better way to do this.
-    def forward(self, methodname, obj, *args, **kwargs):
-        if obj.code in self._typemap:
-            method = getattr(StructField, methodname)
-            realtype = self._typemap[obj.code]
-        else:
-            method = getattr(IntField, methodname)
-            realtype = 'uint'
-        log.debug(f"forwarding {self.id}.{methodname} to {method}")
-        value = method(self, obj, *args, **kwargs, realtype=realtype)
-        if not any([value is None,
-                    isinstance(value, int),
-                    isinstance(value, Structure)]):
-            msg = f"bug: spellarg.read returned bad type: {type(value)}"
-            raise AssertionError(msg)
-        return value
+    def _realtype(self, obj):
+        tp_name = self._typemap.get(obj.code)
+        return obj.root.map.structs[tp_name] if tp_name else int
 
     def read(self, obj, objtype=None):
-        return self.forward('read', obj, objtype)
+        view = self.view(obj)
+        _type = self._realtype(obj)
+        return view.uint if _type is int else _type(view, obj)
 
     def write(self, obj, value):
-        self.forward('write', obj, value)
-
-    def parse(self, string):
-        # FIXME: currently bitfield parsing is handled before parse is ever
-        # hit, so this only works by accident.
-        return int(string, 0)
+        view = self.view(obj)
+        _type = self._realtype(obj)
+        if _type is int:
+            view.uint = value
+        else:
+            target = self.read(obj)
+            update = target.parse if isinstance(value, str) else target.copy
+            update(value)
 
 
 def save_checksum(data):
