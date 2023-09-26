@@ -240,7 +240,16 @@ class TestBitField(unittest.TestCase):
 
     def test_str(self):
         bf = self.scratch(Stream(self.data))
-        self.assertEqual(str(bf), 'Juq')
+        self.assertEqual(str(bf), 'One Label')
+        bf.two = True
+        self.assertEqual(str(bf), 'JuQ')
+
+    def test_format(self):
+        bf = self.scratch(Stream(self.data))
+        self.assertEqual(format(bf, ''), 'Juq')
+        self.assertEqual(format(bf, '#'), 'One Label')
+        bf.view.uint = 0
+        self.assertEqual(format(bf, '#'), '')
 
     def test_repr(self):
         bf = self.scratch(Stream(self.data))
@@ -250,8 +259,9 @@ class TestBitField(unittest.TestCase):
         bf = self.scratch(Stream(self.data))
         bf.parse("juQ")
         self.assertFalse(bf.one)
+        self.assertFalse(bf.unk)
         self.assertTrue(bf.two)
-        self.assertEqual(str(bf), "juQ")
+        self.assertEqual(list(bf.values()), [0, 0, 1])
 
 
 class TestIndex(unittest.TestCase):

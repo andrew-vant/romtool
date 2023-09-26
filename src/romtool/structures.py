@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
 from abc import ABC
+from string import ascii_letters
 
 import yaml
 from addict import Dict
@@ -356,24 +357,71 @@ class Structure(Mapping, RomObject):
 
 
 class BitField(Structure):
+    def __init_subclass__(cls):
+        for f in cls.fields:
+            if f.display not in list(ascii_letters):
+                raise ValueError(f"{cls.__name__}.{f.id}: "
+                                 f"display spec must be a letter")
+        cls._flags = ''.join(f.display.lower() for f in cls.fields)
+
     def __str__(self):
-        return ''.join(field.display.upper() if self[field.name]
-                       else field.display.lower()
-                       for field in self.fields)
+        # FIXME: I am not sure natural-style should be the default
+        return format(self, '#')
+
+    def __iter__(self):
+        return (f.name for f in self.fields)
 
     def __repr__(self):
         tpnm = type(self).__name__
         offset = str(util.HexInt(self.view.abs_start,
                                  len(self.view.root).bit_length()))
-        return f"<{tpnm}@{offset} ({str(self)})>"
+        flags = format(self)
+        return f"<{tpnm}@{offset} ({flags})>"
+
+    def __format__(self, spec):
+        """ Format the bitfield as a string
+
+        The default format ("flag style") treats the bitfield as a series of
+        flags, and returns a string with one character per flag; uppercase if
+        the flag is set, lowercase if not. The letters to use are taken from
+        the bit's 'display' attribute. They appear in the same order that
+        they were defined.
+
+        The 'natural style' or 'alternate format' (spec string: '#', to match
+        stdlib) tries to be more human-readable where practical. If no bits
+        are set, it returns the empty string, and if only one bit is set, it
+        returns the name of that bit. Otherwise it falls back to the
+        flag-style format.
+        """
+        return (self._format_natural() if spec == '#'
+                else self._format_flags())
+
+    def _format_flags(self):
+        """ Implementation of flag-style format """
+        return ''.join(field.display.upper() if self[field.name]
+                       else field.display.lower()
+                       for field in self.fields)
+
+    def _format_natural(self):
+        """ Implementation of natural-style format """
+        ct_bits = sum(self.view)
+        return ('' if not ct_bits
+                else self._format_flags() if ct_bits > 1
+                else next(k for k, v in self.items() if v))
 
     def parse(self, s):
-        if len(s) != len(self):
+        if not len(s):
+            self.view.uint = 0
+        elif s in self:
+            self.view.uint = 0
+            self[s] = 1
+        elif len(s) != len(self):
             raise ValueError("String length must match bitfield length")
-        if s.lower() != str(self).lower():
+        elif s.lower() != self._flags:
             raise ValueError("String letters don't match field")
-        for field, letter in zip(self.fields, s):
-            self[field.name] = letter.isupper()
+        else:
+            for field, letter in zip(self.fields, s):
+                self[field.name] = letter.isupper()
 
 
 @dc.dataclass
