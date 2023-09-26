@@ -354,48 +354,6 @@ class Structure(Mapping, RomObject):
             else:
                 other[k] = v
 
-    def load(self, tsv_row):
-        def stdparse(field):
-            """ helper that serves as both "normal" parser and fallback"""
-            key = field.name
-            value = field.parse(tsv_row[field.name])
-            old = str(self[key])
-            new = str(value)
-            if old != new:
-                log.debug("changed: %s:%s (%s -> %s)",
-                          type(self).__name__, key, old, new)
-            self[key] = value
-
-
-        for field in self.fields:
-            key = field.name
-            if isinstance(self[key], BitField):
-                old = str(self[key])
-                self[key].parse(tsv_row[key])
-                new = str(self[key])
-                if old != new:
-                    log.debug("changed: %s:%s (%s -> %s)",
-                              type(self).__name__, key, old, new)
-            elif field.ref:
-                etbl = self.root.entities[field.ref]
-                try:
-                    self[key] = locate(etbl, tsv_row[key])
-                except ValueError:
-                    try:
-                        stdparse(field)
-                    except ValueError:
-                        msg = ("{stnm}.{fid} must be either an index or a "
-                               "valid name from '{ref}'; '{val}' is neither")
-                        msg = msg.format(
-                                stnm=type(self).__name__,
-                                fid=field.id,
-                                ref=field.ref,
-                                val=tsv_row[key]
-                                )
-                        raise ValueError(msg)
-            else:
-                stdparse(field)
-
 
 class BitField(Structure):
     def __str__(self):
