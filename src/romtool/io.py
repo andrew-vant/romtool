@@ -6,14 +6,13 @@ import codecs
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
-from anytree import NodeMixin
 from anytree.search import find
 from collections import namedtuple
 from collections.abc import Hashable
 from functools import partial
 from io import BytesIO
 
-from .util import FormatSpecifier, HexInt
+from .util import FormatSpecifier, HexInt, NodeMixin
 from .util import bytes2ba, cache, chunk, throw
 
 log = logging.getLogger(__name__)

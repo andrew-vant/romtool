@@ -20,11 +20,11 @@ from os.path import join as pathjoin
 from pathlib import Path
 from enum import IntEnum
 
+import anytree
 import yaml
 import asteval
 import appdirs
 import jinja2
-from anytree import NodeMixin
 from bitarray import bitarray
 from bitarray.util import bits2bytes
 from itertools import tee
@@ -262,6 +262,42 @@ class Locator:
 
 
 locate = Locator()
+
+
+class NodeMixin(anytree.NodeMixin):
+    """ NodeMixin with expensive consistency checks disabled
+
+    See anytree issue #206: https://github.com/c0fec0de/anytree/issues/206
+    """
+    _debug = False  # enables expensive consistency checks
+
+    def __attach(self, parent):
+        # pylint: disable=W0212
+        if parent is not None:
+            self._pre_attach(parent)
+            parentchildren = parent.__children_or_empty
+            assert (not self._debug
+                    or not any(child is self for child in parentchildren)), \
+                    "Tree is corrupt."  # pragma: no cover
+            # ATOMIC START
+            parentchildren.append(self)
+            self.__parent = parent
+            # ATOMIC END
+            self._post_attach(parent)
+
+    def __detach(self, parent):
+        # pylint: disable=W0212,W0238
+        if parent is not None:
+            self._pre_detach(parent)
+            parentchildren = parent.__children_or_empty
+            assert (not self._debug
+                    or any(child is self for child in parentchildren)), \
+                    "Tree is corrupt."  # pragma: no cover
+            # ATOMIC START
+            parent.__children = [child for child in parentchildren if child is not self]
+            self.__parent = None
+            # ATOMIC END
+            self._post_detach(parent)
 
 
 class RomObject(NodeMixin):
