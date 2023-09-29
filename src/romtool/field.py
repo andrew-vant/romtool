@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from asteval import Interpreter
 
 from .io import Unit, BitArrayView
-from .util import HexInt, IndexInt, locate
+from .util import HexInt, IndexInt, locate, throw
 
 from .exceptions import RomtoolError, MapError
 
@@ -31,30 +31,25 @@ class FieldContext(Mapping):
     * TODO: the index of the struct within its table. Useful for
       cross-references.
     """
-
     def __init__(self, struct):
         self.struct = struct
 
     def __getitem__(self, key):
-        if key == 'root':
-            return self.struct.view.root
         if key == 'parent':
             log.warning("offset reference to 'parent' in map; "
                         "I am not sure if its behavior is correct")
-            return -self.struct.view.abs_start % 8
-        if key in ('rom', 'file'):
-            raise NotImplementedError
-        if key in self.struct.fids:
-            return getattr(self.struct, key)
-        bif = getattr(builtins, key, None)
-        if bif:
-            return bif
-        raise KeyError(f"name not in context: {key}")
+        return (
+            self.struct.view.root if key == 'root'
+            else self.struct.root if key == 'rom'
+            else -self.struct.view.abs_start % 8 if key == 'parent'
+            else getattr(self.struct, key) if key in self.struct.attrs()
+            else getattr(builtins, key) if hasattr(builtins, key)
+            else throw(KeyError(f"name not in context: {key}"))
+        )
 
     def __iter__(self):
-        yield 'rom'
-        yield 'root'
-        yield from self.struct.fids
+        yield from ['root', 'rom', 'parent']
+        yield from self.struct.attrs()
 
     def __len__(self):
         return len(iter(self))
@@ -143,6 +138,12 @@ class Field(ABC):
     display: str = None
     order: int = 0
     comment: str = ''
+
+    def __set_name__(self, owner, name):
+        self.desc = f"{owner.__name__}.{name}"
+
+    def __str__(self):
+        return getattr(self, 'desc') or repr(self)
 
     def __post_init__(self):
         """ Perform sanity checks after construction """

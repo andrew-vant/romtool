@@ -5,6 +5,7 @@ automagically turns the bits and bytes into integers, strings, etc.
 """
 import dataclasses as dc
 import logging
+from collections import UserList
 from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, groupby
 from functools import partial
@@ -197,7 +198,14 @@ class EntityList(Sequence):
 
 class Structure(Mapping, RomObject):
     """ A structure in the ROM."""
-    fields = []  # provided by subclasses
+    fields = UserList([])  # provided by subclasses
+
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        cls.fields = UserList(cls.fields)
+        cls.fields.byname = {f.name: f for f in cls.fields}
+        cls.fields.byid = {f.id: f for f in cls.fields}
+        cls.fields.sorted = sorted(cls.fields)
 
     @cache
     def __new__(cls, view, parent=None):
@@ -208,10 +216,10 @@ class Structure(Mapping, RomObject):
         self.parent = parent
 
     def __getitem__(self, key):
-        return self._fbnm(key).__get__(self)
+        return self.fields.byname[key].__get__(self)
 
     def __setitem__(self, key, value):
-        self._fbnm(key).__set__(self, value)
+        self.fields.byname[key].__set__(self, value)
 
     def __eq__(self, other):
         return object.__eq__(self, other)
@@ -230,27 +238,6 @@ class Structure(Mapping, RomObject):
             pass
         raise LookupError(f"Couldn't find {key} in {self}")
 
-    @property
-    def fids(self):
-        return [f.id for f in self.fields]
-
-    @classmethod
-    def _fbid(cls, fid):
-        """ Get field by fid """
-        # Consider functools.lru_cache if this is slow.
-        try:
-            return next(f for f in cls.fields if f.id == fid)
-        except StopIteration as ex:
-            raise AttributeError(f"No such field: {cls.__name__}.{fid}") from ex
-
-    @classmethod
-    def _fbnm(cls, fnm):
-        """ Get field by name """
-        try:
-            return next(f for f in cls.fields if f.name == fnm)
-        except StopIteration as ex:
-            raise KeyError(f"No such field: {cls.__name__}[{fnm}])") from ex
-
     @classmethod
     def size(cls):
         """ Get total size of structure, in bits
@@ -259,6 +246,10 @@ class Structure(Mapping, RomObject):
         """
         return sum(field.size.eval(cls) * field.unit
                    for field in cls.fields)
+
+    @classmethod
+    def attrs(cls):
+        return iter(cls.fields.byid)
 
     def __iter__(self):
         # Keys are technically unordered, but in many places it's very
@@ -358,6 +349,7 @@ class Structure(Mapping, RomObject):
 
 class BitField(Structure):
     def __init_subclass__(cls):
+        super().__init_subclass__()
         for f in cls.fields:
             if f.display not in list(ascii_letters):
                 raise ValueError(f"{cls.__name__}.{f.id}: "
