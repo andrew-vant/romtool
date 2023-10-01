@@ -1,0 +1,15 @@
+id	name	unit	offset	size	type	origin	display	order	arg	ref	comment
+str	Strength		0	1	uint						
+agi	Agility		1	1	uint						
+mhp	Max HP		2	1	uint						
+ctc1	CTC Damage	bits	24	2	uint			2			N/4
+spl1	Damage Skill	bits	26	2	uint		spl1	1			
+ctc2	CTC Effect	bits	28	2	uint			4			N/4
+spl2	Effect Skill	bits	30	2	uint		spl2	3			
+rmute	Stopspell Resist	bits	32	4	uint			14			N/16
+rslp	Sleep Resist	bits	36	4	uint			13			N/16
+eva	Evasion	bits	40	4	uint			11			N/64
+rhurt	Hurt Resist	bits	44	4	uint			12			N/16
+xp	Experience		6	1	uint						
+gold	Max Gold		7	1	uint						Actual max gold is this value -1
+jname	Japanese Name		8	8	str		jname				Unused in US release
