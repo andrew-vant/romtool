@@ -1,0 +1,6 @@
+id	fid	name	iname	set	type	offset	count	stride	size	index	display	cls	comment
+monsters	monster	Monsters	Monster	monsters	monster	0x5E4B	40	16	16				
+nm1_monsters	name1	Monster First Names	Name 1		strz	0x7C70	40	0	16		main		
+nm2_monsters	name2	Monster Last Names	Name 2		strz	0x7DA2	40	0	16		main		
+mnames	name	Monster Names	Name	monsters	strz	0	40	0	24		main	Names	
+regions	region	Regions	Region	region	region	0xF54F	20	5	5				
