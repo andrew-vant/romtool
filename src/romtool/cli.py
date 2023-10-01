@@ -799,14 +799,9 @@ def search_strings(args):
 
     with pbar(len(data), title='searching for strings') as progress:
         while offset < len(data):
-            try:
-                string, consumed = codec.decode(data[offset:], 'stop')
-            except UnicodeDecodeError as ex:
-                # doesn't work yet...decode doesn't raise
-                consumed = ex.end
-            else:
-                if report_hit(string, consumed):
-                    print(f"0x{offset:X}\t{string}")
+            string, consumed = codec.decode(data[offset:], 'stop')
+            if report_hit(string, consumed):
+                print(f"0x{offset:X}\t{string}")
             offset += consumed
             progress(consumed)
 
