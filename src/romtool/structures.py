@@ -7,7 +7,7 @@ import dataclasses as dc
 import logging
 from collections import UserList
 from collections.abc import Mapping, Sequence, MutableMapping
-from itertools import chain, combinations, groupby
+from itertools import chain, combinations, groupby, islice
 from functools import partial
 from contextlib import contextmanager
 from os.path import basename, splitext
@@ -435,6 +435,7 @@ class TableSpec:
     size: int = None
     index: str = None
     display: str = None
+    cls: str = ''
     comment: str = ''
 
     def __post_init__(self):
@@ -584,6 +585,17 @@ class Table(Sequence, RomObject):
         except StopIteration:
             raise LookupError(f"No object with name: {name}")
 
+    def update(self, mapping):
+        """ Update the table from an index->item mapping
+
+        The Table implementation of this does the obvious thing of iterating
+        over the mapping keys and updating the corresponding item. This
+        method exists mainly to be overridden by subclasses for which
+        repeated __setitem__ calls are expensive, e.g. Strings.
+        """
+        for i, v in mapping.items():
+            self[i] = v
+
     @property
     def has_index(self):
         return isinstance(self._index, Table)
@@ -602,6 +614,105 @@ class Table(Sequence, RomObject):
                 'index': self._index.id if self.has_index else '',
                 'display': self.spec.display,
                 'comment': self.comment}
+
+
+class Strings(Table):
+    """ A sequence of concatenated, terminated strings.
+
+    Used for tables of terminated strings that have no index, where the
+    rom finds string N by scanning the entire table.
+
+    String DBs handle the size and stride parameters a bit differently than
+    regular tables. `stride` is the maximum size of any individual string.
+    `size` is the maximum size of the entire DB. These are checked when
+    overwriting entries.
+    """
+    def __init__(self, parent, view, spec, index=None):
+        self.codec = parent.root.map.ttables[spec.display].clean
+        super().__init__(parent, view, spec, index)
+
+    def __iter__(self):
+        for _, decoded in self._iter_with_encodings():
+            yield decoded
+
+    def _iter_with_encodings(self):
+        """ Return the encoded and decoded forms of all strings
+
+        Helper method when re-writing strings. In most cases we want to avoid
+        re-encoding strings that haven't changed (to avoid no-op changes) and
+        having the encoded form readily available sometimes helps.
+        """
+        # so we can slice without copy
+        data = memoryview(self.view[self.offset::self.spec.units].bytes)
+        offset = 0
+        for _ in range(self.spec.count):
+            decoded, consumed = self.codec.decode(data[offset:])
+            encoded = data[offset:offset+consumed]
+            offset += consumed
+            assert len(encoded) == consumed
+            yield encoded, decoded
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return SequenceView(self, i)
+        return next(islice(self, i, None))
+
+    def __setitem__(self, i, v):
+        # changing the length of any single item requires rewriting all
+        # subsequent items, because ugh.
+        if isinstance(i, slice):
+            # This should set multiple strings at once, useful to avoid
+            # repeated iteration when updating the whole list. Alternately
+            # maybe convert a single i to a slice and treat slice as the
+            # default?
+            raise NotImplementedError
+        self.update({i: v})
+
+    def update(self, mapping):
+        """ Update all items of self that are in mapping
+
+        The underlying data of a Strings table only supports sequential I/O.
+        Random access is very slow, as finding item N requires reading all
+        previous items, and writes must additionally rewrite all subsequent
+        items. This override of update() batches multiple read-writes such
+        that the underlying data need only be read or written once.
+        """
+        # FIXME: doesn't interact well with entitylist updates; it still ends
+        # up re-reading the list for each item, though it doesn't reapply the
+        # changes each time. I am not sure that can be escaped even in
+        # principle, though, e.g. where changes to item N are depended on by
+        # N+1.
+        log.debug(f"updating string table {self.id}")
+        last = max(mapping)
+        out = BytesIO()
+        safe_length = 0  # original bytecount
+        changed = False
+        for i, (oldbytes, old) in enumerate(self._iter_with_encodings()):
+            if i > last and not changed:
+                return  # skip further decoding, this is a no-op
+            safe_length += len(oldbytes)
+            new = mapping.get(i, old)
+            if new == old:
+                # Don't re-encode, it can make no-op 'changes'
+                log.debug(f"no change: {self.id}[{i}]: '{old}' -> '{new}' ({oldbytes.hex()})")
+                out.write(oldbytes)
+            else:
+                log.debug(f"changed {self.id}[{i}]: '{old}' -> '{new}'")
+                out.write(self.codec.encode(new)[0])
+                changed = True
+        out = out.getvalue()
+        # Check for potential overrun screws
+        overrun = len(out) - safe_length
+        if overrun > 0:
+            start = self.offset + safe_length
+            end = start + overrun
+            overlap = self.view[start:end:self.units].bytes.hex().upper()
+            if len(overlap) > 32:
+                overlap = overlap[:32] + '[...]'
+            log.warning(f"updated %s table extends %s bytes beyond the "
+                        f"original, overwriting this data: {overlap}",
+                        self.id, len(out)-safe_length)
+        self.view[self.offset:self.offset+len(out):self.units].bytes = out
 
 
 class Index(Sequence):

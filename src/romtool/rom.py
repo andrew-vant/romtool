@@ -17,7 +17,7 @@ from more_itertools import unique_everseen as unique
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, EntityList, CalculatedIndex
+from .structures import Structure, Strings, Table, EntityList, CalculatedIndex
 from .rommap import RomMap
 from .util import locate
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
@@ -64,7 +64,11 @@ class Rom(util.RomObject):
             index = (None if not spec.index
                      else self.tables[spec.index] if spec.index in self.tables
                      else CalculatedIndex(spec.count, spec.index, self.tables))
-            self.tables[spec.id] = Table(self, self.data, spec, index)
+            cls = getattr(rommap.hooks, spec.cls,
+                          Strings if spec.type == 'strz' and spec.stride == 0
+                          else Table)
+            log.info("creating table %s with type %s", spec.id, cls)
+            self.tables[spec.id] = cls(self, self.data, spec, index)
 
         self.entities = Dict()
         specs = list(self.map.tables.values())
