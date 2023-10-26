@@ -170,7 +170,7 @@ class BitArrayView(NodeMixin):
             start *= unit
 
         if stop is None:
-            stop = self.end
+            stop = self.end - start
         else:
             stop *= unit
 
@@ -229,6 +229,16 @@ class BitArrayView(NodeMixin):
     @property
     def bytes(self):
         return self.bits.tobytes()
+
+    def write(self, _bytes):
+        # Read the old bytes into a bytesio, overwrite them in there, then
+        # re-read it and replace the old bytes.
+        # FIXME: fail if writing off the end of the view?
+        content = BytesIO(self.bytes)
+        content.write(_bytes)
+        content.seek(0)
+        _bytes = content.read()
+        self[:len(b_new):Unit.bytes].bytes = _bytes
 
     @bytes.setter
     def bytes(self, _bytes):

@@ -7,7 +7,7 @@ import dataclasses as dc
 import logging
 from collections import UserList
 from collections.abc import Mapping, Sequence, MutableMapping
-from itertools import chain, combinations, groupby
+from itertools import chain, combinations, groupby, islice
 from functools import partial
 from contextlib import contextmanager
 from os.path import basename, splitext
@@ -431,6 +431,7 @@ class TableSpec:
     size: int = None
     index: str = None
     display: str = None
+    cls: str = ''
     comment: str = ''
 
     def __post_init__(self):
@@ -482,6 +483,15 @@ class Table(Sequence, RomObject):
         for field in dc.fields(spec):
             if not hasattr(self, field.name):
                 setattr(self, field.name, getattr(spec, field.name))
+        # FIXME: Maybe need a new type for string lists or just string
+        # objects in general. For one thing, it's not possible to edit the
+        # Nth entry in a list without editing the entire list, and there's no
+        # good way to hook that in here.
+        if self.type == 'strz' and self.stride == 0:
+            log.debug("defining string scantable named %s", self.id)
+            codec = self.root.map.ttables[self.display].clean
+            view = view[self.offset::self.units]
+            self.index = StringIndex(view, codec, spec.count)
 
     @property
     def _struct(self):
@@ -546,6 +556,8 @@ class Table(Sequence, RomObject):
                 raise ValueError(msg)
             for i, v in zip(range(i.start, i.stop, i.step), v):
                 self[i] = v
+        elif isinstance(self.index, StringIndex) and self[i] != v:
+            raise NotImplementedError("Can't edit string lists yet")
         elif self._struct:
             self[i].copy(v)
         else:
@@ -579,6 +591,97 @@ class Table(Sequence, RomObject):
                 'index': self.index.id if self.has_index else '',
                 'display': self.spec.display,
                 'comment': self.comment}
+
+
+class Strings(Table):
+    """ A sequence of concatenated, terminated strings.
+
+    Used for tables of terminated strings that have no index, where the
+    rom finds string N by scanning the entire table.
+
+    String DBs handle the size and stride parameters a bit differently than
+    regular tables. `stride` is the maximum size of any individual string.
+    `size` is the maximum size of the entire DB. These are checked when
+    overwriting entries.
+    """
+    def __init__(self, parent, view, spec, index=None):
+        self.codec = parent.root.map.ttables[spec.display].clean
+        super().__init__(parent, view, spec, index)
+
+    def __iter__(self):
+        _bytes = BytesIO(self.view[self.offset::self.units].bytes)
+        for _ in range(self.count):
+            yield self.codec.decode(_bytes)[0]
+
+    def __getitem__(self):
+        if isinstance(self, i, slice):
+            return SequenceView(self, i)
+        return next(islice(self, i, None))
+
+    def __setitem__(self, i, v):
+        # changing the length of any single item requires rewriting all
+        # subsequent items, because ugh.
+        if isinstance(i, slice):
+            # This should set multiple strings at once, useful to avoid
+            # repeated iteration when updating the whole list. Alternately
+            # maybe convert a single i to a slice and treat slice as the
+            # default?
+            raise NotImplementedError
+        view = self.view[self.offset:self.offset+self.size:self.units]
+        _bytes = BytesIO(view.bytes)
+        encoded = self.codec.encode(v)[0]
+        strings = []
+        for _ in range(i):
+            s, consumed = self.codec.decode(view.bytes)
+            view = view[consumed::Unit.bytes]
+        old, consumed = self.codec.decode(view.bytes)
+        if old == v:
+            return  # no change
+        new = self.codec.encode(v)[0]
+        if len(new) == consumed:
+            # same length string, no need for further checks
+            view.write(new)
+            return
+        rewrite = BytesIO(new)
+        for _ in range(i+1, self.count):
+            s, consumed = self.codec.decode(view.bytes)
+            view = view[consumed::Unit.bytes]
+            rewrite.write(self.codec.encode(s))[0]
+        raise NotImplementedError("Can't change stringdb item length yet")
+
+
+class StringIndex:
+    """ A pseudo-index for sequences of terminated strings
+
+    Used for tables of terminated strings that have no index, where the
+    rom finds string N by scanning the entire table.
+    """
+    # FIXME: Has to be a better way to do this...but the 'right' ways all
+    # seem to require handling edge cases in multiple places.
+    def __init__(self, view, codec, count):
+        self.view = view
+        self.codec = codec
+        self.count = count
+
+    def __len__(self):
+        return self.count
+
+    def __repr__(self):
+        return f'<StringIndex({self.view}, {self.codec}, {self.count}>'
+
+    def __iter__(self):
+        # FIXME: will do the wrong thing if editing strings while iterating
+        offset = 0
+        _bytes = self.view.bytes
+        for i in range(self.count):
+            log.debug("stringindex offset #%s = %s", i, offset)
+            yield offset
+            offset += self.codec.decode(_bytes[offset:])[1]
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return SequenceView(self, i)
+        return next(islice(self, i, None))
 
 
 class Index(Sequence):

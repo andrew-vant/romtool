@@ -181,7 +181,7 @@ class Field(ABC):
 
     @property
     def is_name(self):
-        return 'name' in (self.id.lower(), self.name.lower())
+        return any((s.lower().startswith('name') for s in [self.id, self.name]))
 
     @property
     def is_flag(self):
@@ -360,12 +360,7 @@ class StringZField(StringField):
         else:
             log.debug(f"replacing string '{s_old}' (len {bct_old}) "
                       f"with '{value}' (len {len(b_new)})")
-        view = self.view(obj)
-        content = BytesIO(view.bytes)
-        content.write(b_new)
-        content.seek(0)
-        b_new = content.read()
-        view[0:len(b_new):Unit.bytes].bytes = b_new
+        self.view(obj).write(b_new)
 
 
 class IntField(Field):

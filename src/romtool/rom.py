@@ -63,7 +63,8 @@ class Rom(util.RomObject):
             index = (None if not spec.index
                      else self.tables[spec.index] if spec.index in self.tables
                      else CalculatedIndex(spec.count, spec.index, self.tables))
-            self.tables[spec.id] = Table(self, self.data, spec, index)
+            cls = getattr(rommap.hooks, spec.cls, None) or Table
+            self.tables[spec.id] = cls(self, self.data, spec, index)
 
         self.entities = Dict()
         byset = lambda spec: spec.set or ''
