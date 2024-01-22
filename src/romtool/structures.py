@@ -617,13 +617,15 @@ class CalculatedIndex(Sequence):
             self.i = i
 
         def __len__(self):
-            return len(self.tables)
+            return len(self.tables) + 1
 
         def __iter__(self):
+            yield 'i'
             yield from self.tables
 
         def __getitem__(self, key):
-            return self.tables[key][self.i]
+            return (self.i if key == 'i'
+                    else self.tables[key])
 
     def __init__(self, count, expr, tables):
         self.count = count
