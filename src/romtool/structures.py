@@ -478,7 +478,7 @@ class Table(Sequence, RomObject):
         self.parent = parent
         self.view = view
         self.spec = spec
-        self.index = index or Index(0, spec.count, spec.stride or spec.size)
+        self._index = index or Index(0, spec.count, spec.stride or spec.size)
         for field in dc.fields(spec):
             if not hasattr(self, field.name):
                 setattr(self, field.name, getattr(spec, field.name))
@@ -502,15 +502,15 @@ class Table(Sequence, RomObject):
             return self.spec.size * self.spec.units
         elif self._struct:
             return self._struct.size()
-        elif isinstance(self.index, Index):
-            return self.index.stride * self.spec.units
+        elif isinstance(self._index, Index):
+            return self._index.stride * self.spec.units
         else:
             ident = self.name or self.fid or 'unknown'
             msg = f"Couldn't figure out size of items in {ident} table"
             raise ValueError(msg)
 
     def _subview(self, i):
-        start = (self.offset + self.index[i]) * self.units
+        start = (self.offset + self._index[i]) * self.units
         end = start + self._isz_bits
         return self.view[start:end]
 
@@ -521,11 +521,11 @@ class Table(Sequence, RomObject):
     def __repr__(self):
         tp = self.spec.type
         ct = len(self)
-        offset = util.HexInt(self.index.offset)
+        offset = util.HexInt(self._index.offset)
         return f'<Table({tp}*{ct}@{offset})>'
 
     def __len__(self):
-        return len(self.index)
+        return len(self._index)
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -563,7 +563,7 @@ class Table(Sequence, RomObject):
 
     @property
     def has_index(self):
-        return isinstance(self.index, Table)
+        return isinstance(self._index, Table)
 
     def asdict(self):
         return {'id': self.id,
@@ -576,7 +576,7 @@ class Table(Sequence, RomObject):
                 'count': len(self),
                 'stride': self.size or '',
                 'size': self.size or '',
-                'index': self.index.id if self.has_index else '',
+                'index': self._index.id if self.has_index else '',
                 'display': self.spec.display,
                 'comment': self.comment}
 

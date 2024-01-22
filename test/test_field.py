@@ -288,7 +288,7 @@ class TestTable(unittest.TestCase):
         spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         array = Table(self.rom, self.stream, spec)
         self.assertEqual(len(array), 4)
-        self.assertEqual(len(array.index), 4)
+        self.assertEqual(len(array._index), 4)
         for i in range(4):
             self.assertEqual(array[i], i)
 
@@ -297,7 +297,7 @@ class TestTable(unittest.TestCase):
         array = Table(self.rom, self.stream, spec)
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
-        self.assertEqual(len(array.index), 4)
+        self.assertEqual(len(array._index), 4)
         for i in range(4):
             self.assertEqual(array[i].one, i)
 
