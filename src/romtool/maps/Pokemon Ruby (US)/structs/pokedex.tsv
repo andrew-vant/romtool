@@ -12,4 +12,3 @@ toff	Trainer Offset	32	2		int
 pad2	Padding 2	34	2		uintbe		hex					
 desc1	Description 1	dptr1-0x8000000	512		strz	root	main					
 desc2	Description 2	dptr2-0x8000000	512		strz	root	main					
-name	Name	0	0		pname							
