@@ -188,7 +188,7 @@ class RomMap:
             log.info("Loading %s", parent)
             paths = ichain((subfiles(source, parent, ext)
                            for source in (None, root)))
-            for path in paths:
+            for path in sorted(paths):
                 name = path.stem
                 rpath = relpath(path, root)
                 log.info("Loading %s '%s' from %s", otype, name, rpath)
