@@ -18,6 +18,7 @@ deps = [
     "bitarray>=1.5.0",
     "docopt",
     "jinja2",
+    "more-itertools",
     "patricia-trie>=10",
     "pyyaml>=3.10",
     ]

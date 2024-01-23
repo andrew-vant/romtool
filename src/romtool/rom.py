@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 
 from bitarray import bitarray
 from addict import Dict
+from more_itertools import unique_everseen as unique
 
 from . import util
 from .patch import Patch
@@ -66,13 +67,13 @@ class Rom(util.RomObject):
             self.tables[spec.id] = Table(self, self.data, spec, index)
 
         self.entities = Dict()
-        byset = lambda spec: spec.set or ''
-        tables = sorted(self.map.tables.values(), key=byset)
-        for tset, tspecs in groupby(tables, key=byset):
+        specs = list(self.map.tables.values())
+        for tset in unique(spec.set for spec in specs):
             if not tset:
                 # Ignore tables that aren't associated with an entity
                 continue
-            parts = [self.tables[tspec.id] for tspec in tspecs]
+            parts = [self.tables[spec.id] for spec in specs
+                     if spec.set == tset]
             # FIXME: add format dunder to types involved?
             pdesc = ', '.join(p.name or p.id for p in parts)
             log.debug("making entityset '%s' from table(s): [%s]", tset, pdesc)

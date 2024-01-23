@@ -3,7 +3,6 @@ species		Species	Species	species	species	0x1FEC30	412	28	28
 snames	name	Species Names	Name	species	strz	0x1F7184	412	11	11			main	
 ndex_ids	ndex	National Pokedex Index	National Dex Id	species	uintle	0x1FC52C	412		2				
 hdex_ids	hdex	Hoenn Pokedex Ids	Hoenn Dex Id	species	uintle	0x1FC1F6	412		2				
-hdex_map	ndex	Hoenn Dex Map	National Dex Id	hoenn_to_ndex	uintle	0x1FC864	412		2				Maps Hoenn dex entries to national.
 pokedex		Pokedex	Entry	pokedex	pokedex	0x3B1874	387	36	36				
 dexnames	name	Pokedex Names	Name	pokedex	strz	0x1F7184	387	11	11	snames._index[ndex_ids.index(i+1)-1]		main	Virtual table. Pokedex names are actually located by scanning the species->ndex table for a given ndex ID.
 moves		Moves	Move	moves	move	0x1FB144	355	12	9				
@@ -12,3 +11,4 @@ mdesc_ptr	dptr	Move Descriptions Index	Description Pointer	moves	uintle	0x3C09F0
 mdesc	desc	Move Descriptions	Description	moves	strz	-0x8000000	355	255	255	mdesc_ptr		main	
 evo		Evolutions	Evolution	species	evolutions	0x203B80	412	40	40				
 effectiveness		Type Interactions	Effectiveness	types	effectiveness	0x1F9738	112	3	3				
+hdex_map	ndex	Hoenn Dex Map	National Dex Id	hoenn_to_ndex	uintle	0x1FC864	412		2				Maps Hoenn dex entries to national.
