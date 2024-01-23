@@ -179,10 +179,8 @@ class BitArrayView(NodeMixin):
         if stop < 0:
             stop += len(self)
 
-        if self.offset + stop > len(self.ba):
-            raise IndexError("slice took a long walk off a short pier")
-        if self.offset + start < 0:
-            raise IndexError("slice took a short walk off a long pier")
+        if (self.offset + stop > len(self.ba)) or (self.offset + start < 0):
+            raise IndexError(f"bad slice: {sl.start}:{sl.stop}:{unit}")
 
         return BitArrayView(self, start, stop-start)
 
