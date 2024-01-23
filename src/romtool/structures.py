@@ -83,7 +83,10 @@ class Entity(MutableMapping):
         yield from type(self)._keys
 
     def __getitem__(self, key):
-        item = self._tables_by_name[key][self._i]
+        try:
+            item = self._tables_by_name[key][self._i]
+        except ValueError as ex:
+            raise KeyError from ex
         return item if not isinstance(item, Structure) else item[key]
 
     def __setitem__(self, key, value):
@@ -126,7 +129,7 @@ class Entity(MutableMapping):
         for table, keys in self._keys_by_table.items():
             try:
                 item = table[self._i]
-            except IndexError as ex:
+            except ValueError as ex:
                 log.warning(f"can't set %s[%s]{keys}  ({ex})",
                             table.id, self._i)
                 continue
@@ -149,9 +152,10 @@ class Entity(MutableMapping):
         for table, keys in self._keys_by_table.items():
             try:
                 item = table[self._i]
-            except IndexError as ex:
+            except ValueError as ex:
                 log.warning(f"can't get %s[%s]{keys}  ({ex})",
                             table.id, self._i)
+                continue
             if isinstance(item, Structure):
                 for k in keys:
                     yield (k, item[k])
@@ -514,9 +518,18 @@ class Table(Sequence, RomObject):
             raise ValueError(msg)
 
     def _subview(self, i):
-        start = (self.offset + self._index[i]) * self.units
+        os_table = self.offset
+        os_item = self._index[i]
+        start = (os_table + os_item) * self.units
         end = start + self._isz_bits
-        return self.view[start:end]
+        try:
+            return self.view[start:end]
+        except IndexError as ex:
+            # Allowing the IndexError to propagate will look like
+            # end-of-sequence for this table, so raise something else.
+            msg = (f"bad offset for {self.name} #{i}: "
+                   f"{os_table:#0x}+{os_item:#0x}")
+            raise ValueError(msg) from ex
 
     def __str__(self):
         content = ', '.join(repr(item) for item in self)
@@ -530,6 +543,13 @@ class Table(Sequence, RomObject):
 
     def __len__(self):
         return len(self._index)
+
+    def __iter__(self):
+        # IndexError can get raised from downstack, which the Sequence
+        # implementation of __iter__ interprets as the end of the table. This
+        # version lets it propagate.
+        for i in range(len(self)):
+            yield self[i]
 
     def __getitem__(self, i):
         if isinstance(i, slice):
