@@ -1,13 +1,15 @@
-{%- macro toclist(dct, prefix) %}
-<ol>
-  {%- for key, item in dct.items() %}
-  {%- set name = item.spec and item.spec.name or key %}
-  <li><a href="#{{ prefix }}-{{ key }}">{{ name }}</a></li>
-  {%- endfor %}
-</ol>
-{%- endmacro %}
+{%- macro toclist(title, id, dct) -%}
+<li><a href="#{{ id }}">{{ title }}</a>
+  <ol>
+    {%- for key, item in dct.items() %}
+    {%- set name = item.spec and item.spec.name or key %}
+    <li><a href="#{{ id }}-{{ key }}">{{ name }}</a></li>
+    {%- endfor %}
+  </ol>
+</li>
+{%- endmacro -%}
 
-{%- macro mappingtable(table, classes, keys, numbering) %}
+{%- macro mappingtable(table, classes, keys, numbering) -%}
 {%- set ns = namespace(headings=[]) %}
 {%- set numbering = numbering|default(true) %}
 <figure class="table">
@@ -15,12 +17,12 @@
 {%- for item in table %}
 {%- if loop.first %}
 <thead><tr>
-  {%- if numbering %}<th>#</th>{%- endif %}
+  {%- if numbering %}<th scope="col">#</th>{%- endif %}
   {%- set ns.headings = keys |
                         reject("eq", "comment") |
                         list %}
   {%- for key in ns.headings %}
-  <th>{{ key }}</th>
+  <th scope="col">{{ key }}</th>
   {%- endfor %}
 </tr></thead>
 <tbody>
@@ -30,7 +32,7 @@
 {%- for key in ns.headings %}
 {#- FIXME: appears very slow. Find some way to use or imitate the perf
 hack in entity.items() #}
-<td>{{ item.get(key, 'ERR') if item.get else item[key] }}</td>
+  <td>{{ item.get(key, 'ERR') if item.get else item[key] }}</td>
 {%- endfor %}
 </tr>
 {%- endfor %}
@@ -42,7 +44,7 @@ hack in entity.items() #}
   <p>Notes:</p>
   <dl class="tablenotes">
   {%- endif %}
-  <dt id="item.id">{{ item.name }}</dt>
+  <dt>{{ item.name }}</dt>
   <dd>{{ item.comment }}</dd>
   {%- if loop.last %}
   </dl>
@@ -50,25 +52,25 @@ hack in entity.items() #}
   {%- endfor %}
 </figcaption>
 </figure>
-{%- endmacro %}
+{%- endmacro -%}
 
-{%- macro structtable(struct, classes) %}
+{%- macro structtable(struct, classes) -%}
 {%- set content = [] %}
 {%- for field in struct.fields %}
 {%- do content.append(field.asdict()) %}
 {%- endfor %}
 {{ mappingtable(content, classes, struct.fields[0].asdict().keys()) }}
-{%- endmacro %}
+{%- endmacro -%}
 
-{%- macro tablespecs(tables, classes) %}
+{%- macro tablespecs(tables, classes) -%}
 {%- set content = [] %}
 {%- for table in tables %}
 {%- do content.append(table.asdict()) %}
 {%- endfor %}
 {{ mappingtable(content, classes) }}
-{%- endmacro %}
+{%- endmacro -%}
 
-{%- macro datatable(table) %}
+{%- macro datatable(table) -%}
 {%- set index = table._index %}
 {%- set stride = table.size or index.stride or null %}
 <h3 id="table-{{ table.id }}">{{ table.spec.name }}</h3>
@@ -76,16 +78,16 @@ hack in entity.items() #}
 {{ table.comment }}
 {{ table | length }}
 {% if stride %}{{ stride }}-byte{% endif %}
-items of type <span class='type'>{{ table.spec.type }}</span>.
+items of type <span class="type">{{ table.spec.type }}</span>.
 {%- if table.has_index %}
 {%- set endian = 'little-endian' if index.spec.type.endswith('le')
                  else 'big-endian' if index.spec.type.endswith('be')
                  else '' %}
-The table index begins at <span class='offset'>{{ index.offset }}</span>;
+The table index begins at <span class="offset">{{ index.offset }}</span>;
 index entries are {{ index._index.stride }}-byte {{ endian }}
-integer offsets relative to <span class='offset'>{{ table.offset }}</span>.
+integer offsets relative to <span class="offset">{{ table.offset }}</span>.
 {%- else %}
-First item starts at <span class='offset'>{{ table.offset }}</span>.
+First item starts at <span class="offset">{{ table.offset }}</span>.
 {%- endif %}
 </p>
 {%- if table._struct %}
@@ -102,9 +104,9 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
 </table>
 </figure>
 {%- endif %}
-{%- endmacro %}
+{%- endmacro -%}
 
-{%- macro tbl2html(rows, caption) %}
+{%- macro tbl2html(rows, caption) -%}
 {%- set headers = rows[0] | list %}
 <table>
   {%- if caption is defined and caption %}
@@ -129,9 +131,9 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
     {%- endfor %}
   </tbody>
 </table>
-{%- endmacro %}
+{%- endmacro -%}
 
-{%- macro tsvtable(caption, headers, rows) %}
+{%- macro tsvtable(caption, headers, rows) -%}
 <table>
   {%- if caption is defined and caption %}
   <caption>{{ caption }}</caption>
@@ -153,4 +155,4 @@ First item starts at <span class='offset'>{{ table.offset }}</span>.
     {%- endfor %}
   </tbody>
 </table>
-{%- endmacro %}
+{%- endmacro -%}

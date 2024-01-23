@@ -11,6 +11,7 @@
 toclist, tablespecs %}
 
 {%- block head %}
+<title>{{ rom.name }} ROM Documentation</title>
 <style type="text/css">
 {%- include "style.css" %}
 {%- include "tables.css" %}
@@ -19,16 +20,13 @@ toclist, tablespecs %}
 
 {%- block body %}
 <nav id="sidebar" class="toc">
-<h1 id="title">{{ rom.name }}</h1>
+<h1>{{ rom.name }}</h1>
 <ol>
   <li><a href="#tables">Data Tables</a></li>
-  <li><a href="#structs">Structure Type Formats</a></li>
-  {{ toclist(rom.map.structs, 'struct') }}
-  <li><a href="#dump">Data Dump by Entity</a></li>
-  {{ toclist(rom.entities, 'entities') }}
-  <li><a href="#raw">Data Dump by Table</a></li>
-  {{ toclist(tables, 'table') }}
-  <li><a href="#references">References</a></li>
+  {{ toclist("Structure Type Formats", "structs", rom.map.structs) }}
+  {{ toclist("Data Dump by Entity", "entities", rom.entities) }}
+  {{ toclist("Data Dump by Table", "table", tables) }}
+  <li><a href="#references">References</a>
   <ol>
     <li><a href="#data-types">Data Types</a></li>
     <li><a href="#glossary">Glossary</a></li>
@@ -36,21 +34,25 @@ toclist, tablespecs %}
     <li><a href="#acknowledgements">Acknowledgements</a></li>
     {%- endif %}
   </ol>
+  </li>
 </ol>
 </nav>
 <main>
   <article id="content">
     <h1 id="top">{{ rom.name }}</h1>
+
     <p>This document describes the ROM data structures for
     "{{ rom.name }}", and includes a dump of all data thus described.
     The descriptions and the dump are derived from the same
     underlying code and definitions; to the extent that the dump is
     correct, the structure specs should be too.</p>
+
     <p>If you are writing a tool to edit the game, start here, at the
     top. If you simply want to see what's in the game data, you can skip
-    ahead to the <a href="#dump">Data Dump by Entity</a> section.
+    ahead to the <a href="#entities">Data Dump by Entity</a> section.</p>
+
     <h2 id="tables">Data Tables</h2>
-    {%- include 'tables.md' %}
+    {%- include 'tables.md' -%}
     {{ mappingtable(
       rom.map.tables.values(),
       ["scroll"],
@@ -58,20 +60,20 @@ toclist, tablespecs %}
       false
       ) }}
     <h2 id="structs">Structure Type Formats</h2>
-    {%- include 'structs.md' %}
+    {%- include 'structs.md' -%}
     {%- for name, struct in rom.map.structs.items() %}
-    <h3 id="struct-{{ name }}">{{ name }}</h3>
-    {{ structtable(struct, ["scroll"]) }}
+    <h3 id="structs-{{ name }}">{{ name }}</h3>
+    {{- structtable(struct, ["scroll"]) }}
     {%- endfor %}
-    <h2 id="dump">Data Dump by Entity</h2>
+    <h2 id="entities">Data Dump by Entity</h2>
     {%- for name, dataset in rom.entities.items() %}
     <h3 id="entities-{{ name }}">{{ name }}</h3>
     <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
-    {{ mappingtable(dataset, ["scroll"], dataset[0].keys()|list) }}
+    {{- mappingtable(dataset, ["scroll"], dataset[0].keys()|list) }}
     {%- endfor %}
-    <h2 id="raw">Data Dump by Table</h2>
+    <h2 id="table">Data Dump by Table</h2>
     {%- for table in tables.values() %}
-    {{ datatable(table) }}
+    {{- datatable(table) }}
     {%- endfor %}
     <h2 id="references">References</h2>
     <h3 id="data-types">Data Types</h3>
@@ -86,10 +88,10 @@ toclist, tablespecs %}
     by the following sources:</p>
     <ul>
         {%- for name, link in rom.map.meta.credits.items() %}
-        <li><a href={{ link }}>{{ name }}</a></li>
+        <li><a href="{{ link }}">{{ name }}</a></li>
         {%- endfor %}
     </ul>
     {%- endif %}
   </article>
-  {%- endblock %}
 </main>
+{%- endblock %}

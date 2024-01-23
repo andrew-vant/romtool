@@ -881,7 +881,8 @@ def jinja_env():
     env = jinja2.Environment(
             loader=tpl_loader,
             extensions=['jinja2.ext.do'],
-            finalize=lambda obj: "" if obj is None else obj
+            finalize=lambda obj: "" if obj is None else obj,
+            autoescape=jinja2.select_autoescape(["html", "htm", "xml", "jinja"])
             )
     env.filters["safe_iter"] = safe_iter
     return env

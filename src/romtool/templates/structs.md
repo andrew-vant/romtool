@@ -16,4 +16,4 @@ targets) it is from the start of the ROM. In the latter case the origin
 is given as ‘root’.</p>
 
 <p>’Ref’ indicates that the field’s value references an item in another
-table.
+table.</p>
