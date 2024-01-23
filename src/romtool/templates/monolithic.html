@@ -32,6 +32,9 @@ toclist, tablespecs %}
   <ol>
     <li><a href="#data-types">Data Types</a></li>
     <li><a href="#glossary">Glossary</a></li>
+    {%- if rom.map.meta.credits %}
+    <li><a href="#acknowledgements">Acknowledgements</a></li>
+    {%- endif %}
   </ol>
 </ol>
 </nav>
@@ -77,6 +80,16 @@ toclist, tablespecs %}
     <h3 id="glossary">Glossary</h3>
     <p><strong>FIXME</strong>: This section to contain romhacking jargon
     definitions.</p>
+    {%- if rom.map.meta.credits %}
+    <h3 id="acknowledgements">Acknowledgements</h3>
+    <p>Information in this document was gathered from or otherwise aided
+    by the following sources:</p>
+    <ul>
+        {%- for name, link in rom.map.meta.credits.items() %}
+        <li><a href={{ link }}>{{ name }}</a></li>
+        {%- endfor %}
+    </ul>
+    {%- endif %}
   </article>
   {%- endblock %}
 </main>
