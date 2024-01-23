@@ -484,6 +484,10 @@ class Table(Sequence, RomObject):
                 setattr(self, field.name, getattr(spec, field.name))
 
     @property
+    def name(self):
+        return self.spec.name
+
+    @property
     def _struct(self):
         return self.root.map.structs.get(self.spec.type, None)
 
