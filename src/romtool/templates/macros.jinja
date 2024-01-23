@@ -1,7 +1,8 @@
 {%- macro toclist(dct, prefix) %}
 <ol>
-  {%- for key, item in dct|dictsort%}
-  <li><a href="#{{ prefix }}-{{ key }}">{{ item.name or key }}</a></li>
+  {%- for key, item in dct.items() %}
+  {%- set name = item.spec and item.spec.name or key %}
+  <li><a href="#{{ prefix }}-{{ key }}">{{ name }}</a></li>
   {%- endfor %}
 </ol>
 {%- endmacro %}
@@ -16,7 +17,6 @@
 <thead><tr>
   {%- if numbering %}<th>#</th>{%- endif %}
   {%- set ns.headings = keys |
-                        default(item.keys()) |
                         reject("eq", "comment") |
                         list %}
   {%- for key in ns.headings %}
@@ -30,14 +30,14 @@
 {%- for key in ns.headings %}
 {#- FIXME: appears very slow. Find some way to use or imitate the perf
 hack in entity.items() #}
-<td>{{ item.get(key, "ERR") }}</td>
+<td>{{ item.get(key, 'ERR') if item.get else item[key] }}</td>
 {%- endfor %}
 </tr>
 {%- endfor %}
 </tbody>
 </table>
 <figcaption>
-  {%- for item in table if item.get('comment') %}
+  {%- for item in table if item.comment %}
   {%- if loop.first %}
   <p>Notes:</p>
   <dl class="tablenotes">
@@ -57,7 +57,7 @@ hack in entity.items() #}
 {%- for field in struct.fields %}
 {%- do content.append(field.asdict()) %}
 {%- endfor %}
-{{ mappingtable(content, classes) }}
+{{ mappingtable(content, classes, struct.fields[0].asdict().keys()) }}
 {%- endmacro %}
 
 {%- macro tablespecs(tables, classes) %}
@@ -69,33 +69,33 @@ hack in entity.items() #}
 {%- endmacro %}
 
 {%- macro datatable(table) %}
-{%- set index = table.index %}
+{%- set index = table._index %}
 {%- set stride = table.size or index.stride or null %}
-<h3 id="table-{{ table.id }}">{{ table.name }}</h3>
+<h3 id="table-{{ table.id }}">{{ table.spec.name }}</h3>
 <p>
 {{ table.comment }}
 {{ table | length }}
 {% if stride %}{{ stride }}-byte{% endif %}
-items of type <span class='type'>{{ table.typename }}</span>.
+items of type <span class='type'>{{ table.spec.type }}</span>.
 {%- if table.has_index %}
-{%- set endian = 'little-endian' if index.typename.endswith('le')
-                 else 'big-endian' if index.typename.endswith('be')
+{%- set endian = 'little-endian' if index.spec.type.endswith('le')
+                 else 'big-endian' if index.spec.type.endswith('be')
                  else '' %}
 The table index begins at <span class='offset'>{{ index.offset }}</span>;
-index entries are {{ index.index.stride }}-byte {{ endian }}
+index entries are {{ index._index.stride }}-byte {{ endian }}
 integer offsets relative to <span class='offset'>{{ table.offset }}</span>.
 {%- else %}
 First item starts at <span class='offset'>{{ table.offset }}</span>.
 {%- endif %}
 </p>
-{%- if table[0] is mapping %}
-{{ mappingtable(table, ["scroll"]) }}
+{%- if table._struct %}
+{{ mappingtable(table, ["scroll"], table[0].keys()|list) }}
 {%- else %}
 <figure class="table">
 <table class="scroll">
 <thead><tr><td>#</td><td>Value</td></tr></thead>
 <tbody>
-{%- for item in table %}
+{%- for item in table | safe_iter %}
 <tr><td>{{ loop.index0 }}</td><td>{{ item }}</td></tr>
 {%- endfor %}
 </tbody>

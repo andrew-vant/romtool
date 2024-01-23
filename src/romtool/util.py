@@ -856,6 +856,21 @@ def roundup(n, base):
     # credit: https://stackoverflow.com/a/14092788/
     return n - n % (-base)
 
+def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
+    """ Handle exceptions while iterating over a sequence
+
+    This mainly exists to be used as a jinja filter when generating
+    documentation, though in principle it will work elsewhere.
+    """
+    ct = len(sequence)
+    extypes = extypes or (Exception,)
+    for i in range(len(sequence)):
+        try:
+            yield sequence[i]
+        except extypes as ex:
+            log.warning(ex)
+            yield errstr.format(ex=ex)
+
 @cache
 def jinja_env():
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
@@ -863,10 +878,13 @@ def jinja_env():
         jinja2.FileSystemLoader(user_templates),
         jinja2.PackageLoader('romtool'),
         ])
-    return jinja2.Environment(
+    env = jinja2.Environment(
             loader=tpl_loader,
             extensions=['jinja2.ext.do'],
+            finalize=lambda obj: "" if obj is None else obj
             )
+    env.filters["safe_iter"] = safe_iter
+    return env
 
 def tsv2html(infile, caption=None):
     reader = csv.reader(infile, dialect='rt_tsv')

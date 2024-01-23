@@ -61,12 +61,19 @@ toclist, tablespecs %}
     {%- for name, dataset in rom.entities.items() %}
     <h3 id="entities-{{ name }}">{{ name }}</h3>
     <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
-    {{ mappingtable(dataset, ["scroll"]) }}
+    {{ mappingtable(dataset, ["scroll"], dataset[0].keys()|list) }}
     {%- endfor %}
     <h2 id="raw">Data Dump by Table</h2>
     {%- for table in tables.values() %}
     {{ datatable(table) }}
     {%- endfor %}
+    <h2 id="references">References</h2>
+    <h3 id="data-types">Data Types</h3>
+    <p><strong>FIXME</strong>: This section to contain information on
+    primitive data types.</p>
+    <h3 id="glossary">Glossary</h3>
+    <p><strong>FIXME</strong>: This section to contain romhacking jargon
+    definitions.</p>
   </article>
   {%- endblock %}
 </main>
