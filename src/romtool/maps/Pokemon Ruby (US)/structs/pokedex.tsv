@@ -1,8 +1,8 @@
 id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
-cat	Category	0	12		strz		main					note: species order != pokedex order; some species are dummies and a few have multiple copies for different “forms”.
-pheight	Height	12	2		uintle							There is a table that maps species index to pokedex index -- not a pointer table, just, table[i] is the pokedex entry for species #I
-pweight	Weight	14	2		uintle							Not sure how to handle this yet. Table is at 0x1fc516 in original rom (and second table at 0x1fc1e0?). rev 2 rom is probably different
-dptr1	Description Pointer 1	16	4		uintle		pointer					See https://github.com/hugmanrique/PokeData/blob/master/src/main/resources/roms.ini for original offsets
+cat	Category	0	12		strz		main					
+pheight	Height	12	2		uintle							
+pweight	Weight	14	2		uintle							
+dptr1	Description Pointer 1	16	4		uintle		pointer					
 dptr2	Description Pointer 2	20	4		uintle		pointer					
 pad1	Padding 1	24	2		uintbe		hex					
 pscale	Pokemon Scale	26	2		uintle							
