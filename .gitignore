@@ -14,6 +14,12 @@ pynsist.cfg
 # Libreoffice backup files.
 .~lock*#
 
+# Assembly object files
+*.o
+
+# Backup files
+*.bak
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
