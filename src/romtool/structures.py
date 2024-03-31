@@ -538,8 +538,7 @@ class Table(Sequence, RomObject):
     def __repr__(self):
         tp = self.spec.type
         ct = len(self)
-        offset = util.HexInt(self._index.offset)
-        return f'<Table({tp}*{ct}@{offset})>'
+        return f'<Table({tp}*{ct})>'
 
     def __len__(self):
         return len(self._index)
@@ -664,7 +663,7 @@ class CalculatedIndex(Sequence):
         return self.expr
 
     def __repr__(self):
-        return f"{type(self)}({self.expr:r}, {self.tables})"
+        return f"{type(self)}({self.expr!r})"
 
     def __getitem__(self, i):
         if i >= len(self):
