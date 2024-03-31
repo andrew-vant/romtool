@@ -550,7 +550,7 @@ def cmd_findblocks(args):
     for value, block in groupby(data):
         block = list(block)
         if len(block) >= min_size and byte in (None, value):
-            log.debug("Noting block at %s", offset)
+            log.debug("Noting block at %s (0x%X)", offset, offset)
             blocks.append((len(block), offset, value))
         offset += len(block)
     if args.sort:
