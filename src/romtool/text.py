@@ -127,6 +127,25 @@ class TextTable(codecs.Codec):
                 break
         return text, i
 
+    def read_from(self, data, errors='strict', with_encoding=False):
+        """ Iterate over strings in a given data source.
+
+        Decodes `data`, a bytes-like object,and yields a separate string each
+        time EOS is encountered. If with_encoding is true, instead yields a
+        (string, bytes) tuple, the latter being the bytes from which the
+        string was decoded. The latter mode is mainly useful to avoid
+        re-encoding an unchanged string; doing so can introduce spurious
+        patch changes when multiple representations are valid.
+        """
+        offset = 0
+        with memoryview(data) as data:  # so we can slice without copy
+            while(offset < len(data)):
+                decoded, consumed = self.decode(data[offset:])
+                encoded = data[offset:offset+consumed]
+                offset += consumed
+                assert len(encoded) == consumed
+                yield (decoded, encoded) if with_encoding else decoded
+
     @classmethod
     def std(cls, stream):
         """ A TextTable with options matching the Nightcrawler quasi-standard

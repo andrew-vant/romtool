@@ -5,14 +5,14 @@ automagically turns the bits and bytes into integers, strings, etc.
 """
 import dataclasses as dc
 import logging
-from collections import UserList
+from collections import UserList, ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, groupby, islice
-from functools import partial
+from functools import partial, cached_property
 from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
-from abc import ABC
+from abc import ABC, abstractmethod
 from string import ascii_letters
 
 import yaml
@@ -46,7 +46,7 @@ class Entity(MutableMapping):
         cls._keys_by_table = {}
         for table in tables:
             cls._keys_by_table[table] = []
-            fields = table._struct.fields if table._struct else [table._field]
+            fields = table.struct.fields if table.struct else [table.field]
             for field in fields:
                 cls._all_fields.append(field)
                 cls._tables_by_attr[field.id] = table
@@ -91,7 +91,7 @@ class Entity(MutableMapping):
 
     def __setitem__(self, key, value):
         table = self._tables_by_name[key]
-        if table._struct:
+        if table.struct:
             table[self._i][key] = value
         else:
             table[self._i] = value
@@ -107,7 +107,7 @@ class Entity(MutableMapping):
 
     def _setattr(self, value, *, attr):
         table = self._tables_by_attr[attr]
-        if table._struct:
+        if table.struct:
             setattr(table[self._i], attr, value)
         else:
             table[self._i] = value
@@ -455,94 +455,49 @@ class TableSpec:
         kwargs.size = int(kwargs.size.strip(), 0) if kwargs.size else None
         return cls(**kwargs)
 
+    def asdict(self):
+        return {k: '' if v is None else v
+                for k, v in dc.asdict(self).items()}
 
-class Table(Sequence, RomObject):
-    """ A ROM data table
 
-    For tables without an index, 'offset' is relative to the start of the ROM,
-    and indicates the location of the zeroth item in the table. The offset of
-    the Nth item will be `offset + (N * stride).
-
-    For tables with an index, 'offset' is added to the index values to convert
-    them to ROM offsets. Hence, the offset of the Nth item is `offset +
-    index[N]`. The stride is informational only.
-
-    FIXME: it occurs to me that the offset calculation could be unified as
-    `offset(table[N]) = table.offset + index[N] + N * table.stride`, where
-    stride is 0 for indexed tables and index[N] is 0 for non-indexed tables.
-    """
-
-    def __init__(self, parent, view, spec, index=None):
-        """ Create a Table
+class Table(Sequence, RomObject, ABC):
+    """ A ROM data table """
+    def __init__(self, parent, view, spec):
+        """ Create a table
 
         parent: The parent object (usually a Rom)
         view:   The reference view (usually Rom.data)
         spec:   The table spec
         index:  a list of offsets within the view
         """
+        if type(self) is Table:
+            raise TypeError("The base Table class is uninstantiable by design")
         self.parent = parent
         self.view = view
         self.spec = spec
-        self._index = index or Index(0, spec.count, spec.stride or spec.size)
-        for field in dc.fields(spec):
-            if not hasattr(self, field.name):
-                setattr(self, field.name, getattr(spec, field.name))
-
-    @property
-    def name(self):
-        return self.spec.name
-
-    @property
-    def _struct(self):
-        return self.root.map.structs.get(self.spec.type, None)
-
-    @property
-    def _field(self):
-        return self.root.map.handlers[self.type](
-                id=self.fid, name=self.iname, type=self.type,
-                offset=FieldExpr('0'), size=FieldExpr(str(self.size)),
-                display=self.display
-                )
-
-    @property
-    def _isz_bits(self):
-        """ Get the size of items in the table."""
-        if self.spec.size:
-            return self.spec.size * self.spec.units
-        elif self._struct:
-            return self._struct.size()
-        elif isinstance(self._index, Index):
-            return self._index.stride * self.spec.units
-        else:
-            ident = self.name or self.fid or 'unknown'
-            msg = f"Couldn't figure out size of items in {ident} table"
-            raise ValueError(msg)
-
-    def _subview(self, i):
-        os_table = self.offset
-        os_item = self._index[i]
-        start = (os_table + os_item) * self.units
-        end = start + self._isz_bits
-        try:
-            return self.view[start:end]
-        except IndexError as ex:
-            # Allowing the IndexError to propagate will look like
-            # end-of-sequence for this table, so raise something else.
-            msg = (f"bad offset for {self.name} #{i}: "
-                   f"{os_table:#0x}+{os_item:#0x}")
-            raise ValueError(msg) from ex
-
-    def __str__(self):
-        content = ', '.join(repr(item) for item in self)
-        return f'Table({content})\n'
-
-    def __repr__(self):
-        tp = self.spec.type
-        ct = len(self)
-        return f'<Table({tp}*{ct})>'
+        # These are useful enough that I might as well snap them here
+        self.id = self.spec.id
+        self.name = self.spec.name
 
     def __len__(self):
-        return len(self._index)
+        return self.spec.count
+
+    def __repr__(self):
+        cls = type(self).__name__
+        tp = self.spec.type
+        ct = len(self)
+        os = self.spec.offset
+        return f'<{cls}({tp}*{ct}@{os})>'
+
+    def __str__(self):
+        # I would like to print the actual contents rather than the name
+        # location, but the contents can't be guaranteed valid, e.g. encoding
+        # errors in a string list would make str() on the list itself barf.
+        name = self.spec.name
+        tp = self.spec.type
+        ct = len(self)
+        os = self.spec.offset
+        return f'{name} ({tp}*{ct}@{os})'
 
     def __iter__(self):
         # IndexError can get raised from downstack, which the Sequence
@@ -554,13 +509,12 @@ class Table(Sequence, RomObject):
     def __getitem__(self, i):
         if isinstance(i, slice):
             return SequenceView(self, i)
-        elif i >= len(self):
-            raise IndexError(f"Table index out of range ({i} >= {len(self)})")
-        elif self._struct:
-            return self._struct(self._subview(i), self)
-        else:
-            item = RomObject(self._subview(i), self)
-            return self._field.__get__(item)
+        if i >= len(self):
+            raise IndexError(f"index out of range ({i} >= {len(self)})")
+        if self.struct:
+            return self.struct(self.viewof(i), self)
+        item = RomObject(self.viewof(i), self)
+        return self.field.__get__(item)
 
     def __setitem__(self, i, v):
         if isinstance(i, slice):
@@ -570,13 +524,49 @@ class Table(Sequence, RomObject):
                 raise ValueError(msg)
             for i, v in zip(range(i.start, i.stop, i.step), v):
                 self[i] = v
-        elif self._struct:
+        elif self.struct:
             self[i].copy(v)
         else:
-            item = RomObject(self._subview(i), self)
-            self._field.__set__(item, v)
+            item = RomObject(self.viewof(i), self)
+            self.field.__set__(item, v)
+
+    # Do not like these digging into foreign internals
+    @property
+    def struct(self):
+        """ Get the structure class of items in this list """
+        return self.root.map.structs.get(self.spec.type, None)
+
+    @property
+    def field(self):
+        """ Get the field class for items in this list """
+        spec = self.spec
+        return self.root.map.handlers[spec.type](
+                id=spec.fid, name=spec.iname, type=spec.type,
+                offset=FieldExpr('0'), size=FieldExpr(str(spec.size)),
+                display=spec.display
+                )
+
+    def viewof(self, i):
+        """ Get a view of a given item in the list
+
+        Called by the default setitem/getitem implementations. Subclasses
+        should override either this or setitem/getitem.
+        """
+        raise NotImplementedError
+
+    def update(self, mapping):
+        """ Update the list from an index->item mapping
+
+        The default implementation does the obvious thing of iterating over
+        the mapping keys and updating the corresponding item. It exists
+        mainly to be overridden by subclasses for which repeated __setitem__
+        calls are expensive, e.g. Strings.
+        """
+        for i, v in mapping.items():
+            self[i] = v
 
     def lookup(self, name):
+        """ Get the first item in self with a given name """
         try:
             return next(item for item in self if item.name == name)
         except AttributeError:
@@ -585,38 +575,62 @@ class Table(Sequence, RomObject):
         except StopIteration:
             raise LookupError(f"No object with name: {name}")
 
-    def update(self, mapping):
-        """ Update the table from an index->item mapping
 
-        The Table implementation of this does the obvious thing of iterating
-        over the mapping keys and updating the corresponding item. This
-        method exists mainly to be overridden by subclasses for which
-        repeated __setitem__ calls are expensive, e.g. Strings.
-        """
-        for i, v in mapping.items():
-            self[i] = v
-
-    @property
-    def has_index(self):
-        return isinstance(self._index, Table)
-
-    def asdict(self):
-        return {'id': self.id,
-                'fid': self.fid,
-                'name': self.name or '',
-                'iname': self.iname or '',
-                'type': self.spec.type,
-                'units': self.units,
-                'offset': self.offset,
-                'count': len(self),
-                'stride': self.size or '',
-                'size': self.size or '',
-                'index': self._index.id if self.has_index else '',
-                'display': self.spec.display,
-                'comment': self.comment}
+class Array(Table):
+    def viewof(self, i):
+        stride = self.spec.stride or self.spec.size
+        size = self.spec.size or self.spec.stride
+        offset = self.spec.offset + i * stride
+        units = self.spec.units
+        return self.view[offset:offset+size:units]
 
 
-class Strings(Table):
+class IndexedTable(Table):
+    """ A table with an index -- usually an array of pointers """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Do not like that this reaches into rom internals. But also don't
+        # like adding a constructor arg, it makes rom.py more complicated if
+        # it has to do something different for each table type.
+        self._index = self.root.tables[self.spec.index]
+
+    def __len__(self):
+        return len(self._index)
+
+    def viewof(self, i):
+        os_self = self.spec.offset
+        os_item = self._index[i]
+        start = os_self + os_item
+        end = (start + self.spec.size) if self.spec.size else None
+        units = self.spec.units
+        try:
+            return self.view[start:end:units]
+        except IndexError as ex:
+            msg = (f"bad offset for {self.name} #{i}: "
+                   f"{os_self:#0x}+{os_item:#0x}")
+            raise ValueError(msg) from ex
+
+
+class DynamicTable(Table):
+    """ A 'table' where entry offsets must be calculated on the fly """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.interpreter = Interpreter({}, minimal=True)
+
+    def viewof(self, i):
+        self.interpreter.symtable = ChainMap({'i': i}, self.root.tables)
+        offset = self.spec.offset + self.interpreter.eval(self.spec.index)
+        size = self.spec.size or self.spec.stride
+        errs = self.interpreter.error or []
+        for err in self.interpreter.error or []:
+            msg = f"error evaluating crossref: '{self.expr}': {err.msg}"
+            log.error(msg)
+        if errs:
+            raise RomtoolError(msg)
+        return self.view[offset:size and offset+size:self.spec.units]
+
+
+class Strings(Table):  # more generic type: Series?
     """ A sequence of concatenated, terminated strings.
 
     Used for tables of terminated strings that have no index, where the
@@ -627,30 +641,13 @@ class Strings(Table):
     `size` is the maximum size of the entire DB. These are checked when
     overwriting entries.
     """
-    def __init__(self, parent, view, spec, index=None):
-        self.codec = parent.root.map.ttables[spec.display].clean
-        super().__init__(parent, view, spec, index)
+    @cached_property
+    def codec(self):
+        return self.root.map.ttables[self.spec.display].clean
 
     def __iter__(self):
-        for _, decoded in self._iter_with_encodings():
-            yield decoded
-
-    def _iter_with_encodings(self):
-        """ Return the encoded and decoded forms of all strings
-
-        Helper method when re-writing strings. In most cases we want to avoid
-        re-encoding strings that haven't changed (to avoid no-op changes) and
-        having the encoded form readily available sometimes helps.
-        """
-        # so we can slice without copy
-        data = memoryview(self.view[self.offset::self.spec.units].bytes)
-        offset = 0
-        for _ in range(self.spec.count):
-            decoded, consumed = self.codec.decode(data[offset:])
-            encoded = data[offset:offset+consumed]
-            offset += consumed
-            assert len(encoded) == consumed
-            yield encoded, decoded
+        view = self.view[self.spec.offset::self.spec.units]
+        yield from islice(self.codec.read_from(view.bytes), len(self))
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -682,115 +679,37 @@ class Strings(Table):
         # changes each time. I am not sure that can be escaped even in
         # principle, though, e.g. where changes to item N are depended on by
         # N+1.
-        log.debug(f"updating string table {self.id}")
+        spec = self.spec
+        log.debug(f"updating string table {spec.id}")
         last = max(mapping)
         out = BytesIO()
         safe_length = 0  # original bytecount
         changed = False
-        for i, (oldbytes, old) in enumerate(self._iter_with_encodings()):
+        view = self.view[self.spec.offset::self.spec.units]
+        reader = self.codec.read_from(view.bytes, with_encoding=True)
+        for i, (old, oldbytes) in enumerate(islice(reader, len(self))):
             if i > last and not changed:
                 return  # skip further decoding, this is a no-op
             safe_length += len(oldbytes)
             new = mapping.get(i, old)
             if new == old:
                 # Don't re-encode, it can make no-op 'changes'
-                log.debug(f"no change: {self.id}[{i}]: '{old}' -> '{new}' ({oldbytes.hex()})")
+                log.debug(f"no change: {spec.id}[{i}]: '{old}' -> '{new}' ({oldbytes.hex()})")
                 out.write(oldbytes)
             else:
-                log.debug(f"changed {self.id}[{i}]: '{old}' -> '{new}'")
+                log.debug(f"changed {spec.id}[{i}]: '{old}' -> '{new}'")
                 out.write(self.codec.encode(new)[0])
                 changed = True
         out = out.getvalue()
         # Check for potential overrun screws
         overrun = len(out) - safe_length
         if overrun > 0:
-            start = self.offset + safe_length
+            start = spec.offset + safe_length
             end = start + overrun
-            overlap = self.view[start:end:self.units].bytes.hex().upper()
+            overlap = self.view[start:end:spec.units].bytes.hex().upper()
             if len(overlap) > 32:
                 overlap = overlap[:32] + '[...]'
             log.warning(f"updated %s table extends %s bytes beyond the "
                         f"original, overwriting this data: {overlap}",
-                        self.id, len(out)-safe_length)
-        self.view[self.offset:self.offset+len(out):self.units].bytes = out
-
-
-class Index(Sequence):
-    def __init__(self, offset, count, stride):
-        self.offset = offset
-        self.count = count
-        self.stride = stride
-
-    def __len__(self):
-        return self.count
-
-    def __getitem__(self, i):
-        if isinstance(i, slice):
-            return [self[i] for i in range(len(self))[i]]
-        elif i >= self.count:
-            raise IndexError("Index doesn't extend that far")
-        else:
-            return util.HexInt(self.offset + i * self.stride)
-
-    def __repr__(self):
-        return f"Index({self.offset}, {self.count}, {self.stride})"
-
-    def __eq__(self, other):
-        if len(self) != len(other):
-            return False
-        else:
-            return all(a == b for a, b in zip(self, other))
-
-
-class CalculatedIndex(Sequence):
-    """ A calculated pseudo-index """
-    class EvalContext(Mapping):
-        """ A dict-like context for asteval that does lazy lookups """
-        def __init__(self, tables, i):
-            self.tables = tables
-            self.i = i
-
-        def __len__(self):
-            return len(self.tables) + 1
-
-        def __iter__(self):
-            yield 'i'
-            yield from self.tables
-
-        def __getitem__(self, key):
-            return (self.i if key == 'i'
-                    else self.tables[key])
-
-    def __init__(self, count, expr, tables):
-        self.count = count
-        self.expr = expr
-        self.tables = tables
-        self.interpreter = Interpreter({}, minimal=True)
-
-    def __len__(self):
-        return self.count
-
-    def __str__(self):
-        return self.expr
-
-    def __repr__(self):
-        return f"{type(self)}({self.expr!r})"
-
-    def __getitem__(self, i):
-        if i >= len(self):
-            raise IndexError(f"i >= {len(self)}")
-
-        if isinstance(i, slice):
-            return SequenceView(self, i)
-        # skip the expensive bits if we can
-        if self.expr in self.tables:
-            return self.tables[self.expr]
-        self.interpreter.symtable = self.EvalContext(self.tables, i)
-        result = self.interpreter.eval(self.expr)
-        errs = self.interpreter.error or []
-        for err in self.interpreter.error or []:
-            msg = f"error evaluating crossref: '{self.expr}': {err.msg}"
-            log.error(msg)
-        if errs:
-            raise RomtoolError(msg)
-        return result
+                        spec.id, len(out)-safe_length)
+        self.view[spec.offset:spec.offset+len(out):spec.units].bytes = out

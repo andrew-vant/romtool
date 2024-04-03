@@ -4,7 +4,7 @@ snames	name	Species Names	Name	species	strz	0x1F7184	412	11	11			main
 ndex_ids	ndex	National Pokedex Index	National Dex Id	species	uintle	0x1FC52C	412		2				
 hdex_ids	hdex	Hoenn Pokedex Ids	Hoenn Dex Id	species	uintle	0x1FC1F6	412		2				
 pokedex		Pokedex	Entry	pokedex	pokedex	0x3B1874	387	36	36				
-dexnames	name	Pokedex Names	Name	pokedex	strz	0x1F7184	387	11	11	i and snames._index[ndex_ids.index(i)]		main	Virtual table. Pokedex names are actually located by scanning the species->ndex table for a given ndex ID.
+dexnames	name	Pokedex Names	Name	pokedex	strz	0x1F7184	387	11	11	i and ndex_ids.index(i) * 11		main	Virtual table. Pokedex names are actually located by scanning the species->ndex table for a given ndex ID.
 moves		Moves	Move	moves	move	0x1FB144	355	12	9				
 mnames	name	Move Names	Name	moves	strz	0x1F8338	355	13	13			main	
 mdesc_ptr	dptr	Move Descriptions Index	Description Pointer	moves	uintle	0x3C09F0	355	4	4			pointer	
