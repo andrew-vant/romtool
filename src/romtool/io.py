@@ -138,8 +138,9 @@ class BitArrayView(NodeMixin):
 
     def __format__(self, format_spec):
         spec = FormatSpecifier.parse(format_spec)
-        if spec.type in 'Xx':
+        if spec.type and spec.type in 'Xx':
             return format(self.uintbe, format_spec)
+        log.error(f"spec: {format_spec} | {spec!r} | {spec.type!r}")
         return super().__format__(format_spec)
 
     def __repr__(self):

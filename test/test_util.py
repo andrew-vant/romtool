@@ -109,6 +109,12 @@ class TestFormatSpecifier(unittest.TestCase):
         with self.assertRaises(ValueError):
             FormatSpecifier.parse('invalid_spec')
 
+    def test_single_x(self):
+        # single-X once got misinterpreted as fill rather than type
+        spec = FormatSpecifier.parse('X')
+        self.assertEqual(spec.type, 'X')
+        self.assertNotEqual(spec.fill, 'X')
+
     def test_str_method(self):
         spec = FormatSpecifier(fill='0', align='>', width=10,
                                precision=2, type='f')
