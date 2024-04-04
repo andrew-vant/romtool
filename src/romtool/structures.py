@@ -462,7 +462,7 @@ class TableSpec:
 
 class Table(Sequence, RomObject, ABC):
     """ A ROM data table """
-    def __init__(self, parent, view, spec):
+    def __init__(self, parent, view, spec, index=None):
         """ Create a table
 
         parent: The parent object (usually a Rom)
@@ -470,17 +470,20 @@ class Table(Sequence, RomObject, ABC):
         spec:   The table spec
         index:  a list of offsets within the view
         """
-        if type(self) is Table:
-            raise TypeError("The base Table class is uninstantiable by design")
         self.parent = parent
         self.view = view
         self.spec = spec
+        # FIXME: why doesn't this break when creating a Strings?
+        self._index = index or [i*(spec.stride or spec.size)
+                                for i in range(spec.count)]
         # These are useful enough that I might as well snap them here
         self.id = self.spec.id
         self.name = self.spec.name
 
     def __len__(self):
-        return self.spec.count
+        # I've run into tables with more entries than indices. Use the
+        # latter, since you can't look up anything past that anyway.
+        return len(self._index)
 
     def __repr__(self):
         cls = type(self).__name__
@@ -552,7 +555,17 @@ class Table(Sequence, RomObject, ABC):
         Called by the default setitem/getitem implementations. Subclasses
         should override either this or setitem/getitem.
         """
-        raise NotImplementedError
+        os_self = self.spec.offset
+        os_item = self._index[i]
+        start = os_self + os_item
+        end = (start + self.spec.size) if self.spec.size else None
+        units = self.spec.units
+        try:
+            return self.view[start:end:units]
+        except IndexError as ex:
+            msg = (f"bad offset for {self.name} #{i}: "
+                   f"{os_self:#0x}+{os_item:#0x}")
+            raise ValueError(msg) from ex
 
     def update(self, mapping):
         """ Update the list from an index->item mapping
@@ -576,58 +589,35 @@ class Table(Sequence, RomObject, ABC):
             raise LookupError(f"No object with name: {name}")
 
 
-class Array(Table):
-    def viewof(self, i):
-        stride = self.spec.stride or self.spec.size
-        size = self.spec.size or self.spec.stride
-        offset = self.spec.offset + i * stride
-        units = self.spec.units
-        return self.view[offset:offset+size:units]
-
-
-class IndexedTable(Table):
-    """ A table with an index -- usually an array of pointers """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Do not like that this reaches into rom internals. But also don't
-        # like adding a constructor arg, it makes rom.py more complicated if
-        # it has to do something different for each table type.
-        self._index = self.root.tables[self.spec.index]
+class Index(Sequence):
+    def __init__(self, expr, symtable, length):
+        self.expr = expr
+        self.length = length
+        self.symtable = symtable or {}
+        self.eval = Interpreter({}, minimal=True)
 
     def __len__(self):
-        return len(self._index)
+        return self.length
 
-    def viewof(self, i):
-        os_self = self.spec.offset
-        os_item = self._index[i]
-        start = os_self + os_item
-        end = (start + self.spec.size) if self.spec.size else None
-        units = self.spec.units
-        try:
-            return self.view[start:end:units]
-        except IndexError as ex:
-            msg = (f"bad offset for {self.name} #{i}: "
-                   f"{os_self:#0x}+{os_item:#0x}")
-            raise ValueError(msg) from ex
+    def __str__(self):
+        return str(self.expr)
 
+    def __repr__(self):
+        return f"{type(self)}({self.expr!r}, {self.length!r}, {self.symtable!r})"
 
-class DynamicTable(Table):
-    """ A 'table' where entry offsets must be calculated on the fly """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.interpreter = Interpreter({}, minimal=True)
-
-    def viewof(self, i):
-        self.interpreter.symtable = ChainMap({'i': i}, self.root.tables)
-        offset = self.spec.offset + self.interpreter.eval(self.spec.index)
-        size = self.spec.size or self.spec.stride
-        errs = self.interpreter.error or []
-        for err in self.interpreter.error or []:
-            msg = f"error evaluating crossref: '{self.expr}': {err.msg}"
-            log.error(msg)
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return SequenceView(self, i)
+        if i >= len(self):
+            raise IndexError(f"{i} > {len(self)}")
+        if self.expr in self.symtable:  # skip expensive eval if we can
+            return self.symtable[self.expr][i]
+        self.eval.symtable = ChainMap({'i': i}, self.symtable)
+        result = self.eval(self.expr, show_errors=False)
+        errs = '; '.join(str(err) for err in self.eval.error or [])
         if errs:
-            raise RomtoolError(msg)
-        return self.view[offset:size and offset+size:self.spec.units]
+            raise RomtoolError(f"error(s) evaluating index: {self} -> {errs}")
+        return result
 
 
 class Strings(Table):  # more generic type: Series?
