@@ -447,8 +447,13 @@ class FormatSpecifier:
     pattern = re.compile(
         r'^'
         r'(?:'
-        r'(?P<fill>.)?'
-        r'(?P<align>[<>=^])?'
+        # To stop a lone type char being interpeted as fill, treat fill-align
+        # as a subgroup where align is required but the subgroup as a whole
+        # is optional.
+        r'(?:'
+            r'(?P<fill>.)?'
+            r'(?P<align>[<>=^])'
+        r')?'
         r'(?P<sign>[+\- ])?'
         r'(?P<alt>#)?'
         r'(?P<zero_pad>0)?'

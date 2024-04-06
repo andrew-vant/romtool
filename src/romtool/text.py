@@ -92,19 +92,26 @@ class TextTable(codecs.Codec):
 
         return bytes(codeseq), len(input)
 
+    # FIXME: not a great way to handle eos behavior. Possibilities: have a
+    # separate codec for with- and without- eos (ugly). Add an argument for it
+    # (doesn't match stdlib, requires passing it around). Make a missing eos a
+    # decoding error and decide how to handle it with the errors= argument
+    # (will this conflict with bracketreplace handler? should it be part of
+    # it?). Generate codec variants when Field() is constructed and make them
+    # part of the field object (maybe? Less inelegant, but how sure am I that
+    # a field's codec will never change?)
+
     # pylint: disable-next=redefined-builtin
     def decode(self, input, errors='strict'):
         """ Stateless decoder for text tables """
         handle = codecs.lookup_error(errors)
         text = ""
         i = 0
-        # the python codec infrastructure passes a memoryview, not
-        # bytes, which makes patricia-trie choke
-        if isinstance(input, memoryview):
-            input = bytes(input)
         while i < len(input):
             try:
-                match, string = self.dec.item(input[i:])
+                # the python codec infrastructure passes a memoryview, not
+                # bytes, which makes patricia-trie choke. Enforce bytes.
+                match, string = self.dec.item(bytes(input[i:]))
             except KeyError:
                 if errors == 'stop':
                     return text, i+1
@@ -119,6 +126,25 @@ class TextTable(codecs.Codec):
             if self.stop_on_eos and (match in self.eos):
                 break
         return text, i
+
+    def read_from(self, data, errors='strict', with_encoding=False):
+        """ Iterate over strings in a given data source.
+
+        Decodes `data`, a bytes-like object,and yields a separate string each
+        time EOS is encountered. If with_encoding is true, instead yields a
+        (string, bytes) tuple, the latter being the bytes from which the
+        string was decoded. The latter mode is mainly useful to avoid
+        re-encoding an unchanged string; doing so can introduce spurious
+        patch changes when multiple representations are valid.
+        """
+        offset = 0
+        with memoryview(data) as data:  # so we can slice without copy
+            while(offset < len(data)):
+                decoded, consumed = self.decode(data[offset:])
+                encoded = data[offset:offset+consumed]
+                offset += consumed
+                assert len(encoded) == consumed
+                yield (decoded, encoded) if with_encoding else decoded
 
     @classmethod
     def std(cls, stream):
@@ -167,6 +193,18 @@ class TextTable(codecs.Codec):
             return loader(f)
 
 
+# How to simplify iteration over strings broken by eos? Separate reader
+# class? Generator method on codec object?
+# Thought: unicode has no dedicated end-of-string character. Maybe define one
+# of the private-use codepoints as EOS and decode to that/split on that,
+# instead of the [EOS] text?
+# 
+# Other thought: the [eos] format for control and non-ascii characters is
+# irritating; can I use actual control characters? Can I do something like
+# the namereplace error handling in stdlib? Can I let edited strings specify
+# unicode characters with an escape of some kind, e.g. for symbols?
+#
+# Additional support: charmap files as used in man 5 charmap
 
 def bracketreplace_errors(ex):
     """ Bracket invalid characters by nightcrawler's quasi-standard """

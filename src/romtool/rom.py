@@ -4,6 +4,7 @@ import math
 import io
 import re
 import subprocess as sp
+from functools import cmp_to_key
 from itertools import groupby
 from os.path import splitext, basename
 from os.path import join as pathjoin
@@ -17,7 +18,7 @@ from more_itertools import unique_everseen as unique
 from . import util
 from .patch import Patch
 from .io import Unit, BitArrayView as Stream
-from .structures import Structure, Table, EntityList, CalculatedIndex
+from .structures import Structure, Strings, Table, Index, EntityList
 from .rommap import RomMap
 from .util import locate
 from .exceptions import MapError, RomError, RomtoolError, ChangesetError
@@ -58,14 +59,25 @@ class Rom(util.RomObject):
 
         self.map = rommap
         self.tables = Dict()
-        byidx = lambda spec: bool(spec.index)
-        for spec in sorted(self.map.tables.values(), key=byidx):
-            log.debug("creating table: %s", spec.id)
+        # Load indexes before any tables that depend on them
+        def cmp(spec1, spec2):
+            return (1 if spec1.index == spec2.id
+                    else -1 if spec2.index == spec1.id
+                    else 0)
+        for spec in sorted(self.map.tables.values(), key=cmp_to_key(cmp)):
+            # Check for table class overrides, otherwise infer from spec
+            cls = getattr(rommap.hooks, spec.cls,
+                          Strings if spec.type == 'strz' and spec.stride == 0
+                          else Table)
             index = (None if not spec.index
                      else self.tables[spec.index] if spec.index in self.tables
-                     else CalculatedIndex(spec.count, spec.index, self.tables))
-            self.tables[spec.id] = Table(self, self.data, spec, index)
-
+                     else Index(spec.index, self.tables, spec.count))
+            log.info("creating table %s as class %s", spec.id, cls)
+            self.tables[spec.id] = cls(self, self.data, spec, index)
+        # Sanity check
+        for t in self.tables.values():
+            assert (t.spec.index not in self.map.tables
+                    or t._index == self.tables[t.spec.index])
         self.entities = Dict()
         specs = list(self.map.tables.values())
         for tset in unique(spec.set for spec in specs):

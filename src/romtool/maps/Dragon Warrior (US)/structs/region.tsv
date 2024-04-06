@@ -1,0 +1,6 @@
+id	name	offset	size	type	display	ref
+monster1	Monster 1	0	1	uint		monsters
+monster2	Monster 2	1	1	uint		monsters
+monster3	Monster 3	2	1	uint		monsters
+monster4	Monster 4	3	1	uint		monsters
+monster5	Monster 5	4	1	uint		monsters

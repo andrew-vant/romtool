@@ -10,7 +10,7 @@ from romtool.io import BitArrayView as Stream
 from romtool.field import Field, StructField
 from romtool.rom import Rom
 from romtool.rommap import RomMap
-from romtool.structures import Structure, BitField, TableSpec, Table, Index
+from romtool.structures import Structure, BitField, TableSpec, Table
 from romtool.util import bytes2ba
 
 class TestStructure(unittest.TestCase):
@@ -264,12 +264,6 @@ class TestBitField(unittest.TestCase):
         self.assertEqual(list(bf.values()), [0, 0, 1])
 
 
-class TestIndex(unittest.TestCase):
-    def test_make_index(self):
-        index = Index(0, 4, 1)
-        self.assertEqual(index, (0, 1, 2, 3))
-
-
 class TestTable(unittest.TestCase):
     def setUp(self):
         self.struct_spec =  [{'id': 'one',
@@ -288,7 +282,6 @@ class TestTable(unittest.TestCase):
         spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         array = Table(self.rom, self.stream, spec)
         self.assertEqual(len(array), 4)
-        self.assertEqual(len(array._index), 4)
         for i in range(4):
             self.assertEqual(array[i], i)
 
@@ -297,21 +290,20 @@ class TestTable(unittest.TestCase):
         array = Table(self.rom, self.stream, spec)
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
-        self.assertEqual(len(array._index), 4)
         for i in range(4):
             self.assertEqual(array[i].one, i)
 
     def test_indexed_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
-        tspec = TableSpec('t2', 'scratch')
+        tspec = TableSpec('t2', 'scratch', index='t1')
         index = Table(self.rom, self.stream, ispec)
         table = Table(self.rom, self.stream, tspec, index)
         for i in range(4):
             self.assertEqual(table[i].one, i)
 
-    def test_primitive_table(self):
+    def test_primitive_indexed_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
-        tspec = TableSpec('t2', 'uint', size=1)
+        tspec = TableSpec('t2', 'uint', size=1, index='t1')
         index = Table(self.rom, self.stream, ispec) # 0 1 2 3
         table = Table(self.rom, self.stream, tspec, index)
         for i in range(4):

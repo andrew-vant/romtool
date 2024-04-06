@@ -138,8 +138,9 @@ class BitArrayView(NodeMixin):
 
     def __format__(self, format_spec):
         spec = FormatSpecifier.parse(format_spec)
-        if spec.type in 'Xx':
+        if spec.type and spec.type in 'Xx':
             return format(self.uintbe, format_spec)
+        log.error(f"spec: {format_spec} | {spec!r} | {spec.type!r}")
         return super().__format__(format_spec)
 
     def __repr__(self):
@@ -170,7 +171,7 @@ class BitArrayView(NodeMixin):
             start *= unit
 
         if stop is None:
-            stop = self.end
+            stop = self.end - self.offset
         else:
             stop *= unit
 
@@ -180,8 +181,9 @@ class BitArrayView(NodeMixin):
             stop += len(self)
 
         if (self.offset + stop > len(self.ba)) or (self.offset + start < 0):
-            raise IndexError(f"bad slice: {sl.start}:{sl.stop}:{unit}")
-
+            raise IndexError(f"bad slice: "
+                f"{sl.start}:{sl.stop}:{unit} -> {start}:{stop}:{unit} "
+                f"(our length: {len(self)}@{self.offset}")
         return BitArrayView(self, start, stop-start)
 
     @property
@@ -227,6 +229,10 @@ class BitArrayView(NodeMixin):
     @property
     def bytes(self):
         return self.bits.tobytes()
+
+    def write(self, _bytes):
+        # FIXME: fail if writing off the end of the view?
+        self[:len(_bytes):Unit.bytes].bytes = _bytes
 
     @bytes.setter
     def bytes(self, _bytes):
