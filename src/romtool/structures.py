@@ -452,7 +452,7 @@ class TableSpec:
         kwargs.offset = HexInt(kwargs.offset)
         kwargs.count = int(kwargs.count, 0)
         kwargs.stride = int(kwargs.stride, 0) if kwargs.stride else None
-        kwargs.size = int(kwargs.size.strip(), 0) if kwargs.size else None
+        kwargs.size = int(kwargs.size, 0) if kwargs.size else None
         return cls(**kwargs)
 
     def asdict(self):
