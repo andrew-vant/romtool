@@ -81,4 +81,12 @@
 53='
 54='
 5F= 
+F1=[MNAME]
+F4=[ENAME]
+F5=[NUM]
+F6=[SPELL]
+F8=[PNAME]
+FB=[LB]
+FC=[NL]
+FD=[INPUT]
 /FF=[EOS]

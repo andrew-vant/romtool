@@ -1,6 +1,24 @@
 id	fid	name	iname	set	type	offset	count	stride	size	index	display	cls	comment
+anames_nm1	name1	Armor First Names	Name 1		strz	0x7AE5	7	0	16		main		
+anames_nm2	name2	Armor Last Names	Name 2		strz	0x7BD9	7	0	16		main		
+anames	name	Armor Names	Name	armor	strz	0	7	0	32		main	Names	
+adef	def	Armor Defense	Defense	armor	uint	0x19D8	7	1	1				
+aprices	price	Armor Prices	Price	armor	uintle	0x1955	7	2	2				
 monsters	monster	Monsters	Monster	monsters	monster	0x5E4B	40	16	16				
-nm1_monsters	name1	Monster First Names	Name 1		strz	0x7C70	40	0	16		main		
-nm2_monsters	name2	Monster Last Names	Name 2		strz	0x7DA2	40	0	16		main		
+mnames_nm1	name1	Monster First Names	Name 1		strz	0x7C70	40	0	16		main		
+mnames_nm2	name2	Monster Last Names	Name 2		strz	0x7DA2	40	0	16		main		
 mnames	name	Monster Names	Name	monsters	strz	0	40	0	24		main	Names	
+wnames_nm1	name1	Weapon First Names	Name 1		strz	0x7AB7	7	0	16		main		
+wnames_nm2	name2	Weapon Last Names	Name 2		strz	0x7BB7	7	0	16		main		
+wnames	name	Weapon Names	Name	weapons	strz	0	7	0	32		main	Names	
+wpower	power	Weapon Power	Power	weapons	uint	0x19D0	7	1	1				
+wprices	price	Weapon Prices	Price	weapons	uintle	0x1947	7	2	2				
+snames_nm1	name1	Shield First Names	Name 1		strz	0x7B15	3	0	16		main		
+snames_nm2	name2	Shield Last Names	Name 2		strz	0x7BFD	3	0	16		main		
+snames	name	Shield Names	Name	shields	strz	0	3	0	32		main	Names	
+sdef	def	Shield Defense	Defense	shields	uint	0x19E0	3	1	1				
+sprices	price	Shield Prices	Price	shields	uintle	0x1963	3	2	2				
 regions	region	Regions	Region	region	region	0xF54F	20	5	5				
+allnames_nm1	name1	First Names	Name 1		strz	0x7AB7	36	0	16		main		
+allnames_nm2	name2	Last Names	Name 2		strz	0x7BB7	36	0	16		main		
+allnames	name	All Names	Name		strz	0	36	0	32		main	Names	
