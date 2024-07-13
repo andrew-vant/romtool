@@ -4,6 +4,10 @@ A game-independent ROM-editing API.
 
 (and a simple frontend for using it)
 
+**NOTE: Romtool is late alpha at best**. It's *probably* usable, but I
+don’t guarantee that it won’t explode the moment it’s off my system, nor
+that this readme is up to date. Trust `--help` more than this document.
+
 ## What is this?
 
 Some people like to modify old games from the Age of Cartridges. Some
@@ -47,11 +51,6 @@ data structures in the ROM, and the relationships between them. My hope
 is that maps for romtool can eventually serve as well-defined,
 machine-readable documentation of how different games' internals are
 structured.
-
-Romtool is late-alpha/early-beta. It's *probably* usable, but its
-behavior may still change before a 1.0 release. While the commands
-documented in this file work as described, other commands listed in
-`romtool --help` may not.
 
 ## Installation
 
@@ -130,7 +129,8 @@ In this example, the output files contain lists of the game's weapons,
 armor, monsters, items, etc.
 
 The files thus created are plain-text files of tab-separated values.
-They can be opened in any spreadsheet program. I use LibreOffice.
+They can be opened in any spreadsheet program. I use visidata or
+LibreOffice.
 
 ### Modifying data tables
 
@@ -198,7 +198,7 @@ also accepts *changeset files* -- YAML or JSON formatted descriptions of
 changes to make.
 
 The main advantage of changeset files is self-documentation. You can
-tell at a glance what a they will do. In contrast, it's easy to lose
+tell at a glance what they will do. In contrast, it's easy to lose
 track of changes you've made to a spreadsheet. Also, changesets can be
 written in a standard text editor, so you don't have to fight with
 spreadsheet autoformat "features".
@@ -255,8 +255,8 @@ I want to support. This isn't a complete list, just the things that come
 to mind at time of writing:
 
 - ROM expansion
-- Empty-space search
-- Game documentation generation
+- Empty-space search (**FIXME:** Done but not documented)
+- Game documentation generation (**FIXME:** Done but not meta-documented)
   - monster/item/equipment lists (for players)
   - data table specs (for romhackers)
 - Alternate input and output formats
