@@ -1,0 +1,15 @@
+id	fid	name	iname	set	type	offset	count	stride	size	index	priority	order	display	comment
+damage	dmg	Damage Table	Damage	weapons	offense	0x1DC35	13	8	1					Offensive power -> Actual damage
+gangs	id	Gang IDs	Gang ID		uint	0x135E8	9	1	1					Index into gang-related arrays
+gdesc_ptrs	desc_ptr	Gang Desc Ptrs	Description Pointer		uintle	0x4116	9	2	2				pointer	Pointer index to description strings
+levels		Gang Levels	Stat Bonus		uint	0x13AA5	9	1	1	gangs		-1		Base value for gang stats
+gdescs	name	Gang Descriptions	Description		strz	-0x4000	9		32	gdesc_ptrs		-1	main	Gang description strings
+cash	cash	Cash Dropped	Cash		nbcdle	0x1EC2A	9		2	gangs[i]*2				
+mnames	members	Member Names	Name		gangnames	0x3D24	9			gangs[i]*18				
+bcash		Cash Dropped (Bosses)	Cash		nbcdle	0x1EC3C	14	2	2					Contiguous with gang cash drops
+bnm_ptrs	name_ptr	Name Pointers (Bosses)	Name Pointer		uint	0x3DC6	14	2	2				pointer	
+bnames	name	Boss Names	Name		strz	-0x8000	14		10	bnm_ptrs			main	
+names	name	Member Names	Name		strz	-0x8000	81		10	name_ptrs			main	Gang member names
+name_ptrs	name_ptr	Name Pointers	Name Pointer		uint	0x3D24	100	2	2				pointer	Gang member name blocks are in gang ID order -- i.e. first nine names are the members of gang 0 (Cowboys)
+items	item	Items	Item		item	0	124			item_ptrs				For once the index is relative to the ROM.
+item_ptrs	item_ptr	Item Pointers	Item Pointer		uint	0xA4FB	124	2	2				pointer	FIXME: includes nothing/no thanks/etc, which have bogus stats that break things on build; adjust range

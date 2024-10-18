@@ -4,6 +4,7 @@ import csv
 import contextlib
 import hashlib
 import importlib.resources as resources
+import inspect
 import io
 import logging
 import os
@@ -25,6 +26,7 @@ import yaml
 import asteval
 import appdirs
 import jinja2
+import pandas
 from bitarray import bitarray
 from bitarray.util import bits2bytes
 from itertools import tee
@@ -43,6 +45,14 @@ class TSV(csv.Dialect):
     doublequote = False
     quotechar=None
     strict = True
+
+    @classmethod
+    def to_pandas(cls):
+        sig = inspect.signature(pandas.DataFrame.to_csv)
+        kwargs = {k: v for k, v in vars(cls).items() if k in sig.parameters}
+        kwargs['sep'] = cls.delimiter
+        return kwargs
+
 csv.register_dialect('rt_tsv', TSV)
 TSVReader = partial(csv.DictReader, dialect='rt_tsv')
 TSVWriter = partial(csv.DictWriter, dialect='rt_tsv')

@@ -17,8 +17,10 @@ deps = [
     "asteval",
     "bitarray>=1.5.0",
     "docopt",
+    "dominate",
     "jinja2",
     "more-itertools",
+    "pandas",
     "patricia-trie>=10",
     "pyyaml>=3.10",
     ]

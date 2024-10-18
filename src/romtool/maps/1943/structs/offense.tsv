@@ -1,0 +1,7 @@
+id	name	offset	size	type	display	order	comment
+op_1	Power 1	0	1	uint			
+op_2	Power 2	1	1	uint			
+op_3	Power 3	2	1	uint			
+op_4	Power 4	3	1	uint			
+op_5	Power 5	4	1	uint			
+op_6	Power 6	5	1	uint			

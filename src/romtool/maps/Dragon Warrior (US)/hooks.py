@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from itertools import islice
 
 from romtool.structures import Table

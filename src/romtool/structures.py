@@ -16,8 +16,10 @@ from abc import ABC, abstractmethod
 from string import ascii_letters
 
 import yaml
+import dominate.tags as tags
 from addict import Dict
 from asteval import Interpreter
+from dominate.tags import tr, th, td, tbody, thead
 
 from .field import Field, StructField, FieldExpr
 from . import util
@@ -199,6 +201,20 @@ class EntityList(Sequence):
     def columns(self):
         return self.etype._keys
 
+    def to_html(self, *args, **kwargs):
+        table = tags.table(*args, **kwargs)
+        header = table.add(thead()).add(tr())
+        header.add(th("#"))
+        header.add(th(k) for k in self.columns())
+        body = table.add(tbody())
+        for i, entity in enumerate(self):
+            item = dict(entity.items())  # repeated getitem is slow
+            row = body.add(tr(th(i)))
+            for k in self.columns():
+                tag = th if k == 'Name' else td
+                row.add(tag(item[k]))
+        return table.render()
+
 
 class Structure(Mapping, RomObject):
     """ A structure in the ROM."""
@@ -341,6 +357,21 @@ class Structure(Mapping, RomObject):
                 raise
             fields.append(field)
         return cls.define(name, fields)
+
+    @classmethod
+    def to_html(cls, *args, **kwargs):
+        table = tags.table(*args, **kwargs)
+        header = table.add(thead()).add(tr())
+        body = table.add(tbody())
+        for field in cls.fields:
+            field = vars(field)
+            if len(header) == 0:  # first item
+                header.add(th(k) for k in field)
+            row = body.add(tr())
+            for k, v in field.items():
+                tag = th if k in ['id', 'name'] else td
+                row.add(tag(str(v or '')))
+        return table.render()
 
     def copy(self, other):
         """ Copy all attributes from one struct to another"""

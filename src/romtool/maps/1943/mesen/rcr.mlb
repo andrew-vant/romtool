@@ -1,0 +1,97 @@
+﻿NesMemory:0004:dmg_target
+NesMemory:0005:dmg_attacker
+NesMemory:0007:dmg_total_maybe
+NesMemory:001A:gang_level_maybe
+NesMemory:001B:gang_stats_offset_maybe
+NesMemory:001C:loop_index
+NesMemory:002A-002B:tmp_1
+NesMemory:002C-002D:tmp_2
+NesMemory:0047-0050:current_fighter
+NesMemory:049F:char1_punch
+NesMemory:04A1:enemy1_punch
+NesMemory:04A2:enemy2_punch
+NesMemory:04A3:char1_kick
+NesMemory:04A5:enemy1_kick
+NesMemory:04A6:enemy2_kick:04A6
+NesMemory:04A7:char1_weapon
+NesMemory:04A9:enemy1_weapon
+NesMemory:04AA:enemy2_weapon
+NesMemory:04AB:char1_throw
+NesMemory:04AD:enemy1_throw
+NesMemory:04AE:enemy2_throw
+NesMemory:04AF:char1_agi
+NesMemory:04B1:enemy1_agi
+NesMemory:04B2:enemy2_agi
+NesMemory:04B3:char1_def
+NesMemory:04B5:enemy1_def
+NesMemory:04B6:enemy2_def
+NesMemory:04B7:char1_str
+NesMemory:04B9:enemy1_str
+NesMemory:04BA:enemy2_str
+NesMemory:04BB:char1_will
+NesMemory:04BD:enemy1_will
+NesMemory:04BE:enemy2_will
+NesMemory:04BF:char1_stamina
+NesMemory:04C1:enemy1_stamina_q
+NesMemory:04C2:enemy2_stamina_q
+NesMemory:04C3:char1_max
+NesMemory:04C7-04C9:char1_money
+NesMemory:04F5-0514:gang_ids_maybe:index to possible array @BAA5\nindexed 0 for characters, 8 for fratboys, 2 for ??\ntargetted byte is used as static bonus for all stats
+NesMemory:064C:difficulty_level
+NesMemory:2000:PpuControl_2000:7  bit  0\n---- ----\nVPHB SINN\n|||| ||||\n|||| ||++- Base nametable address\n|||| ||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)\n|||| |+--- VRAM address increment per CPU read/write of PPUDATA\n|||| |     (0: add 1, going across; 1: add 32, going down)\n|||| +---- Sprite pattern table address for 8x8 sprites\n||||       (0: $0000; 1: $1000; ignored in 8x16 mode)\n|||+------ Background pattern table address (0: $0000; 1: $1000)\n||+------- Sprite size (0: 8x8; 1: 8x16)\n|+-------- PPU master/slave select\n|          (0: read backdrop from EXT pins; 1: output color on EXT pins)\n+--------- Generate an NMI at the start of the\n           vertical blanking interval (0: off; 1: on)
+NesMemory:2001:PpuMask_2001:7  bit  0\n---- ----\nBGRs bMmG\n|||| ||||\n|||| |||+- Display type: (0: color, 1: grayscale)\n|||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide\n|||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide\n|||| +---- 1: Show background\n|||+------ 1: Show sprites\n||+------- Emphasize red\n|+-------- Emphasize green\n+--------- Emphasize blue
+NesMemory:2002:PpuStatus_2002:7  bit  0\n---- ----\nVSO. ....\n|||| ||||\n|||+-++++- Least significant bits previously written into a PPU register\n|||        (due to register not being updated for this address)\n||+------- Sprite overflow. The intent was for this flag to be set\n||         whenever more than eight sprites appear on a scanline, but a\n||         hardware bug causes the actual behavior to be more complicated\n||         and generate false positives as well as false negatives; see\n||         PPU sprite evaluation. This flag is set during sprite\n||         evaluation and cleared at dot 1 (the second dot) of the\n||         pre-render line.\n|+-------- Sprite 0 Hit.  Set when a nonzero pixel of sprite 0 overlaps\n|          a nonzero background pixel; cleared at dot 1 of the pre-render\n|          line.  Used for raster timing.\n+--------- Vertical blank has started (0: not in vblank; 1: in vblank).\n           Set at dot 1 of line 241 (the line *after* the post-render\n           line); cleared after reading $2002 and at dot 1 of the\n           pre-render line.
+NesMemory:2003:OamAddr_2003:Set OAM address - Write only
+NesMemory:2004:OamData_2004:Read/Write OAM data
+NesMemory:2005:PpuScroll_2005:Set PPU scroll, write twice - Write only
+NesMemory:2006:PpuAddr_2006:Set PPU address, write twice - Write only
+NesMemory:2007:PpuData_2007:Read/Write VRAM
+NesMemory:4000:Sq0Duty_4000:DDLC VVVV\nDuty (D), envelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
+NesMemory:4001:Sq0Sweep_4001:EPPP NSSS\nSweep unit: enabled (E), period (P), negate (N), shift (S)
+NesMemory:4002:Sq0Timer_4002:TTTT TTTT\nTimer low (T)
+NesMemory:4003:Sq0Length_4003:LLLL LTTT\nLength counter load (L), timer high (T)
+NesMemory:4004:Sq1Duty_4004:DDLC VVVV\nDuty (D), envelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
+NesMemory:4005:Sq1Sweep_4005:EPPP NSSS\nSweep unit: enabled (E), period (P), negate (N), shift (S)
+NesMemory:4006:Sq1Timer_4006:TTTT TTTT\nTimer low (T)
+NesMemory:4007:Sq1Length_4007:LLLL LTTT\nLength counter load (L), timer high (T)
+NesMemory:4008:TrgLinear_4008:CRRR RRRR\nLength counter halt / linear counter control (C), linear counter load (R)
+NesMemory:400A:TrgTimer_400A:TTTT TTTT\nTimer low (T)
+NesMemory:400B:TrgLength_400B:LLLL LTTT\nLength counter load (L), timer high (T)
+NesMemory:400C:NoiseVolume_400C:--LC VVVV\nEnvelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
+NesMemory:400E:NoisePeriod_400E:L--- PPPP\nLoop noise (L), noise period (P)
+NesMemory:400F:NoiseLength_400F:LLLL L---\nLength counter load (L)
+NesMemory:4010:DmcFreq_4010:IL-- RRRR\nIRQ enable (I), loop (L), frequency (R)
+NesMemory:4011:DmcCounter_4011:-DDD DDDD\nLoad counter (D)
+NesMemory:4012:DmcAddress_4012:AAAA AAAA\nSample address (A)
+NesMemory:4013:DmcLength_4013:LLLL LLLL\nSample length (L)
+NesMemory:4014:SpriteDma_4014:Writing $XX will upload 256 bytes of data from CPU page $XX00-$XXFF to the internal PPU OAM.
+NesMemory:4015:ApuStatus_4015:Read:\nIF-D NT21\nDMC interrupt (I), frame interrupt (F), DMC active (D), length counter > 0 (N/T/2/1)\n\nWrite:\n---D NT21\nEnable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
+NesMemory:4016:Ctrl1_4016:Read (NES - input):\n---4 3210\nRead data from controller port #1.\n\nWrite:\n---- ---A\nOutput data (strobe) to both controllers.
+NesMemory:4017:Ctrl2_FrameCtr_4017:Read (NES - input):\n---4 3210\nRead data from controller port #2.\n\nWrite (Frame counter): MI-- ----\nMode (M, 0 = 4-step, 1 = 5-step), IRQ inhibit flag (I)
+NesMemory:B7FD:spawn_gang_member
+NesMemory:BAA5:gang_level_index_maybe:8 is frat boys (value 2)\n4 is jocks (value 4)
+NesMemory:BAFF:live_stat_block_offsets
+NesPrgRom:3DE4:enemy_names_larry
+NesPrgRom:5017-5025:string_frat_guys
+NesPrgRom:AE0B-AE0C:item_egg_unk1
+NesPrgRom:AE0D:item_egg_unk2
+NesPrgRom:10933:calculate_damage_2_maybe
+NesPrgRom:10BA1:calculate_damage_maybe
+NesPrgRom:10C88:inflict_damage_maybe
+NesPrgRom:10CF5:apply_damage
+NesPrgRom:10F02:dmg_load_total_maybe
+NesPrgRom:10F4D:calculate_damage_3_maybe
+NesPrgRom:11111:dmg_add_gang_stats_maybe
+NesPrgRom:137FD:load_fighter
+NesPrgRom:1383E:load_gang_member_stats
+NesPrgRom:138AC:stat_bonus_loop_start
+NesPrgRom:138B5:apply_gang_power_modifier
+NesPrgRom:138BE:apply_gang_stat_modifier
+NesPrgRom:138CE:apply_difficulty_modifier
+NesPrgRom:138DE:apply_bonuses_work_done
+NesPrgRom:13900:apply_difficulty_modifier_bosses
+NesPrgRom:13946:difficulty_modifier
+NesPrgRom:139D6-13A26:gang_member_stats
+NesPrgRom:13AC0-13AFE:gang_stats
+NesPrgRom:1CD67:load_text_character
+NesInternalRam:04CD-04D2:enemy_money_maybe

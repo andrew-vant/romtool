@@ -1,0 +1,42 @@
+[char1_punch]
+[char1_kick]
+[char1_weapon]
+[char1_throw]
+[char1_agi]
+[char1_def]
+[char1_str]
+[char1_will]
+[enemy1_punch]
+[enemy1_kick]
+[enemy1_weapon]
+[enemy1_throw]
+[enemy1_agi]
+[enemy1_def]
+[enemy1_str]
+[enemy1_will]
+[enemy1_stamina_q]
+[enemy2_punch], U
+[enemy2_kick], U
+[enemy2_weapon], U
+[enemy2_throw], U
+[enemy2_agi], U
+[enemy2_def], U
+[enemy2_str], U
+[enemy2_will], U
+[enemy2_stamina_q], U
+[static_bonus_maybe]
+[char1_money]
+{gang_bonus_index_maybe+2}
+[gang_ids_maybe+2]
+[gang_level_index_maybe+[gang_ids_maybe+2]]
+[string_frat_guys]
+[$2E]
+[$5E]
+[$4CD]
+[$4CE]
+[$4CF]
+[$4D0]
+[$4D1]
+[$4D2]
+[current_fighter]
+[tmp_1,4]

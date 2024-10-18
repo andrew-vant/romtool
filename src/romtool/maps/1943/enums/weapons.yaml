@@ -1,0 +1,14 @@
+0:  Cannon
+1:  Shotgun
+2:  3-way
+3:  Autocannon
+4:  Rocket
+5:  Shotgun 2
+6:  Laser
+7:  Wingman Cannon
+8:  Wingman Autocannon
+9:  Wingman Rockets
+10: Wingman Beams
+11: Charge Laser
+12: Unused?
+# Last two entries crash if equipped as "normal" weapons

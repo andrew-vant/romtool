@@ -7,6 +7,7 @@ To see command-specific help, run `romtool <command> --help`
 Commands:
     ident               Identify a ROM
     dump                Dump all known data from a ROM to `moddir`
+    print               Print a specific table
     build               Build a patch
     diff                Build a patch by diffing two ROMs
     apply               Apply patches to a ROM
@@ -145,6 +146,38 @@ def cmd_dump(args):
         log.error("you can use --force if you really mean it")
         sys.exit(2)
     log.info("Dump finished")
+
+
+def cmd_print(args):
+    """ Print a specific table
+
+    Usage: romtool print [--help] [options] <rom> [<table>]
+
+    Arguments:
+        rom     The ROM file
+        table   Object or sequence to print
+
+    Options:
+        -F, --format FMT    Output format (tsv or html)
+
+        -h, --help          Print this help
+        -v, --verbose       Verbose output
+        -q, --quiet         Quiet output
+        -D, --debug         Even more verbose output
+        --pdb               Start interactive debugger on crash
+    """
+    if not args.table:
+        log.error("No table specified (available: %s)", tables)
+    rom = _loadrom(args.rom)
+    for obj in rom.map, rom:
+        for attr in args.table.split('.'):
+            obj = getattr(obj, attr, None)
+            if not obj:
+                break
+        if obj:
+            print(obj.to_html())
+            return
+    log.error("can't find object: %s", args.table)
 
 
 def cmd_initchg(args):
