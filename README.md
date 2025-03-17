@@ -370,7 +370,7 @@ extension columns vs official columns...)
 * For tsv editing:
   * [visidata][vd] is a vim-like terminal editor for tabular files.
     Use this if you’re already comfortable with vim.
-  * [LibreOffice Calc][lo]: A free spreadsheet editor. It works for the
+  * [LibreOffice Calc][loc]: A free spreadsheet editor. It works for the
     purpose, but it will take some coercion to make it *stop helping
     you*.
 * Assemblers:
@@ -397,5 +397,6 @@ packages for fasmg (yet) or the macro sets (probably ever).
 [fasmg]: https://flatassembler.net/download.php
 [fm]: https://board.flatassembler.net/topic.php?t=16366
 [fgm]: https://board.flatassembler.net/topic.php?t=19389
+[loc]: https://www.libreoffice.org/
 [uet]: #useful-tools
 [mesen]: https://www.mesen.ca/
