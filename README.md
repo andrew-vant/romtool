@@ -62,7 +62,7 @@ work, as romtool has at least one dependency (bitarray) that does not
 provide pre-built wheels.
 
 Sometime before v1.0, I intend to arrange .deb and .rpm packages. The
-main blocker for this are dependencies that do not themselves provide
+main blockers for this are dependencies that do not themselves provide
 packages.
 
 For development installs, see CONTRIBUTING.md.
