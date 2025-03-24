@@ -205,17 +205,14 @@ class Patch(object):
         blocks = self._blockify(self.changes)
 
         # Deal with bogoaddress issues.
-        try:
+        if _IPS_BOGO_ADDRESS in blocks:
+            if bogobyte is None:
+                msg = ("A change started at 0x454F46 (EOF) "
+                       "but a valid bogobyte was not provided.")
+                raise PatchValueError(msg)
             data = blocks.pop(_IPS_BOGO_ADDRESS)
             bogo = bogobyte.to_bytes(1, "big")
             blocks[_IPS_BOGO_ADDRESS-1] = bogo + data
-        except KeyError:
-            # Nothing starts at bogoaddr so we're OK.
-            pass
-        except AttributeError:
-            msg = ("A change started at 0x454F46 (EOF) "
-                   "but a valid bogobyte was not provided.")
-            raise PatchValueError(msg)
         return blocks
 
     def to_ips(self, f, bogobyte=None):
