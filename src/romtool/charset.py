@@ -1,5 +1,15 @@
-#!/usr/bin/python3
+""" An incredibly stupid attempt to detect unknown charsets.
 
+Everything about this module is terrible. It was intended to ease figuring
+out the character sets of games. It *sort of* does that, but it's badly
+designed, badly commented, slow, and quite possibly a fundamentally misguided
+idea in the first place. The right way to do this is almost certainly to
+visually inspect the rom for a font-like bitmap and go from there.
+
+To the extent that this functions at all, it does so by looking for byte
+sequences in which the diffs between bytes match the diffs between characters
+in the input string.
+"""
 import string
 
 
