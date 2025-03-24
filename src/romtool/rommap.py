@@ -50,8 +50,9 @@ class RomMap:
     format, their locations within the rom, and, for textual data, their
     encoding.
     """
-    _adctfld = partial(field, default_factory=Dict)
     _ext_suffixes = ['.asm', '.ips', '.ipst', '.yaml', '.json']
+    _adctfld = staticmethod(partial(field, default_factory=Dict))
+
 
     name: str = None
     path: Path = None
