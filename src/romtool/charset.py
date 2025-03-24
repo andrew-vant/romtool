@@ -28,8 +28,8 @@ class Subset(object):
     def __init__(self, domain, text):
         try:
             first = next(i for i, c in enumerate(text) if c in domain)
-        except StopIteration:
-            raise UnusedSubset
+        except StopIteration as ex:
+            raise UnusedSubset from ex
 
         self.string = domain
         self.slen = len(self.string)
