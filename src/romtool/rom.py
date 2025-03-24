@@ -5,7 +5,6 @@ import io
 import re
 import subprocess as sp
 from functools import cmp_to_key
-from itertools import groupby
 from os.path import splitext, basename
 from os.path import join as pathjoin
 from shutil import which
@@ -21,7 +20,7 @@ from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Strings, Table, Index, EntityList
 from .rommap import RomMap
 from .util import locate
-from .exceptions import MapError, RomError, RomtoolError, ChangesetError
+from .exceptions import RomError, RomtoolError, ChangesetError
 
 
 log = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class HeaderError(RomFormatError):
     """ ROM header failed to validate """
 
 
-class Rom(util.RomObject):
+class Rom(util.NodeMixin):
     """ Base class for ROMs """
     romtype = 'unknown'
     prettytype = "Unknown ROM type"
@@ -254,7 +253,7 @@ class Rom(util.RomObject):
         """ Generate changeset dictionary """
         # This might be hard. Loop over each table, look for items that differ
         # between orig and self, emit table:name:key:value dict tree
-        raise Exception("Changeset generator not implemented yet")
+        raise RomtoolError("Changeset generator not implemented yet")
 
     def apply_patch(self, patch):
         """ Apply a Patch to this ROM """
