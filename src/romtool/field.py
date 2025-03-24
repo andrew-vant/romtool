@@ -249,7 +249,7 @@ class Field(ABC):
     def parse(self, string):
         """ Parse the string representation of this field's value type
 
-        The resulting value is returned, for convenience.
+        Returns the resulting value.
         """
         raise NotImplementedError("don't know how to parse a %s", type(self))
 
@@ -418,8 +418,10 @@ class IntField(Field):
         setattr(view, (realtype or self.type), value)
 
     def parse(self, string):
-        parser = self._enum.parse if self._enum else partial(int, base=0)
-        return parser(string)
+        # FIXME: does not do the right thing for enum types. *Can't* do the
+        # right thing with enum types with the current design, because
+        # there's no way to look up the relevant map from here.
+        return int(string, base=0)
 
 
 class BytesField(Field):
