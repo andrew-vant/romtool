@@ -130,7 +130,7 @@ class TextTable(codecs.Codec):
     def read_from(self, data, errors='strict', with_encoding=False):
         """ Iterate over strings in a given data source.
 
-        Decodes `data`, a bytes-like object,and yields a separate string each
+        Decodes `data`, a bytes-like object, and yields a separate string each
         time EOS is encountered. If with_encoding is true, instead yields a
         (string, bytes) tuple, the latter being the bytes from which the
         string was decoded. The latter mode is mainly useful to avoid
@@ -140,7 +140,7 @@ class TextTable(codecs.Codec):
         offset = 0
         with memoryview(data) as data:  # so we can slice without copy
             while(offset < len(data)):
-                decoded, consumed = self.decode(data[offset:])
+                decoded, consumed = self.decode(data[offset:], errors)
                 encoded = data[offset:offset+consumed]
                 offset += consumed
                 assert len(encoded) == consumed
@@ -187,9 +187,9 @@ class TextTable(codecs.Codec):
         return variants
 
     @classmethod
-    def from_path(cls, path, loader=None):
+    def from_path(cls, path, loader=None, encoding='utf-8'):
         loader = loader or cls.variants
-        with open(path) as f:
+        with open(path, encoding=encoding) as f:
             return loader(f)
 
 
