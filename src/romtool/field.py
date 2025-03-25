@@ -1,16 +1,15 @@
 import builtins
-import codecs
 import logging
 from collections import ChainMap
 from functools import partial
-from dataclasses import dataclass, fields, asdict
+from dataclasses import dataclass, fields
 from io import BytesIO
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Mapping
 
 from asteval import Interpreter
 
-from .io import Unit, BitArrayView
+from .io import Unit
 from .util import HexInt, IndexInt, locate, throw
 
 from .exceptions import RomtoolError, MapError
@@ -100,8 +99,11 @@ class FieldExpr:
         errs = self.interpreter.error
         if errs:
             msg = "error evaluating FieldExpr '{}': {}"
+            err = None
             for err in errs:
                 log.error(msg.format(self.spec, err.msg))
+            # We can log all errors but I don't have a great way to represent
+            # them all in the raised exeption, so for now just use the last one
             raise RomtoolError(msg.format(self.spec, err.msg))
         return result
 
@@ -148,6 +150,7 @@ class Field(ABC):
     def __post_init__(self):
         """ Perform sanity checks after construction """
         self.name = self.name or self.id
+        self.desc = f"<unknown>.{self.name}"
         for field in fields(self):
             value = getattr(self, field.name)
             if value is not None and not isinstance(value, field.type):
@@ -217,7 +220,9 @@ class Field(ABC):
         return context[offset:end]
 
     def __get__(self, instance, owner=None):
-        return self.read(instance, owner)
+        if instance is None:
+            return self
+        return self.read(instance)
 
     def __set__(self, instance, value):
         old = self.__get__(instance)
@@ -226,14 +231,12 @@ class Field(ABC):
         if new != old:
             log.debug("change: %s.%s %s -> %s", instance, self.id, old, new)
 
-    def read(self, obj, objtype=None):
+    def read(self, obj):
         """ Read from a structure field
 
         The default implementation assumes the field's `type` is a readable
         attribute of a bitview.
         """
-        if obj is None:
-            return self
         view = self.view(obj)
         assert len(view) == self.size.eval(obj) * self.unit
         return getattr(view, self.type)
@@ -251,10 +254,10 @@ class Field(ABC):
 
         Returns the resulting value.
         """
-        raise NotImplementedError("don't know how to parse a %s", type(self))
+        raise NotImplementedError(f"don't know how to parse a {type(self)}")
 
-    @classmethod
-    def from_tsv_row(cls, row, extra_fieldtypes=None):
+    @staticmethod
+    def from_tsv_row(row, extra_fieldtypes=None):
         try:
             cls = ChainMap(extra_fieldtypes or {}, DEFAULT_FIELDS)[row.get('type')]
         except KeyError as ex:
@@ -291,9 +294,7 @@ class StringField(Field):
             raise LookupError(f"no such codec: {self.display}")
         return _codec
 
-    def read(self, obj, objtype=None):
-        if obj is None:
-            return self
+    def read(self, obj):
         view = self.view(obj)
         codec = self.codec(obj).std
         return codec.decode(view.bytes, 'bracketreplace')[0].rstrip()
@@ -331,9 +332,7 @@ class StringZField(StringField):
         codec = self.codec(obj).clean
         return codec.decode(view.bytes, 'bracketreplace')
 
-    def read(self, obj, objtype=None):
-        if obj is None:
-            return self
+    def read(self, obj):
         return self._decode(obj)[0]
 
     def write(self, obj, value):
@@ -354,12 +353,12 @@ class StringZField(StringField):
         b_new = codec.encode(value, 'bracketreplace')[0]
         overrun = len(b_new) - bct_old
         if overrun > 0:
-            log.warning(f"replacement string '{value}' overruns end of old "
-                        f"string '{s_old}' by {overrun} bytes "
-                        f"({len(b_new)} > {bct_old})")
+            log.warning("replacement string '%s' overruns end of old string "
+                        "'%s' by %s bytes (%s > %s)",
+                        value, s_old, overrun, len(b_new), bct_old)
         else:
-            log.debug(f"replacing string '{s_old}' (len {bct_old}) "
-                      f"with '{value}' (len {len(b_new)})")
+            log.debug("replacing string '%s' (len %s) with '%s' (len %s)",
+                      s_old, bct_old, value, len(b_new))
         self.view(obj).write(b_new)
 
 
@@ -371,9 +370,7 @@ class IntField(Field):
         except (KeyError, AttributeError):
             return None
 
-    def read(self, obj, objtype=None, realtype=None):
-        if obj is None:
-            return self
+    def read(self, obj, realtype=None):
         view = self.view(obj)
         i = getattr(view, (realtype or self.type)) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
@@ -400,7 +397,7 @@ class IntField(Field):
                 # FIXME: break crossref resolution into a separate function.
                 # Not sure if it should be part of the field or somewhere else.
                 if not value:
-                    log.debug(f"empty cross-ref for {self.name} ignored")
+                    log.debug("empty cross-ref for %s ignored", self.name)
                     return
                 for source in obj.root.entities, obj.root.tables:
                     if self.ref in source:
@@ -430,14 +427,12 @@ class BytesField(Field):
 
 
 class StructField(Field):
-    def read(self, obj, objtype=None, realtype=None):
-        if obj is None:
-            return self
+    def read(self, obj, realtype=None):
         view = self.view(obj)
         return obj.root.map.structs[realtype or self.type](view, obj)
 
-    def write(self, obj, value, realtype=None):
-        target = self.read(obj)
+    def write(self, obj, value, realtype=None):  # pylint: disable=unused-argument
+        target = self.read(obj, realtype=realtype)
         if isinstance(value, str):
             target.parse(value)
         else:
