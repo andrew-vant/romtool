@@ -7,21 +7,19 @@ import dataclasses as dc
 import logging
 from collections import UserList, ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
-from itertools import chain, combinations, groupby, islice
+from itertools import chain, combinations, islice
 from functools import partial, cached_property
-from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
-from abc import ABC, abstractmethod
+from abc import ABC
 from string import ascii_letters
 
-import yaml
 from addict import Dict
 from asteval import Interpreter
 
-from .field import Field, StructField, FieldExpr
+from .field import Field, FieldExpr
 from . import util
-from .util import cache, locate, RomObject, SequenceView, CheckedDict, HexInt
+from .util import cache, RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -59,6 +57,10 @@ class Entity(MutableMapping):
                                    f"built-in attribute")
                 setattr(cls, field.id, prop)
         cls._keys = [f.name for f in sorted(cls._all_fields)]
+
+    @classmethod
+    def keys(cls):  # pylint: disable=arguments-differ
+        yield from cls._keys
 
     @classmethod
     def define(cls, name, tables):
@@ -117,13 +119,19 @@ class Entity(MutableMapping):
             raise AttributeError(attr)
         super().__setattr__(attr, value)
 
-    def update(self, other):
+    def update(self, other=(), /, **kwargs):
         """ Update this entity from a dictionary-like object
 
         Repeated setitem calls can get expensive. This provides a more
         performant alternative. The input dictionary should be keyed by field
         name. "extra" keys are ignored.
         """
+        # The MutableMapping interface expects us to handle key-value pairs
+        # and kwargs, although we haven't had a need for it yet.
+        if not isinstance(other, Mapping):
+            other = dict(other)
+        other = ChainMap(other, kwargs)
+
         # Table item lookups are where most of the cost seems to be, so let's
         # see if we can limit it to once per table
         for table, keys in self._keys_by_table.items():
@@ -197,7 +205,7 @@ class EntityList(Sequence):
         return self._length
 
     def columns(self):
-        return self.etype._keys
+        return list(self.etype.keys())
 
 
 class Structure(Mapping, RomObject):
@@ -212,12 +220,8 @@ class Structure(Mapping, RomObject):
         cls.fields.sorted = sorted(cls.fields)
 
     @cache
-    def __new__(cls, view, parent=None):
+    def __new__(cls, *_, **__):
         return super().__new__(cls)
-
-    def __init__(self, view, parent=None):
-        self.view = view
-        self.parent = parent
 
     def __getitem__(self, key):
         return self.fields.byname[key].__get__(self)
@@ -242,14 +246,16 @@ class Structure(Mapping, RomObject):
             pass
         raise LookupError(f"Couldn't find {key} in {self}")
 
-    @classmethod
-    def size(cls):
-        """ Get total size of structure, in bits
-
-        If the structure size is variable, get the maximum possible size
-        """
-        return sum(field.size.eval(cls) * field.unit
-                   for field in cls.fields)
+    @property
+    def size(self):
+        sz_nm = super().size
+        sz_struct = sum(field.size.eval(self) * field.unit
+                        for field in self.fields)
+        log.warning("this method was removed because it shadowed a "
+                    "NodeMixin one. As far as I know it's unused for other "
+                    "purposes. Returning nodemixin size %s; if you expected "
+                    "structure size %s, there's a bug here.",
+                    sz_nm, sz_struct)
 
     @classmethod
     def attrs(cls):
@@ -462,7 +468,7 @@ class TableSpec:
 
 class Table(Sequence, RomObject, ABC):
     """ A ROM data table """
-    def __init__(self, parent, view, spec, index=None):
+    def __init__(self, view, parent, spec, index=None):
         """ Create a table
 
         parent: The parent object (usually a Rom)
@@ -470,8 +476,7 @@ class Table(Sequence, RomObject, ABC):
         spec:   The table spec
         index:  a list of offsets within the view
         """
-        self.parent = parent
-        self.view = view
+        super().__init__(view, parent)
         self.spec = spec
         # FIXME: why doesn't this break when creating a Strings?
         self._index = index or [i*(spec.stride or spec.size)
@@ -578,15 +583,15 @@ class Table(Sequence, RomObject, ABC):
         for i, v in mapping.items():
             self[i] = v
 
-    def lookup(self, name):
+    def lookup(self, key):
         """ Get the first item in self with a given name """
         try:
-            return next(item for item in self if item.name == name)
-        except AttributeError:
+            return next(item for item in self if item.name == key)
+        except AttributeError as ex:
             raise AttributeError(f"Tried to look up {self.spec.type} by name, "
-                                  "but they are nameless")
-        except StopIteration:
-            raise LookupError(f"No object with name: {name}")
+                                  "but they are nameless") from ex
+        except StopIteration as ex:
+            raise LookupError(f"No object with name: {key}") from ex
 
 
 class Index(Sequence):
@@ -670,7 +675,7 @@ class Strings(Table):  # more generic type: Series?
         # principle, though, e.g. where changes to item N are depended on by
         # N+1.
         spec = self.spec
-        log.debug(f"updating string table {spec.id}")
+        log.debug("updating string table %s", spec.id)
         last = max(mapping)
         out = BytesIO()
         safe_length = 0  # original bytecount
@@ -684,10 +689,11 @@ class Strings(Table):  # more generic type: Series?
             new = mapping.get(i, old)
             if new == old:
                 # Don't re-encode, it can make no-op 'changes'
-                log.debug(f"no change: {spec.id}[{i}]: '{old}' -> '{new}' ({oldbytes.hex()})")
+                log.debug("no change: %s[%s]: '%s' -> '%s' (%s)",
+                          spec.id, i, old, new, oldbytes.hex())
                 out.write(oldbytes)
             else:
-                log.debug(f"changed {spec.id}[{i}]: '{old}' -> '{new}'")
+                log.debug("changed %s[%s]: '%s' -> '%s'", spec.id, i, old, new)
                 out.write(self.codec.encode(new)[0])
                 changed = True
         out = out.getvalue()

@@ -72,7 +72,7 @@ class Rom(util.NodeMixin):
                      else self.tables[spec.index] if spec.index in self.tables
                      else Index(spec.index, self.tables, spec.count))
             log.info("creating table %s as class %s", spec.id, cls)
-            self.tables[spec.id] = cls(self, self.data, spec, index)
+            self.tables[spec.id] = cls(self.data, self, spec, index)
         # Sanity check
         for t in self.tables.values():
             assert (t.spec.index not in self.map.tables
