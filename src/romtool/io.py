@@ -2,15 +2,12 @@ import logging
 import enum
 import hashlib
 import zlib
-import codecs
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
 from anytree.search import find
-from collections import namedtuple
 from collections.abc import Hashable
 from functools import partial
-from io import BytesIO
 
 from .util import FormatSpecifier, HexInt, NodeMixin
 from .util import bytes2ba, cache, chunk, throw
@@ -56,7 +53,9 @@ class BitArrayView(NodeMixin):
 
     @classmethod
     @cache
-    def _newcache(cls, auto, *args, **kwargs):
+    def _newcache(cls, auto, *args, **kwargs):  # pylint: disable=unused-argument
+        # unused-argument is disabled because we only need the arguments
+        # for caching purposes. object.__new__ only expects one argument.
         return super().__new__(cls)
 
     def __init__(self, auto, offset=None, length=None, name=None):
@@ -140,7 +139,7 @@ class BitArrayView(NodeMixin):
         spec = FormatSpecifier.parse(format_spec)
         if spec.type and spec.type in 'Xx':
             return format(self.uintbe, format_spec)
-        log.error(f"spec: {format_spec} | {spec!r} | {spec.type!r}")
+        log.error("spec problem: %s | %r | %r", format_spec, spec, spec.type)
         return super().__format__(format_spec)
 
     def __repr__(self):
