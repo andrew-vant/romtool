@@ -8,15 +8,12 @@ import io
 import logging
 import os
 import re
-import abc
 from collections import OrderedDict, Counter
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import chain
 from functools import lru_cache, partial
-from os.path import dirname, realpath
-from os.path import join as pathjoin
 from pathlib import Path
 from enum import IntEnum
 
@@ -157,7 +154,7 @@ class Offset(HexInt):
     # translating. Needs to track bits internally, have bytes/bits attributes,
     # something like divmod, handle arithmetic, provide useful
     # string and format methods.
-    def __new__(cls, *args, bytes=None, bits=None):
+    def __new__(cls, *args, bytes=None, bits=None):  # pylint:disable=redefined-builtin
         if args and (bytes or bits):
             raise ValueError("supply value or bytes/bits, not both")
         if args:
@@ -253,12 +250,12 @@ class Locator:
         # now...double check that it's still a problem.)
         try:
             return next(i for i, e in enumerate(sequence) if e.name == name)
-        except AttributeError:
+        except AttributeError as ex:
             raise MapError(f"Tried to look up {sequence.name} by name, "
-                            "but they are nameless")
-        except StopIteration:
+                            "but they are nameless") from ex
+        except StopIteration as ex:
             seqname = getattr(sequence, 'id', 'sequence')
-            raise ValueError(f"No object named {name} in {seqname}")
+            raise ValueError(f"No object named {name} in {seqname}") from ex
 
 
 locate = Locator()
@@ -272,7 +269,7 @@ class NodeMixin(anytree.NodeMixin):
     _debug = False  # enables expensive consistency checks
 
     def __attach(self, parent):
-        # pylint: disable=W0212
+        # pylint: disable=W0212,W0238
         if parent is not None:
             self._pre_attach(parent)
             parentchildren = parent.__children_or_empty
@@ -345,9 +342,8 @@ class Searchable:
         try:
             return next(item for i, item in enumerate(self)
                         if key == i or self.searcher(item, key))
-        except StopIteration:
-            typename = getattr(self, 'name', 'object')
-            raise LookupError(key)
+        except StopIteration as ex:
+            raise LookupError(key) from ex
 
 
 class PrettifierMixin:
@@ -532,9 +528,9 @@ class ChainView(Sequence):
         raise IndexError(f"{i} out of range")
 
 
-def seqview(sequence, slice):
+def seqview(sequence, _slice):
     # will something like this work?
-    return partial(sequence.__getitem__, slice)
+    return partial(sequence.__getitem__, _slice)
 
 
 def flatten_dicts(dct, _parent_keys=None):
@@ -659,6 +655,7 @@ def get_subfiles(root, folder, ext=None, empty_if_missing=True):
                     in root.joinpath(folder).iterdir()
                     if ext is None or path.suffix in ext)
     except catch as ex:
+        log.debug("%s (treating as empty)", ex)
         yield from iter(())
 
 
@@ -699,7 +696,7 @@ def dumptsv(target, dataset, force=False, headers=None, index=None):
 
 
 @contextlib.contextmanager
-def flexopen(target, mode=None, *args, **kwargs):
+def flexopen(target, mode=None, /, *args, **kwargs):
     """ 'Open' a path or file object with a unified interface
 
     `target` may be a string, Path object, or open file. Any additional
@@ -725,7 +722,7 @@ def flexopen(target, mode=None, *args, **kwargs):
         if isinstance(target, str):
             target = Path(target)
         mode = mode or 'r'
-        with target.open(mode, *args, **kwargs) as f:
+        with target.open(mode, *args, **kwargs) as f:  # pylint: disable=unspecified-encoding
             yield f
 
 
@@ -867,7 +864,6 @@ def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
     This mainly exists to be used as a jinja filter when generating
     documentation, though in principle it will work elsewhere.
     """
-    ct = len(sequence)
     extypes = extypes or (Exception,)
     for i in range(len(sequence)):
         try:
