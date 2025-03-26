@@ -39,15 +39,21 @@ class ChangesetError(RomtoolError):
     """ Exception raised for broken changesets """
 
 class RomDetectionError(RomtoolError):
-    """ Indicates that we couldn't autodetect the map to use for a ROM."""
-    def __init__(self, _hash=None, filename=None):
+    """ Indicates that we couldn't autodetect the map to use for a ROM.
+
+    Supply the unknown hash and the offending file. The latter may be either
+    a path-like object or an open file.
+    """
+    def __init__(self, _hash=None, file=None):
         super().__init__()
         self.hash = _hash
-        self.filename = filename
+        self.file = getattr(file, 'name', file)
+
     def __str__(self):
         return "ROM sha1 hash not in db: {}".format(self.hash)
+
     def log(self):
-        log.error("Couldn't autodetect ROM map for %s", self.filename)
+        log.error("Couldn't autodetect ROM map for %s", self.file)
         log.error("%s", self)
         log.error("The rom may be unsupported, or your copy may "
                       "be modified, or this may be a save file")
