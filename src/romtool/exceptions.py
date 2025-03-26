@@ -50,9 +50,10 @@ class RomDetectionError(RomtoolError):
         self.file = getattr(file, 'name', file)
 
     def __str__(self):
-        return "ROM sha1 hash not in db: {}".format(self.hash)
+        return f"ROM sha1 hash not in db: {self.hash}"
 
     def log(self):
+        """ Log this error in somewhat more detail, with suggestions. """
         log.error("Couldn't autodetect ROM map for %s", self.file)
         log.error("%s", self)
         log.error("The rom may be unsupported, or your copy may "
