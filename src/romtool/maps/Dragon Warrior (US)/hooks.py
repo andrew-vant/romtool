@@ -14,7 +14,6 @@ class Names(Table):
         self._nm2 = self.root.tables[f"{self.spec.id}_nm2"]
 
     def __iter__(self):
-        rom = self.root
         return (' '.join(nm_parts).strip() for nm_parts
                 in zip(self._nm1, self._nm2))
 

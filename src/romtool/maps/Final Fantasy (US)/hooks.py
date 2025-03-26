@@ -1,7 +1,6 @@
 import logging
 
-from romtool.field import Field, IntField, StructField
-from romtool.structures import Structure
+from romtool.field import IntField
 
 
 _save_data_offset = 0x400
@@ -27,12 +26,12 @@ class SpellArgument(IntField):
         tp_name = self._typemap.get(obj.code)
         return obj.root.map.structs[tp_name] if tp_name else int
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, realtype=None):
         view = self.view(obj)
         _type = self._realtype(obj)
         return view.uint if _type is int else _type(view, obj)
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         view = self.view(obj)
         _type = self._realtype(obj)
         if _type is int:

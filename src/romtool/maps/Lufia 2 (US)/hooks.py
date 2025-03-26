@@ -1,9 +1,5 @@
 import logging
-from pprint import pprint
-from functools import partial
-from io import BytesIO
 
-from romtool.structures import Structure
 from romtool.field import IntField
 from romtool.io import Unit
 from romtool.util import HexInt
@@ -40,7 +36,7 @@ class MonsterExtra(IntField):
             if not extype:
                 return
             if extype not in cls.known_extypes:
-                log.warning(f"Unknown monster extype found: 0x{extype:.2X}")
+                log.warning("Unknown monster extype found: 0x%.2X", extype)
             sl = slice(3*i+1, 3*i+3, Unit.bytes)
             yield extype, tail[sl]
 
@@ -55,7 +51,7 @@ class MonsterExtra(IntField):
         end = start + (self.size.eval(obj) * self.unit)
         return view[start:end]
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, realtype=None):
         view = self._view(obj)
         if view is None:
             return None
@@ -64,7 +60,7 @@ class MonsterExtra(IntField):
             value = HexInt(value, len(view))
         return value
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         # Probably this conversion should happen elsewhere...
         value = None if value == '' else value
         view = self._view(obj)
