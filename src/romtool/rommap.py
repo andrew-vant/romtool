@@ -1,20 +1,20 @@
 """This module contains classes for locating data within a ROM."""
 
 import os
-import importlib.resources as resources
+import importlib.util
 import logging
 import types
-from typing import Mapping, Sequence
 from codecs import CodecInfo
 from collections import ChainMap
-from functools import partial
-from itertools import chain
 from dataclasses import dataclass, field, fields
+from functools import partial
+from hashlib import sha1
+from importlib import resources
+from itertools import chain
 from os.path import relpath, basename
 from pathlib import Path
-from hashlib import sha1
+from typing import Mapping, Sequence
 from typing import Type
-import importlib.util
 
 from addict import Dict
 from appdirs import AppDirs
@@ -32,18 +32,25 @@ ichain = chain.from_iterable  # convenience
 dirs = AppDirs("romtool")
 
 
+@dataclass
 class MapTest:
-    def __init__(self, table, item, attribute, value):
-        self.table = table
-        self.item = int(item, 0)
-        self.attribute = attribute or None
+    """ Known table data, used to test map correctness. """
+    table: str       # name of table
+    item: int        # index within table
+    attribute: str   # structure attribute name
+    value: object    # expected value of attribute
+
+    def __post_init__(self):
+        self.item = int(self.item, 0)
+        self.attribute = self.attribute or None
         try:
-            self.value = int(value, 0)
+            self.value = int(self.value, 0)
         except ValueError:
-            self.value = value
+            pass
+
 
 @dataclass
-class RomMap:
+class RomMap:  # pylint: disable=too-many-instance-attributes
     """ A ROM map
 
     This describes what kinds of structures a given ROM contains, their data
@@ -91,6 +98,11 @@ class RomMap:
 
     @property
     def sets(self):
+        """ Get the names of table sets present in this map.
+
+        At present, each set represents a type-of-entity for which data may
+        be spread across multiple tables.
+        """
         return set(t.set for t in self.tables.values() if t.set)
 
     def find(self, top):
