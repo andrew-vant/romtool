@@ -138,10 +138,10 @@ class TextTable(codecs.Codec):
         patch changes when multiple representations are valid.
         """
         offset = 0
-        with memoryview(data) as data:  # so we can slice without copy
-            while(offset < len(data)):
-                decoded, consumed = self.decode(data[offset:], errors)
-                encoded = data[offset:offset+consumed]
+        with memoryview(data) as view:  # so we can slice without copy
+            while offset < len(data):
+                decoded, consumed = self.decode(view[offset:], errors)
+                encoded = view[offset:offset+consumed]
                 offset += consumed
                 assert len(encoded) == consumed
                 yield (decoded, encoded) if with_encoding else decoded
@@ -188,6 +188,7 @@ class TextTable(codecs.Codec):
 
     @classmethod
     def from_path(cls, path, loader=None, encoding='utf-8'):
+        """ Load a text table from a file path. """
         loader = loader or cls.variants
         with open(path, encoding=encoding) as f:
             return loader(f)
@@ -198,7 +199,7 @@ class TextTable(codecs.Codec):
 # Thought: unicode has no dedicated end-of-string character. Maybe define one
 # of the private-use codepoints as EOS and decode to that/split on that,
 # instead of the [EOS] text?
-# 
+#
 # Other thought: the [eos] format for control and non-ascii characters is
 # irritating; can I use actual control characters? Can I do something like
 # the namereplace error handling in stdlib? Can I let edited strings specify
