@@ -19,12 +19,12 @@ import importlib.util
 from addict import Dict
 from appdirs import AppDirs
 
-from . import util, text, config
-from .util import cache, get_subfiles as subfiles, Handler
-from .structures import Structure, BitField, Table, TableSpec
+from . import config, util
+from .exceptions import MapError, RomDetectionError
+from .field import Field, StructField, DEFAULT_FIELDS
+from .structures import Structure, BitField, TableSpec
 from .text import TextTable
-from .exceptions import RomtoolError, MapError, RomDetectionError
-from .field import Field, IntField, StructField, DEFAULT_FIELDS
+from .util import cache, get_subfiles as subfiles, Handler
 
 
 log = logging.getLogger(__name__)
@@ -79,10 +79,10 @@ class RomMap:
         for name, struct in self.structs.items():
             assert name in self.handlers
             assert issubclass(self.handlers[name], StructField)
-            for field in struct.fields:
-                if field.type not in self.handlers:
+            for fld in struct.fields:
+                if fld.type not in self.handlers:
                     # can't happen?
-                    msg = f"unknown type for {name}.{field.id}: {field.type}"
+                    msg = f"unknown type for {name}.{fld.id}: {fld.type}"
                     raise MapError(msg)
         for name, table in self.tables.items():
             if table.type not in self.handlers:
@@ -97,7 +97,7 @@ class RomMap:
         """ Find the ROM corresponding to this map under top """
         if isinstance(top, str):
             top = Path(top)
-        for parent, dirs, files in os.walk(top):
+        for parent, _, files in os.walk(top):
             for filename in files:
                 if filename == self.meta.file:
                     path = Path(parent, filename)
@@ -136,10 +136,10 @@ class RomMap:
             root = Path(root)
         kwargs = Dict(path=root)
         try:
-            with root.joinpath('meta.yaml').open() as f:
+            with root.joinpath('meta.yaml').open(encoding='utf8') as f:
                 kwargs.meta = Dict(util.loadyaml(f))
         except FileNotFoundError as ex:
-            log.warning(f"map metadata missing: {ex}")
+            log.warning("map metadata missing: %s", ex)
 
         # Load python hooks, if available. This has to be done first, because
         # it might provide types used later. FIXME: I am not sure if I'm doing
@@ -158,7 +158,7 @@ class RomMap:
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
-        def load_tt(name, f):
+        def load_tt(name, f):  # pylint: disable=unused-argument
             return TextTable.variants(f)
 
         def load_enum(name, f):
@@ -244,7 +244,7 @@ class MapDB(Mapping):
 
     def __init__(self, root):
         self.root = Path(root) if isinstance(root, str) else root
-        with self.root.joinpath('hashdb.txt').open() as f:
+        with self.root.joinpath('hashdb.txt').open(encoding='utf8') as f:
             self.hashdb = dict((line.strip().split(maxsplit=1) for line in f))
 
     # hash and eq implemented mainly to allow caching getitem results
@@ -272,7 +272,7 @@ class MapDB(Mapping):
             return RomMap.load(path)
         except KeyError as ex:
             msg = f"unrelated keyerror during rmap load: {ex}"
-            raise Exception(msg) from ex
+            raise MapError(msg) from ex
 
     @classmethod
     def cache_clear(cls):
