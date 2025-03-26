@@ -1,3 +1,4 @@
+""" Objects representing a ROM file. """
 import string
 import logging
 import math
@@ -103,6 +104,7 @@ class Rom(util.NodeMixin):
 
     @property
     def rom(self):
+        """ Alias for rom.data. """
         return self.data
 
     @property
@@ -138,9 +140,10 @@ class Rom(util.NodeMixin):
             except FileNotFoundError as ex:
                 log.warning("skipping %s: %s", _set, ex)
                 continue
-            byidx = lambda row: int(row['_idx'], 0)
             try:
-                contents = sorted(contents, key=byidx)
+                # Put items back in their original order if possible.
+                contents = sorted(contents,
+                                  key=lambda row: int(row['_idx'], 0))
             except KeyError:
                 log.warning('%s._idx not present; using input order', _set)
             data[_set] = contents
