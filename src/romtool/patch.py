@@ -143,10 +143,8 @@ class Patch:
                 size = size or hex(len(data) // 2)
                 length, expected = len(data) // 2, int(size, 16)
                 if length != expected:
-                    msg = (f"Data length mismatch on line {line_number} "
-                           f"(specified {hex(expected)} bytes, "
-                           f"received {hex(length)})")
-                    raise ValueError(msg)
+                    raise ValueError(f"size field ({size}) does not match "
+                                     f"data length ({length} bytes)")
                 return int(offset, 16), bytes.fromhex(data)
             if len(parts) == 4:
                 # For consistency with above, don't enforce the size field
@@ -154,32 +152,30 @@ class Patch:
                 offset, size, rle_size, value = [int(part, 16)
                                                  for part in parts]
                 if value > 0xFF:
-                    msg = ("Line {}: RLE value {:02X} "
-                           "won't fit in one byte.")
-                    raise PatchValueError(msg.format(line_number, value))
+                    raise ValueError(f"multi-byte RLE value {value:02X}")
                 return offset, repeat(value, rle_size)
-            msg = "Line {}: IPST format error."
-            raise PatchFormatError(msg.format(line_number))
+            raise ValueError("expected 3-4 colon-separated fields")
 
-        # Skip empty or commented lines.
-        f = (line for line in f if not line or not line.startswith("#"))
-        header = next(f).rstrip()
-        if header != _IPS_HEADER:
-            raise PatchFormatError("Header mismatch reading IPST file.")
-
+        # Ignore comments and trailing whitespace; note line numbers. The
+        # first real line must be a valid header. Each subsequent real line
+        # must be a valid IPS record. When we hit the footer, stop.
         changes = {}
-        for line_number, line in enumerate(f, 1):
-            # remove comments and trailing whitespace. If the remaining line is
-            # empty, skip it. If it's the footer, stop. Otherwise process as
-            # usual.
-            line = line.partition('#')[0].rstrip()
+        lines = enumerate((line.partition('#')[0].rstrip() for line in f), 1)
+        if next((line for i, line in lines if line), None) != _IPS_HEADER:
+            raise PatchFormatError("IPST header malformed or missing")
+        for i, line in lines:  # reuse iterator to keep line numbering
             if not line:
-                continue  # skip comments
-            if line == _IPS_FOOTER:  # EOF marker
+                continue
+            if line == _IPS_FOOTER:
                 break
-            offset, data = parse_line(line)
+            try:
+                offset, data = parse_line(line)
+            except ValueError as ex:
+                raise PatchValueError(f"Error on line {i}: {ex}") from ex
             for i, value in enumerate(data):
                 changes[offset+i] = value
+        else:
+            raise PatchFormatError("IPST footer malformed or missing")
         return Patch(changes)
 
     @classmethod
