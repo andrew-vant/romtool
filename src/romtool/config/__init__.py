@@ -1,3 +1,5 @@
+""" Romtool configuration-handling functions. """
+
 import os
 import logging
 from importlib.resources import files
