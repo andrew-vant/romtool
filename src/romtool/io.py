@@ -1,13 +1,17 @@
+""" Low-level manipulation of ROM data.
+
+The BitArrayView class makes up most of this module. Its attributes provide
+I/O translation between primitive types and the underlying bitarray.
+"""
 import logging
 import enum
 import hashlib
 import zlib
+from collections.abc import Hashable
+from functools import partial
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
-from anytree.search import find
-from collections.abc import Hashable
-from functools import partial
 
 from .util import FormatSpecifier, HexInt, NodeMixin
 from .util import bytes2ba, cache, chunk, throw
@@ -17,6 +21,8 @@ trace = partial(log.log, logging.NOTSET)
 
 
 class Unit(enum.IntEnum):
+    """ Lengths of common size units in bits. """
+    # pylint: disable=invalid-name
     bits = 1
     bytes = 8
     kb = 8 * 2**10
@@ -32,17 +38,18 @@ class Unit(enum.IntEnum):
 class BitArrayView(NodeMixin):
     """ Low level data handler
 
-    A BitArrayView is a view on part of a bitarray -- typically a data block (header
-    vs rom), or a structure's contents. Slicing a view will produce a smaller
-    view. The "step" slice attribute has been altered; it represents the
-    size-unit of the slice indexes.
+    A BitArrayView is a view on part of a bitarray -- typically a data block
+    (header vs rom), or a structure's contents. Slicing a view will produce a
+    smaller view. The "step" slice attribute has been altered; it represents
+    the size-unit of the slice indexes.
 
     Hence, view[1:8:Unit.bytes] would return a view containing bytes one
     through seven inclusive. view[1:8:Unit.bits] would get a view of
     *bits* one through seven inclusive.
 
     Slices are indexed relative to the view's start and end, not the
-    underlying bitarray. The underlying bitarray is available as BitArrayView.bits.
+    underlying bitarray. The underlying bitarray is available as
+    BitArrayView.bits.
     """
     def __new__(cls, auto, *args, **kwargs):
         # bitarrays are unhashable. Farm to separate new for view vs bitarray
@@ -70,12 +77,13 @@ class BitArrayView(NodeMixin):
 
         self.name = name
         self.offset = offset or 0
-        self.abs_start = self.offset + (0 if not self.parent else self.parent.abs_start)
+        self.abs_start = (self.offset if not self.parent
+                          else self.parent.abs_start + self.offset)
         self.length = (length if length
                        else (len(self.parent) - self.offset) if self.parent
                        else len(self.ba) - self.abs_start)
         if self.length < 0:
-            raise ValueError("View runs off the end of the underlying bitarray")
+            raise ValueError("View runs off the end of the data")
         self.abs_end = self.abs_start + len(self)
         self.abs_slice = slice(self.abs_start, self.abs_end)
         assert len(self.bits) == len(self), f"{len(self.bits)} != {len(self)}"
@@ -91,38 +99,48 @@ class BitArrayView(NodeMixin):
 
     @property
     def sha1(self):
-        """ Get sha1 hash of contents """
+        """ SHA1 hash of the view's contents. """
         return hashlib.sha1(self.bytes).hexdigest()
 
     @property
     def md5(self):
+        """ MD5 hash of the view's contents. """
         return hashlib.md5(self.bytes).hexdigest()
 
     @property
     def crc32(self):
+        """ CRC32 checksum of the view's contents. """
         checksum = zlib.crc32(self.bytes)
         return f"{checksum:08X}"
 
     @property
     def ct_bytes(self):
+        """ Number of bytes in the view.
+
+        Raises ValueError if the view is not an integer number of bytes long.
+        """
         if len(self) % Unit.bytes:
             raise ValueError("Not an even number of bytes")
-        else:
-            return len(self) // Unit.bytes
+        return len(self) // Unit.bytes
 
     @property
     def ct_bits(self):
+        """ Number of bits in the view. """
         return len(self)
 
     @property
     def os_bytes(self):
+        """ Offset of the view in bytes.
+
+        Raises ValueError if the offset is not an integer number of bytes.
+        """
         if len(self) % Unit.bytes:
             raise ValueError("Not an even number of bytes")
-        else:
-            return self.offset // Unit.bytes
+        return self.offset // Unit.bytes
 
     @property
     def os_bytemod(self):
+        """ Offset in bytes rounded down, and remainder in bits. """
         os_bytes, rm_bits = divmod(self.offset, Unit.bytes)
         os_bytes = HexInt(os_bytes, len(self.root).bit_length())
         return os_bytes, rm_bits
@@ -146,11 +164,9 @@ class BitArrayView(NodeMixin):
         _inobj = 'parent' if self.parent else 'ba'
         return f'BitArrayView({_inobj}, {self.offset}, {len(self)})'
 
-    def origin(self, name):
-        return find(self.root, lambda n: n.name == name)
-
     @property
     def end(self):
+        """ The end of this view relative to its parent. """
         return self.offset + len(self)
 
     def __getitem__(self, sl):
@@ -187,6 +203,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def ba(self):
+        """ Get the view's underlying bitarray. """
         return self._ba or self.root.ba
 
     #
@@ -195,6 +212,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def hex(self):
+        """ Get or set view contents as a hex string. """
         return ba2hex(self.bits)
 
     @hex.setter
@@ -203,6 +221,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def bits(self):
+        """ Get or set view contents as a bitarray. """
         bits = self.ba[self.abs_slice]
         return bits
 
@@ -219,6 +238,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def bin(self):
+        """ Get or set view contents as a string of 1s and 0s. """
         return ''.join('1' if bit else '0' for bit in self)
 
     @bin.setter
@@ -227,9 +247,14 @@ class BitArrayView(NodeMixin):
 
     @property
     def bytes(self):
+        """ Get or set view contents as a byte sequence. """
         return self.bits.tobytes()
 
     def write(self, _bytes):
+        """ Write bytes to the start of the view.
+
+        Bytes after those written are left unchanged.
+        """
         # FIXME: fail if writing off the end of the view?
         self[:len(_bytes):Unit.bytes].bytes = _bytes
 
@@ -239,6 +264,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def uint(self):
+        """ Get or set view contents as an unsigned integer. """
         return ba2int(self.bits)
 
     @uint.setter
@@ -252,6 +278,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def uintbe(self):
+        """ Get or set view contents as a big-endian unsigned integer. """
         return int.from_bytes(self.bytes, 'big')
 
     @uintbe.setter
@@ -262,6 +289,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def uintle(self):
+        """ Get or set view contents as a little-endian unsigned integer. """
         return int.from_bytes(self.bytes, 'little')
 
     @uintle.setter
@@ -272,6 +300,7 @@ class BitArrayView(NodeMixin):
 
     @property
     def int(self):
+        """ Interpret view contents as a signed integer. """
         return ba2int(self.bits, signed=True)
 
     @int.setter
