@@ -64,6 +64,7 @@ class Entity(MutableMapping):
 
     @classmethod
     def define(cls, name, tables):
+        """ Define an entity type that proxies to the given tables. """
         return type(name, (cls,), {}, tables=tables)
 
     def __init__(self, index):
@@ -185,7 +186,8 @@ class EntityList(Sequence):
             raise ValueError(f"Tried to create an EntityList with no name "
                              f"from tables: {', '.join(tables)}")
         if len(lengths) == 0:
-            raise ValueError(f"Tried to create EntityList '{name}' with no underlying tables")
+            raise ValueError(f"Tried to create EntityList '{name}' "
+                             f"with no underlying tables")
         if len(lengths) != 1:
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
@@ -203,9 +205,6 @@ class EntityList(Sequence):
 
     def __len__(self):
         return self._length
-
-    def columns(self):
-        return list(self.etype.keys())
 
 
 class Structure(Mapping, RomObject):
@@ -259,6 +258,7 @@ class Structure(Mapping, RomObject):
 
     @classmethod
     def attrs(cls):
+        """ Get an iterator over this structure's field IDs. """
         return iter(cls.fields.byid)
 
     def __iter__(self):
@@ -280,11 +280,10 @@ class Structure(Mapping, RomObject):
         if spec == 'byid':
             return ''.join(f'{field.id}: {getattr(self, field.id)}\n'
                            for field in self.fields)
-        elif spec == 'byname':
+        if spec == 'byname':
             return ''.join(f'{field.name}: {self[field.name]}\n'
                            for field in self.fields)
-        else:
-            return super().__format__(spec)
+        return super().__format__(spec)
 
     def __str__(self):
         cls = type(self).__name__
@@ -332,12 +331,14 @@ class Structure(Mapping, RomObject):
 
     @classmethod
     def define_from_tsv(cls, path, extra_fieldtypes=None):
+        """ Define a structure type from a TSV file path. """
         name = splitext(basename(path))[0]
         rows = util.readtsv(path)
         return cls.define_from_rows(name, rows, extra_fieldtypes)
 
     @classmethod
     def define_from_rows(cls, name, rows, extra_fieldtypes=None):
+        """ Define a structure type from the rows in a TSV file. """
         fields = []
         for row in rows:
             try:
@@ -358,6 +359,12 @@ class Structure(Mapping, RomObject):
 
 
 class BitField(Structure):
+    """ A bitfield.
+
+    Bitfields organize several bits into a block, usually one byte in size,
+    where each bit has a different meaning. Usually they are flags of some
+    sort.
+    """
     def __init_subclass__(cls):
         super().__init_subclass__()
         for f in cls.fields:
@@ -412,7 +419,11 @@ class BitField(Structure):
                 else next(k for k, v in self.items() if v))
 
     def parse(self, s):
-        if not len(s):
+        """ Update this bitfield from a string representation.
+
+        For the allowed representations, see __format__.
+        """
+        if not s:
             self.view.uint = 0
         elif s in self:
             self.view.uint = 0
@@ -427,7 +438,11 @@ class BitField(Structure):
 
 
 @dc.dataclass
-class TableSpec:
+class TableSpec:  # pylint: disable=R0902,R0903  # (unneeded on newer pylints?)
+    """ Table specification
+
+    Describes the format and location of a data table.
+    """
     id: str
     type: str
     fid: str = None
@@ -454,16 +469,13 @@ class TableSpec:
 
     @classmethod
     def from_tsv_row(cls, row):
+        """ Define a spec from a row in a TSV file. """
         kwargs = Dict(((k, v) for k, v in row.items() if v))
         kwargs.offset = HexInt(kwargs.offset)
         kwargs.count = int(kwargs.count, 0)
         kwargs.stride = int(kwargs.stride, 0) if kwargs.stride else None
         kwargs.size = int(kwargs.size, 0) if kwargs.size else None
         return cls(**kwargs)
-
-    def asdict(self):
-        return {k: '' if v is None else v
-                for k, v in dc.asdict(self).items()}
 
 
 class Table(Sequence, RomObject, ABC):
@@ -530,8 +542,8 @@ class Table(Sequence, RomObject, ABC):
             if len(indices) != len(v):
                 msg = "mismatched slice length; {len(indices)} != {len(v)}"
                 raise ValueError(msg)
-            for i, v in zip(range(i.start, i.stop, i.step), v):
-                self[i] = v
+            for idx, value in zip(range(i.start, i.stop, i.step), v):
+                self[idx] = value
         elif self.struct:
             self[i].copy(v)
         else:
@@ -595,6 +607,16 @@ class Table(Sequence, RomObject, ABC):
 
 
 class Index(Sequence):
+    """ A dynamic table index
+
+    Used when table item offsets require a calculation more complex than just
+    `offset + stride * i`. The supplied expression is evaluated when looking
+    up items. Its available symbols are everything in `symtable`, plus the
+    variable `i` for the item being looked up. Alternately, the expression
+    may be a key in the symtable; in that case it is assumed to be a
+    reference to another table, lookups will be forwarded, and [i] need not
+    be included in the expression.
+    """
     def __init__(self, expr, symtable, length):
         self.expr = expr
         self.length = length
@@ -608,7 +630,8 @@ class Index(Sequence):
         return str(self.expr)
 
     def __repr__(self):
-        return f"{type(self)}({self.expr!r}, {self.length!r}, {self.symtable!r})"
+        return (f"{type(self)}"
+                f"({self.expr!r}, {self.length!r}, {self.symtable!r})")
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -638,6 +661,7 @@ class Strings(Table):  # more generic type: Series?
     """
     @cached_property
     def codec(self):
+        """ The character encoding for strings in this table. """
         return self.root.map.ttables[self.spec.display].clean
 
     def __iter__(self):

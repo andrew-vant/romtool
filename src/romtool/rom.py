@@ -117,7 +117,7 @@ class Rom(util.NodeMixin):
         for name, elist in self.entities.items():
             log.info("Dumping %s (%s items)", name, len(elist))
             path = pathjoin(folder, f'{name}.tsv')
-            util.dumptsv(path, elist, force, elist.columns(), '_idx')
+            util.dumptsv(path, elist, force, elist.etype.keys(), '_idx')
 
     def lookup(self, key):
         """ Look up a rom table or entityset by ID """
