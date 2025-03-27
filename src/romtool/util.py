@@ -2,6 +2,7 @@
 
 import csv
 import contextlib
+import dataclasses as dc
 import hashlib
 import importlib.resources as resources
 import io
@@ -872,8 +873,26 @@ def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
             log.warning(ex)
             yield errstr.format(ex=ex)
 
+
+def denonify(mapping):
+    """ Replace Nones in a mapping with the empty string.
+
+    Used mainly during jinja rendering.
+    """
+    return {k: '' if v is None else v
+            for k, v in mapping.items()}
+
+
 @cache
 def jinja_env():
+    """ Return the jinja environment used for doc generation. """
+    def finalizer(obj):
+        """ Finalize objects for jinja rendering. """
+        return ('' if obj is None
+                else finalizer(dc.asdict(obj)) if dc.is_dataclass(obj)
+                else denonify(obj) if isinstance(obj, Mapping)
+                else obj)
+
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
     tpl_loader = jinja2.ChoiceLoader([
         jinja2.FileSystemLoader(user_templates),
@@ -882,7 +901,7 @@ def jinja_env():
     env = jinja2.Environment(
             loader=tpl_loader,
             extensions=['jinja2.ext.do'],
-            finalize=lambda obj: "" if obj is None else obj,
+            finalize=finalizer,
             autoescape=jinja2.select_autoescape(["html", "htm", "xml", "jinja"])
             )
     env.filters["safe_iter"] = safe_iter
