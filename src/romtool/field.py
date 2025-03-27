@@ -1,11 +1,15 @@
+""" Descriptors for low-level data fields.
+
+These are typically used as attributes on structure types.
+"""
 import builtins
 import logging
-from collections import ChainMap
-from functools import partial
-from dataclasses import dataclass, fields
-from io import BytesIO
 from abc import ABC
 from collections.abc import Mapping
+from collections import ChainMap
+from dataclasses import dataclass, fields
+from functools import partial
+from io import BytesIO
 
 from asteval import Interpreter
 
@@ -58,8 +62,11 @@ class FieldExpr:
     """ A field property whose value may be variable
 
     This is mainly of use for field offsets and sizes that are defined by
-    another field of the parent structure.
+    another field of the parent structure. If the expression has a fixed
+    value then it is precalculated to avoid repeated (expensive) evaluation.
     """
+    # FIXME: Maybe this should be folded into Field, or made more generic.
+
     DYNAMIC = object()  # Sentinel static value since None may be valid
 
     def __init__(self, spec):
@@ -92,6 +99,7 @@ class FieldExpr:
         return self.spec
 
     def eval(self, parent):
+        """ Evaluate the field against a given parent object. """
         if self.value is not self.DYNAMIC:
             return self.value
         self.interpreter.symtable = FieldContext(parent)
@@ -108,7 +116,7 @@ class FieldExpr:
         return result
 
 @dataclass
-class Field(ABC):
+class Field(ABC):  # pylint: disable=too-many-instance-attributes
     """ Define a ROM object's type and location
 
     There's a lot of things needed to fully characterize "what something is,
@@ -118,14 +126,14 @@ class Field(ABC):
     - name     (arbitrary string; used as dictionary key and table heading)
     - type     (could be a sub-struct or str or custom type (FF1 spell arg))
     - origin   ([parent], rom, file)
-    - unit     (bits, bytes, kb)
-    - offset   (0, 0xFF, other_field, other_field +0xFF? default to previous field's offset + length, or 0)
-    - size     (8, 0xFF)
+    - unit     (unit for offset/size; e.g. bits, bytes, kb)
+    - offset   (offset from origin in units, or FieldExpr producing same)
+    - size     (field size in units)
     - arg      (endian for bits, modifier for ints?)
-    - display  (format spec (ints) or encoding (str), implement __format__ somewhere?)
+    - display  (encoding (of strings) or __format__ spec (most other types))
     - ref      (int is an index of a table entry)
     - order    (output order)
-    - comment  (e.g. meaning of bits (but pretty sure I should use substruct for bitfields?))
+    - comment  (additional notes)
     """
 
     id: str
@@ -184,27 +192,34 @@ class Field(ABC):
 
     @property
     def is_name(self):
-        return any((s.lower().startswith('name') for s in [self.id, self.name]))
+        """ Check if the field is the name of the parent object. """
+        return any((s.lower().startswith('name')
+                    for s in [self.id, self.name]))
 
     @property
     def is_flag(self):
+        """ Check if the field is a boolean flag. """
         return self.size.spec == '1' and self.unit == Unit.bits
 
     @property
     def is_ptr(self):
+        """ Check if the field contains a pointer. """
         return self.display == 'pointer'
 
     @property
     def is_unknown(self):
+        """ Check if the field's purpose is unknown. """
         return 'unknown' in self.name.lower()
 
     @property
     def is_slop(self):
+        """ Check if the field is meaningless padding or similar. """
         slop_names = ['padding', 'reserved']
         return self.name.lower() in slop_names
 
     @property
     def identifiers(self):
+        """ Get valid identifiers for this field (e.g. id and name). """
         return [self.id, self.name]
 
     def view(self, obj):
@@ -258,8 +273,10 @@ class Field(ABC):
 
     @staticmethod
     def from_tsv_row(row, extra_fieldtypes=None):
+        """ Define a field from a tsv row (e.g. from a struct def file). """
+        extra_fieldtypes = extra_fieldtypes or {}
         try:
-            cls = ChainMap(extra_fieldtypes or {}, DEFAULT_FIELDS)[row.get('type')]
+            cls = ChainMap(extra_fieldtypes, DEFAULT_FIELDS)[row.get('type')]
         except KeyError as ex:
             raise MapError(f"unknown field type: {ex}") from ex
         kwargs = {}
@@ -281,14 +298,12 @@ class Field(ABC):
                 raise MapError(f'invalid {k}: {ex}', fid) from ex
         return cls(**kwargs)
 
-    def asdict(self):
-        return {f.name: getattr(self, f.name) or '' for f in fields(self)}
-
 
 class StringField(Field):
-    """ Field for fixed-width strings """
+    """ Fixed-width string field. """
 
     def codec(self, obj):
+        """ Get the character encoding for this field. """
         _codec = obj.root.map.ttables[self.display or 'ascii']
         if not _codec:
             raise LookupError(f"no such codec: {self.display}")
@@ -324,7 +339,7 @@ class StringField(Field):
 
 
 class StringZField(StringField):
-    """ Field for strings with a terminator """
+    """ Terminated-string field. """
 
     def _decode(self, obj):
         """ Get the string and bytecount of the current value """
@@ -363,6 +378,7 @@ class StringZField(StringField):
 
 
 class IntField(Field):
+    """ Integral field. """
     def _enum(self, obj):
         """ Get any relevant enum type """
         try:
@@ -414,19 +430,9 @@ class IntField(Field):
         value -= (self.arg or 0)
         setattr(view, (realtype or self.type), value)
 
-    def parse(self, string):
-        # FIXME: does not do the right thing for enum types. *Can't* do the
-        # right thing with enum types with the current design, because
-        # there's no way to look up the relevant map from here.
-        return int(string, base=0)
-
-
-class BytesField(Field):
-    def parse(self, string):
-        return bytes.fromhex(string)
-
 
 class StructField(Field):
+    """ Field containing a nested structure. """
     def read(self, obj, realtype=None):
         view = self.view(obj)
         return obj.root.map.structs[realtype or self.type](view, obj)
@@ -438,27 +444,15 @@ class StructField(Field):
         else:
             value.copy(target)
 
-    def parse(self, string):
-        raise NotImplementedError
-
 
 class ObjectField(StructField):
     """ Dummy field, for when a field is needed but won't be used """
 
 
-class BinField(Field):
-    def parse(self, string):
-        # libreoffice thinks it's hilarious to truncate 000011 to 11; pad as
-        # necessary if possible.
-        if isinstance(self.size, int):
-            string = string.zfill(self.size * self.unit)
-        return string
-
-
 DEFAULT_FIELDS = {
-    'bin': BinField,
+    'bin': Field,
     'object': ObjectField,
-    'bytes': BytesField,
+    'bytes': Field,
     'int': IntField,
     'uint': IntField,
     'uintbe': IntField,
