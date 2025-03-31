@@ -9,8 +9,10 @@ log = logging.getLogger(__name__)
 class RomtoolError(Exception):
     """ Base class for romtool exceptions """
 
+
 class RomError(RomtoolError):
     """ Exception raised for broken ROMs """
+
 
 class MapError(RomtoolError):
     """ Exceptions involving broken map definitions
@@ -38,6 +40,7 @@ class MapError(RomtoolError):
 class ChangesetError(RomtoolError):
     """ Exception raised for broken changesets """
 
+
 class RomDetectionError(RomtoolError):
     """ Indicates that we couldn't autodetect the map to use for a ROM.
 
@@ -57,5 +60,5 @@ class RomDetectionError(RomtoolError):
         log.error("Couldn't autodetect ROM map for %s", self.file)
         log.error("%s", self)
         log.error("The rom may be unsupported, or your copy may "
-                      "be modified, or this may be a save file")
+                  "be modified, or this may be a save file")
         log.error("You will probably have to explicitly supply --map")

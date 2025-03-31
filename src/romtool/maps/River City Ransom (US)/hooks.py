@@ -48,5 +48,4 @@ class Buff(IntField):
             # pretty sure writing any item buff requires rewriting all of them
 
 
-
 MAP_FIELDS = {'buff': Buff}

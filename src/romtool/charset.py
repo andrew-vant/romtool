@@ -31,11 +31,14 @@ from dataclasses import dataclass
 class NoMapping(Exception):
     """ Mo possible mapping fits the given data. """
 
+
 class MappingConflictError(Exception):
     """ More than one character maps to the same byte. """
 
+
 class UnusedSubset(Exception):
     """ A given character subset doesn't appear in a pattern. """
+
 
 @dataclass
 class Subset:  # pylint: disable=too-many-instance-attributes
@@ -79,8 +82,6 @@ class Pattern:  # pylint: disable=too-few-public-methods
     def __init__(self, s):
         self.string = s
         self.length = len(s)
-
-
         # Precalculate the first upper, lower and digit character in the
         # string, because we'll need them repeatedly and the scan is
         # surprisingly expensive.
@@ -141,7 +142,6 @@ class Pattern:  # pylint: disable=too-few-public-methods
             elif charset[char] != byte:
                 raise NoMapping("Contradiction detected")
 
-
     def buildmap(self, data):
         """ Try to build a character map mapping this pattern to input data.
 
@@ -155,6 +155,7 @@ class Pattern:  # pylint: disable=too-few-public-methods
         self._contradictioncheck(data, charset)
         # If we get here, we have a consistent and mostly-complete map.
         return charset
+
 
 def merge(*dicts):
     """ Merge character-map subsets and check them for conflicts. """

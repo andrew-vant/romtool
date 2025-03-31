@@ -601,7 +601,7 @@ class Table(Sequence, RomObject, ABC):
             return next(item for item in self if item.name == key)
         except AttributeError as ex:
             raise AttributeError(f"Tried to look up {self.spec.type} by name, "
-                                  "but they are nameless") from ex
+                                 f"but they are nameless") from ex
         except StopIteration as ex:
             raise LookupError(f"No object with name: {key}") from ex
 

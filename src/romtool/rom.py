@@ -27,6 +27,7 @@ from .exceptions import RomError, RomtoolError, ChangesetError
 log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
 
+
 class RomFormatError(RomError):
     """ Input file not the expected type of ROM """
 
@@ -60,10 +61,12 @@ class Rom(util.NodeMixin):
         self.map = rommap
         self.tables = Dict()
         # Load indexes before any tables that depend on them
+
         def cmp(spec1, spec2):
             return (1 if spec1.index == spec2.id
                     else -1 if spec2.index == spec1.id
                     else 0)
+
         for spec in sorted(self.map.tables.values(), key=cmp_to_key(cmp)):
             # Check for table class overrides, otherwise infer from spec
             cls = getattr(rommap.hooks, spec.cls,
@@ -280,7 +283,7 @@ class Rom(util.NodeMixin):
         for ext in extensions:
             if ext in cls.registry:
                 msg = ("%s attempted to claim %s extension, but it is "
-                      "already registered; ignoring")
+                       "already registered; ignoring")
                 log.warning(msg, name, ext)
             else:
                 log.debug('registering file extension %s as %s', ext, name)

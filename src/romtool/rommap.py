@@ -60,7 +60,6 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
     _ext_suffixes = ['.asm', '.ips', '.ipst', '.yaml', '.json']
     _adctfld = staticmethod(partial(field, default_factory=Dict))
 
-
     name: str = None
     path: Path = None
     structs: Mapping[str, Type[Structure]] = _adctfld()

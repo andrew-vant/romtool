@@ -3,6 +3,7 @@
 from romtool.rom import SNESRom
 from romtool.util import ChainView
 
+
 class Rom(SNESRom):
     """ A 7th Saga ROM. """
     def __init__(self, *args, **kwargs):

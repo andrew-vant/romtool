@@ -35,6 +35,7 @@ class Unit(enum.IntEnum):
     def __str__(self):
         return str(self.name)
 
+
 class BitArrayView(NodeMixin):
     """ Low level data handler
 
@@ -196,9 +197,11 @@ class BitArrayView(NodeMixin):
             stop += len(self)
 
         if (self.offset + stop > len(self.ba)) or (self.offset + start < 0):
-            raise IndexError(f"bad slice: "
+            raise IndexError(
+                f"bad slice: "
                 f"{sl.start}:{sl.stop}:{unit} -> {start}:{stop}:{unit} "
-                f"(our length: {len(self)}@{self.offset}")
+                f"(our length: {len(self)}@{self.offset}"
+                )
         return BitArrayView(self, start, stop-start)
 
     @property

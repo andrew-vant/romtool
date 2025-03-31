@@ -780,7 +780,7 @@ def search_strings(args):
     nonword = re.compile(r'\W+')
     pbar = partial(alive_bar, disable=not args.progress, enrich_print=False)
 
-    def report_hit(string, consumed, minlen=3): # FIXME: take minlen from args
+    def report_hit(string, consumed, minlen=3):  # FIXME: take minlen from args
         """ Check whether a decoded string counts as a hit
 
         Tries to determine whether a string is Actual Text rather than

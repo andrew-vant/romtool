@@ -115,6 +115,7 @@ class FieldExpr:
             raise RomtoolError(msg.format(self.spec, err.msg))
         return result
 
+
 @dataclass
 class Field(ABC):  # pylint: disable=too-many-instance-attributes
     """ Define a ROM object's type and location

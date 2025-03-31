@@ -27,6 +27,9 @@ from bitarray.util import bits2bytes
 from .exceptions import MapError
 
 log = logging.getLogger(__name__)
+loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
+ichain = chain.from_iterable
+
 
 class TSV(csv.Dialect):  # pylint: disable=too-few-public-methods
     """ Dialect for tab-separated values.
@@ -38,13 +41,13 @@ class TSV(csv.Dialect):  # pylint: disable=too-few-public-methods
     lineterminator = os.linesep
     quoting = csv.QUOTE_NONE
     doublequote = False
-    quotechar=None
+    quotechar = None
     strict = True
+
+
 csv.register_dialect('rt_tsv', TSV)
 TSVReader = partial(csv.DictReader, dialect='rt_tsv')
 TSVWriter = partial(csv.DictWriter, dialect='rt_tsv')
-loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
-ichain = chain.from_iterable
 
 
 def cache(function):
@@ -206,7 +209,7 @@ class IndexInt(int):
         return self.table[self]  # pylint: disable=no-member
 
     def __repr__(self):
-        #pylint: disable=no-member
+        # pylint: disable=no-member
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
@@ -275,7 +278,7 @@ class Locator:
             return next(i for i, e in enumerate(sequence) if e.name == name)
         except AttributeError as ex:
             raise MapError(f"Tried to look up {sequence.name} by name, "
-                            "but they are nameless") from ex
+                           f"but they are nameless") from ex
         except StopIteration as ex:
             seqname = getattr(sequence, 'id', 'sequence')
             raise ValueError(f"No object named {name} in {seqname}") from ex
@@ -297,8 +300,8 @@ class NodeMixin(anytree.NodeMixin):
             self._pre_attach(parent)
             parentchildren = parent.__children_or_empty
             assert (not self._debug
-                    or not any(child is self for child in parentchildren)), \
-                    "Tree is corrupt."  # pragma: no cover
+                    or not any(child is self for child in parentchildren)
+                    ), "Tree is corrupt."  # pragma: no cover
             # ATOMIC START
             parentchildren.append(self)
             self.__parent = parent
@@ -311,8 +314,8 @@ class NodeMixin(anytree.NodeMixin):
             self._pre_detach(parent)
             parentchildren = parent.__children_or_empty
             assert (not self._debug
-                    or any(child is self for child in parentchildren)), \
-                    "Tree is corrupt."  # pragma: no cover
+                    or any(child is self for child in parentchildren)
+                    ), "Tree is corrupt."  # pragma: no cover
             # ATOMIC START
             parent.__children = [child for child in parentchildren
                                  if child is not self]
@@ -342,6 +345,7 @@ class RomObject(NodeMixin):
         Implementations should raise LookupError if the key isn't present.
         """
         raise NotImplementedError
+
 
 class Searchable:
     """ Generator wrapper that supports lookups by name. """
@@ -382,7 +386,7 @@ class Searchable:
 class RomEnum(IntEnum):
     """ Enum variant for simpler dumping/loading """
     def __str__(self):
-        return self._name_ # pylint: disable=no-member
+        return self._name_  # pylint: disable=no-member
 
     @classmethod
     def parse(cls, string):
@@ -515,6 +519,7 @@ class FormatSpecifier:  # pylint: disable=too-many-instance-attributes
             precision=int(gd['precision']) if gd['precision'] else None,
             type=gd['type'],
         )
+
 
 class ChainView(Sequence):
     """ Variant of chain() that is a real indexable sequence
@@ -796,10 +801,12 @@ def chunk(seq, chunksize):
     for i in range(0, len(seq), chunksize):
         yield seq[i:i+chunksize]
 
+
 def debug_structure(data, loglevel=logging.DEBUG):
     """ yamlize a data structure and log it as debug """
     for line in yaml.dump(data).splitlines():
         log.log(loglevel, line)
+
 
 def pairwise(iterable):
     """ Iterate over consecutive pairs in an iterable. """
@@ -807,10 +814,12 @@ def pairwise(iterable):
     next(b, None)
     return zip(a, b)
 
+
 def roundup(n, base):
     """ Round N up to the next multiple of `base` """
     # credit: https://stackoverflow.com/a/14092788/
     return n - n % (-base)
+
 
 def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
     """ Handle exceptions while iterating over a sequence
@@ -864,6 +873,7 @@ def jinja_env():
     env.filters["safe_iter"] = safe_iter
     return env
 
+
 def tsv2html(infile, caption=None):
     """ Convert a tsv file to html.
 
@@ -878,6 +888,7 @@ def tsv2html(infile, caption=None):
             rows=reader
             )
 
+
 def jrender(_template, **context):
     """ Look up a jinja template and render it with context.
 
@@ -885,6 +896,7 @@ def jrender(_template, **context):
     environment details.
     """
     return jinja_env().get_template(_template).render(**context)
+
 
 def nodestats(node):
     """ Get some debugging statistics about an anynode node """
@@ -898,6 +910,7 @@ def nodestats(node):
             'largest child': f'{largest} ({len(largest.children)} children)',
             }
         }
+
 
 class lstr:  # pylint: disable=invalid-name,too-few-public-methods
     """ Calls a function only when its result needs to be printed """

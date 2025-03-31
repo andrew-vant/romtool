@@ -20,6 +20,7 @@ DEFAULTS = {f.name: _loadyaml(f.read_text())
             for f in files(__name__).iterdir()
             if f.suffix == '.yaml'}
 
+
 @cache
 def load(name, search_paths=None):
     """ Load a yaml config file

@@ -84,4 +84,5 @@ def sanitize_save(savefile):
     savefile.seek(_SAVE_DATA_OFFSET + _SAVE_CHECKSUM_OFFSET)
     savefile.write(bytes([checksum]))
 
+
 MAP_FIELDS = {'effect': SpellArgument}

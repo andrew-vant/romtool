@@ -46,7 +46,7 @@ class MonsterExtra(IntField):
         view = next((view for extype, view
                      in self._extras(obj)
                      if extype == self.arg),
-                     None)
+                    None)
         if view is None:
             return None
         start = self.offset.eval(obj)
@@ -83,5 +83,6 @@ class MonsterExtra(IntField):
 
     def parse(self, string):
         return int(string, 0) if string else None
+
 
 MAP_FIELDS = {'exmon': MonsterExtra}
