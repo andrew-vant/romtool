@@ -344,7 +344,8 @@ class RomObject(NodeMixin):
         raise NotImplementedError
 
 class Searchable:
-    """ Generator wrapper that supports lookups by name """
+    """ Generator wrapper that supports lookups by name. """
+    # FIXME: hate the whole call chain this is involved in.
     _NO_MATCH = object()
 
     def __init__(self, iterable, searcher=None):
@@ -364,6 +365,13 @@ class Searchable:
         return f"{type(self).__name__}({self.iter})"
 
     def lookup(self, key):
+        """ Get the first item in the iterable with the matching key.
+
+        The key may be an index, in which case the indexed item is returned.
+        Otherwise returns the first item for which `searcher(item, key)`
+        is true. By default searches for the first item that is equal to the
+        lookup key or the first item that has a name equal to the lookup key.
+        """
         try:
             return next(item for i, item in enumerate(self)
                         if key == i or self.searcher(item, key))
