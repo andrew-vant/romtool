@@ -9,6 +9,7 @@ init-hook=
 
 [MESSAGES CONTROL]
 
+ignore=version.py
 disable=fixme,logging-format-interpolation
 max-line-length=79
 good-names=i,j,k,v,ex,Run,_,tt,ba
