@@ -21,7 +21,8 @@ class Buff(IntField):
         offset = len(obj.name) + 1 + 8  # name, plus EOS, plus previous fields
         log.debug("sorting flags for %s", obj.name)
         for field in flags.fields:
-            log.debug("field offset check: %s %s", field.offset.eval(obj), field.id)
+            log.debug("field offset check: %s %s",
+                      field.offset.eval(obj), field.id)
             if getattr(flags, field.id):
                 if field.id == self.id:
                     return offset
@@ -42,7 +43,8 @@ class Buff(IntField):
         if isinstance(value, str):
             value = int(value, 0)
         if value != old:
-            raise NotImplementedError(f"can't change item buffs yet ({value!r} != {old!r})")
+            msg = f"can't change item buffs yet ({value!r} != {old!r})"
+            raise NotImplementedError(msg)
             # pretty sure writing any item buff requires rewriting all of them
 
 

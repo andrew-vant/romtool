@@ -1,3 +1,5 @@
+""" Romtool hooks for Lufia 2. """
+
 import logging
 
 from romtool.field import IntField
@@ -24,9 +26,9 @@ class MonsterExtra(IntField):
 
     known_extypes = [0x03, 0x07, 0x08]
 
-    # FIXME: Is there a way to alter a logger within the main dump/load loop such
-    # that it can print the index of the monster being processed even if the
-    # function logging the message does not know it?
+    # FIXME: Is there a way to alter a logger within the main dump/load loop
+    # such that it can print the index of the monster being processed even if
+    # the function logging the message does not know it?
 
     @classmethod
     def _extras(cls, obj):
@@ -64,18 +66,20 @@ class MonsterExtra(IntField):
         # Probably this conversion should happen elsewhere...
         value = None if value == '' else value
         view = self._view(obj)
+        fid = self.id
+        name = self.name
+
         if view is None and value is None:
             return  # Nothing to do
-        elif value == self.read(obj):
+        if value == self.read(obj):
             return  # Still nothing to do
-        elif view is None and value is not None:
-            msg = f"Can't safely add {self.id} ({self.name}) to a monster (yet)"
+        if view is None and value is not None:
+            msg = f"Can't safely add {fid} ({name}) to a monster yet"
             raise NotImplementedError(msg)
-        elif view is not None and value is None:
-            msg = f"Can't safely remove {self.id} ({self.name}) from a monster (yet)"
+        if view is not None and value is None:
+            msg = f"Can't safely remove {fid} ({name}) from a monster (yet)"
             raise NotImplementedError(msg)
-        else:
-            view.uint = value
+        view.uint = value
 
     def parse(self, string):
         return int(string, 0) if string else None
