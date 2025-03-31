@@ -1,10 +1,10 @@
 table	item	attribute	value
-monsters	2	hp	30
-monsters	36	name	Hermit
-characters	2	name	Esuna
-armor	0	cost	80
-armor	104	cost	0
-armor	0	name	*AR Xtri
-weapons	1	pow	2
-weapons	50	pow	85
-weapons	1	name	*SW Tranq
+items	2	name	Bagel
+items	5	price	100
+items	13	name	Rock Candy
+items	13	punch	1
+bosses	1	name	MOJO
+bosses	2	kick	39
+bosses	0	bcash	225
+members	4	wp	5
+members	4	throw	5

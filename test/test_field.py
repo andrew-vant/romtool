@@ -280,14 +280,14 @@ class TestTable(unittest.TestCase):
 
     def test_primitive_array_construction(self):
         spec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
-        array = Table(self.rom, self.stream, spec)
+        array = Table(self.stream, self.rom, spec)
         self.assertEqual(len(array), 4)
         for i in range(4):
             self.assertEqual(array[i], i)
 
     def test_structure_array_construction(self):
         spec = TableSpec('t1', 'scratch', count=4, offset=0, stride=1)
-        array = Table(self.rom, self.stream, spec)
+        array = Table(self.stream, self.rom, spec)
         self.assertIsInstance(array[0], self.scratch)
         self.assertEqual(len(array), 4)
         for i in range(4):
@@ -296,15 +296,15 @@ class TestTable(unittest.TestCase):
     def test_indexed_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         tspec = TableSpec('t2', 'scratch', index='t1')
-        index = Table(self.rom, self.stream, ispec)
-        table = Table(self.rom, self.stream, tspec, index)
+        index = Table(self.stream, self.rom, ispec)
+        table = Table(self.stream, self.rom, tspec, index)
         for i in range(4):
             self.assertEqual(table[i].one, i)
 
     def test_primitive_indexed_table(self):
         ispec = TableSpec('t1', 'uint', count=4, offset=0, stride=1)
         tspec = TableSpec('t2', 'uint', size=1, index='t1')
-        index = Table(self.rom, self.stream, ispec) # 0 1 2 3
-        table = Table(self.rom, self.stream, tspec, index)
+        index = Table(self.stream, self.rom, ispec) # 0 1 2 3
+        table = Table(self.stream, self.rom, tspec, index)
         for i in range(4):
             self.assertEqual(table[i], i)
