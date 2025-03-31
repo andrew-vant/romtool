@@ -154,7 +154,7 @@ class Patch:
                 if value > 0xFF:
                     raise ValueError(f"multi-byte RLE value {value:02X}")
                 return offset, repeat(value, rle_size)
-            raise ValueError("expected 3-4 colon-separated fields")
+            raise PatchFormatError("expected 3-4 colon-separated fields")
 
         # Ignore comments and trailing whitespace; note line numbers. The
         # first real line must be a valid header. Each subsequent real line
@@ -170,6 +170,9 @@ class Patch:
                 break
             try:
                 offset, data = parse_line(line)
+            except PatchError as ex:
+                # Re-raise with line information.
+                raise type(ex)(f"Error on line {i}: {ex}") from ex
             except ValueError as ex:
                 raise PatchValueError(f"Error on line {i}: {ex}") from ex
             for i, value in enumerate(data):
