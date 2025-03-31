@@ -1,48 +1,50 @@
 """ Various utility functions used in romtool."""
 
-import csv
 import contextlib
+import csv
+import dataclasses as dc
 import hashlib
-import importlib.resources as resources
 import io
 import logging
 import os
 import re
-import abc
-from collections import OrderedDict, Counter
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from itertools import chain
-from functools import lru_cache, partial
-from os.path import dirname, realpath
-from os.path import join as pathjoin
-from pathlib import Path
 from enum import IntEnum
+from functools import lru_cache, partial
+from importlib import resources
+from itertools import chain, tee
+from pathlib import Path
 
 import anytree
-import yaml
-import asteval
 import appdirs
 import jinja2
+import yaml
 from bitarray import bitarray
 from bitarray.util import bits2bytes
-from itertools import tee
 
 from .exceptions import MapError
 
 log = logging.getLogger(__name__)
+loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
+ichain = chain.from_iterable
 
-# romtool's expected format is tab-separated values, no quoting, no
-# escaping (i.e. tab literals aren't allowed)
 
-class TSV(csv.Dialect):
+class TSV(csv.Dialect):  # pylint: disable=too-few-public-methods
+    """ Dialect for tab-separated values.
+
+    Romtool's expected format is TSV, no quoting, no escaping (i.e. tab
+    literals aren't allowed).
+    """
     delimiter = '\t'
     lineterminator = os.linesep
     quoting = csv.QUOTE_NONE
     doublequote = False
-    quotechar=None
+    quotechar = None
     strict = True
+
+
 csv.register_dialect('rt_tsv', TSV)
 TSVReader = partial(csv.DictReader, dialect='rt_tsv')
 TSVWriter = partial(csv.DictWriter, dialect='rt_tsv')
@@ -127,7 +129,12 @@ class Handler(contextlib.suppress):
 class HexInt(int):
     """ An int that always prints as hex
 
-    Suitable for printing offsets.
+    Suitable for printing offsets. Takes a size specifier intended to ensure
+    that the printed result is as wide as the underlying data field (e.g.
+    w/zero padding). This is necessary when the code printing the value
+    doesn't know anything about the field it came from.
+
+    I'm sure there's a better way to do this.
     """
     sz_bits: int  # for pylint
 
@@ -153,11 +160,14 @@ class HexInt(int):
 
 
 class Offset(HexInt):
-    # Need to do something canonical with this because fuck it's annoying
-    # translating. Needs to track bits internally, have bytes/bits attributes,
-    # something like divmod, handle arithmetic, provide useful
-    # string and format methods.
-    def __new__(cls, *args, bytes=None, bits=None):
+    """ An HexInt customized for working with offsets.
+
+   Not currently used. Need to do something canonical with this because fuck
+   it's annoying translating. Needs to track bits internally, have bytes/bits
+   attributes, something like divmod, handle arithmetic, provide useful
+   string and format methods.
+   """
+    def __new__(cls, *args, bytes=None, bits=None):  # pylint:disable=redefined-builtin
         if args and (bytes or bits):
             raise ValueError("supply value or bytes/bits, not both")
         if args:
@@ -166,10 +176,12 @@ class Offset(HexInt):
 
     @property
     def bytes(self):
+        """ Get the offset in bytes, rounded down. """
         return self // 8
 
     @property
     def bits(self):
+        """ Get the remainder of the offset in bits. """
         return self % 8
 
 
@@ -193,10 +205,11 @@ class IndexInt(int):
 
     @property
     def obj(self):
+        """ Look up the item with this index in the underlying table. """
         return self.table[self]  # pylint: disable=no-member
 
     def __repr__(self):
-        #pylint: disable=no-member
+        # pylint: disable=no-member
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
@@ -209,6 +222,16 @@ def throw(ex, *args, **kwargs):
 
 
 class Locator:
+    """ Helper for crossref resolution.
+
+    Resolving objects by name can get very expensive with sufficiently
+    pessimal rom formats. Locator provides both a helper method to look up
+    objects by name, and a context manager that temporarily caches the
+    results.
+
+    This is almost certainly the wrong way to do this, but it works for now.
+    """
+
     def __init__(self):
         self.locate = type(self).locate
 
@@ -242,8 +265,8 @@ class Locator:
     def locate(sequence, name):  # pylint: disable=method-hidden
         """ Look up a sequence item by name
 
-        Returns the index of the first item that is either a matching string, or
-        has a .name attribute that is a matching string.
+        Returns the index of the first item that is either a matching string,
+        or has a .name attribute that is a matching string.
         """
         # TODO: Made a util function so lookups don't require all sequences to
         # have a locate() methods. Can't do it in-place because I need to
@@ -253,12 +276,12 @@ class Locator:
         # now...double check that it's still a problem.)
         try:
             return next(i for i, e in enumerate(sequence) if e.name == name)
-        except AttributeError:
+        except AttributeError as ex:
             raise MapError(f"Tried to look up {sequence.name} by name, "
-                            "but they are nameless")
-        except StopIteration:
+                           f"but they are nameless") from ex
+        except StopIteration as ex:
             seqname = getattr(sequence, 'id', 'sequence')
-            raise ValueError(f"No object named {name} in {seqname}")
+            raise ValueError(f"No object named {name} in {seqname}") from ex
 
 
 locate = Locator()
@@ -272,13 +295,13 @@ class NodeMixin(anytree.NodeMixin):
     _debug = False  # enables expensive consistency checks
 
     def __attach(self, parent):
-        # pylint: disable=W0212
+        # pylint: disable=W0212,W0238
         if parent is not None:
             self._pre_attach(parent)
             parentchildren = parent.__children_or_empty
             assert (not self._debug
-                    or not any(child is self for child in parentchildren)), \
-                    "Tree is corrupt."  # pragma: no cover
+                    or not any(child is self for child in parentchildren)
+                    ), "Tree is corrupt."  # pragma: no cover
             # ATOMIC START
             parentchildren.append(self)
             self.__parent = parent
@@ -291,10 +314,11 @@ class NodeMixin(anytree.NodeMixin):
             self._pre_detach(parent)
             parentchildren = parent.__children_or_empty
             assert (not self._debug
-                    or any(child is self for child in parentchildren)), \
-                    "Tree is corrupt."  # pragma: no cover
+                    or any(child is self for child in parentchildren)
+                    ), "Tree is corrupt."  # pragma: no cover
             # ATOMIC START
-            parent.__children = [child for child in parentchildren if child is not self]
+            parent.__children = [child for child in parentchildren
+                                 if child is not self]
             self.__parent = None
             # ATOMIC END
             self._post_detach(parent)
@@ -322,8 +346,10 @@ class RomObject(NodeMixin):
         """
         raise NotImplementedError
 
+
 class Searchable:
-    """ Generator wrapper that supports lookups by name """
+    """ Generator wrapper that supports lookups by name. """
+    # FIXME: hate the whole call chain this is involved in.
     _NO_MATCH = object()
 
     def __init__(self, iterable, searcher=None):
@@ -332,8 +358,9 @@ class Searchable:
 
     @staticmethod
     def _default_search(obj, key):
-        NM = Searchable._NO_MATCH
-        return obj == key or getattr(obj, 'name', NM) == key
+        # Some attr lookups are expensive, so short-circuit if possible
+        nm = Searchable._NO_MATCH
+        return obj == key or getattr(obj, 'name', nm) == key
 
     def __iter__(self):
         yield from self.iter
@@ -342,46 +369,34 @@ class Searchable:
         return f"{type(self).__name__}({self.iter})"
 
     def lookup(self, key):
+        """ Get the first item in the iterable with the matching key.
+
+        The key may be an index, in which case the indexed item is returned.
+        Otherwise returns the first item for which `searcher(item, key)`
+        is true. By default searches for the first item that is equal to the
+        lookup key or the first item that has a name equal to the lookup key.
+        """
         try:
             return next(item for i, item in enumerate(self)
                         if key == i or self.searcher(item, key))
-        except StopIteration:
-            typename = getattr(self, 'name', 'object')
-            raise LookupError(key)
-
-
-class PrettifierMixin:
-    """ Provides the .pretty method and sets up yaml representers for it """
-    class _PrettyDumper(yaml.Dumper):
-        """ Mostly-dummy dumper to put representers in """
-
-        def represent_short_seq(self, data):
-            data = f'[{len(data)} items]'
-            return self.represent_str(data)
-
-    @property
-    def pretty(self):
-        return yaml.dump(self, Dumper=self._PrettyDumper)
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-
-        representers = {
-                Mapping: yaml.Dumper.represent_dict,
-                Sequence: cls._PrettyDumper.represent_short_seq,
-                }
-        for supercls, representer in representers.items():
-            if issubclass(cls, supercls):
-                cls._PrettyDumper.add_representer(cls, representer)
+        except StopIteration as ex:
+            raise LookupError(key) from ex
 
 
 class RomEnum(IntEnum):
     """ Enum variant for simpler dumping/loading """
     def __str__(self):
-        return self._name_ # pylint: disable=no-member
+        return self._name_  # pylint: disable=no-member
 
     @classmethod
     def parse(cls, string):
+        """ Attempt to parse an enum string.
+
+        If the string names an enum value, returns that value. If it is a
+        valid integer, return that int. Any other string raises an exception.
+        """
+        # FIXME: This is almost certainly the wrong way to do this. I think
+        # I'm supposed to override _missing_ and then do RomEnum[string].
         try:
             return cls[string]
         except KeyError:
@@ -424,16 +439,21 @@ class SequenceView:
             return type(self)(self, i)
         return self.sequence[self._map_index(i)]
 
-    def __setitem__(self, i, v):
-        if isinstance(i, slice):
-            for i, v in zip(range(*i.indices(len(self))), v):
+    def __setitem__(self, item, value):
+        if isinstance(item, slice):
+            for i, v in zip(range(*item.indices(len(self))), value):
                 self[i] = v
         else:
             self.sequence[self._map_index(i)] = v
 
 
 @dataclass
-class FormatSpecifier:
+class FormatSpecifier:  # pylint: disable=too-many-instance-attributes
+    """ Parser for the standard format-specification mini-language (FSML).
+
+    Intended as an aid to classes that want to accept a similar format spec,
+    but for whatever reason can't just forward to another type.
+    """
     fill: str = None
     align: str = None
     sign: str = None
@@ -483,21 +503,23 @@ class FormatSpecifier:
 
     @classmethod
     def parse(cls, spec):
+        """ Parse an FSML spec into a FormatSpecifier object. """
         match = cls.pattern.match(spec)
         if not match:
             raise ValueError("Invalid format specifier")
-        groups = match.groupdict()
+        gd = match.groupdict()
         return cls(
-            fill=groups['fill'],
-            align=groups['align'],
-            sign=groups['sign'],
-            alt=bool(groups['alt']),
-            zero_pad=bool(groups['zero_pad']),
-            width=int(groups['width']) if groups['width'] else None,
-            grouping_option=groups['grouping_option'],
-            precision=int(groups['precision']) if groups['precision'] else None,
-            type=groups['type'],
+            fill=gd['fill'],
+            align=gd['align'],
+            sign=gd['sign'],
+            alt=bool(gd['alt']),
+            zero_pad=bool(gd['zero_pad']),
+            width=int(gd['width']) if gd['width'] else None,
+            grouping_option=gd['grouping_option'],
+            precision=int(gd['precision']) if gd['precision'] else None,
+            type=gd['type'],
         )
+
 
 class ChainView(Sequence):
     """ Variant of chain() that is a real indexable sequence
@@ -530,11 +552,6 @@ class ChainView(Sequence):
                     return
                 i -= len(parent)
         raise IndexError(f"{i} out of range")
-
-
-def seqview(sequence, slice):
-    # will something like this work?
-    return partial(sequence.__getitem__, slice)
 
 
 def flatten_dicts(dct, _parent_keys=None):
@@ -574,21 +591,6 @@ def pipeline(first, *functions):
     return first
 
 
-def str_reverse(s):
-    return s[::-1]
-
-
-def remap_od(odict, keymap):
-    """ Rename the keys in an ordereddict while preserving their order.
-
-    keymap: A dictionary mapping old key names to new key names.
-
-    keys not in keymap will be left alone.
-    """
-    newkeys = (keymap.get(k, k) for k in odict.keys())
-    return OrderedDict(zip(newkeys, odict.values()))
-
-
 def merge_dicts(dicts, allow_overlap=False):
     """ Merge an arbitrary number of dictionaries.
 
@@ -612,9 +614,6 @@ def merge_dicts(dicts, allow_overlap=False):
         out.update(d)
     return out
 
-def aeval(expr, context):
-    interpreter = asteval.Interpreter(symtable=context, minimal=True)
-    return interpreter.eval(expr)
 
 def divup(a, b):  # pylint: disable=invalid-name
     """ Divide A by B with integer division, rounding up instead of down."""
@@ -631,12 +630,6 @@ def intify(x, default):  # pylint: disable=invalid-name
     except (ValueError, TypeError):
         return x if default is None else default
 
-def intify_items(dct, keys, default=None):
-    for key in keys:
-        if not dct[key]:  # empty string
-            dct[key] = default
-            continue
-        dct[key] = int(dct[key], 0)
 
 def get_subfiles(root, folder, ext=None, empty_if_missing=True):
     """ Get files under a given folder with given extension(s)
@@ -659,12 +652,20 @@ def get_subfiles(root, folder, ext=None, empty_if_missing=True):
                     in root.joinpath(folder).iterdir()
                     if ext is None or path.suffix in ext)
     except catch as ex:
+        log.debug("%s (treating as empty)", ex)
         yield from iter(())
 
 
-def load_builtins(path, extension, loader):
+def load_builtins(folder, extension, loader):
+    """ Load packaged data files with an appropriate loader.
+
+    Looks in the given subfolder within the romtool package directory for
+    files with the given extension, and passes their paths as the sole
+    argument to the specified loader. Returns a mapping of each file's path
+    stem to the object loaded from it.
+    """
     builtins = {}
-    for path in get_subfiles(None, path, extension, False):
+    for path in get_subfiles(None, folder, extension, False):
         log.debug("Loading builtin: %s", path.name)
         builtins[path.stem] = loader(path)
     return builtins
@@ -699,7 +700,7 @@ def dumptsv(target, dataset, force=False, headers=None, index=None):
 
 
 @contextlib.contextmanager
-def flexopen(target, mode=None, *args, **kwargs):
+def flexopen(target, mode=None, /, *args, **kwargs):
     """ 'Open' a path or file object with a unified interface
 
     `target` may be a string, Path object, or open file. Any additional
@@ -725,7 +726,7 @@ def flexopen(target, mode=None, *args, **kwargs):
         if isinstance(target, str):
             target = Path(target)
         mode = mode or 'r'
-        with target.open(mode, *args, **kwargs) as f:
+        with target.open(mode, *args, **kwargs) as f:  # pylint: disable=unspecified-encoding
             yield f
 
 
@@ -747,57 +748,16 @@ def filesize(f):
     f.seek(pos)
     return size
 
-def unstring(stringdict, funcmap, remove_blank=False):
-    out = {}
-    for k, v in stringdict.items():
-        if k not in funcmap:
-            out[k] = v
-        elif remove_blank and v == '':
-            continue
-        elif isinstance(v, str):
-            out[k] = funcmap[k](v)
-        else:
-            out[k] = v
-    assert len(out) == len(stringdict) or remove_blank
-    return out
-
-def bracket(s, index):
-    start = s[:index]
-    char = '[{}]'.format(s[index])
-    end = s[index+1:]
-    return start + char + end
-
-def all_none(*args):
-    return all(i is None for i in args)
-
-def any_none(*args):
-    return any(i is None for i in args)
 
 def bytes2ba(_bytes, *args, **kwargs):
+    """ Convert a bytes object to a bitarray and return it.
+
+    The bitarray API doesn't have a good way to do this within an expression.
+    """
     ba = bitarray(*args, **kwargs)
     ba.frombytes(_bytes)
     return ba
 
-def convert(dct, mapper):
-    return {k: mapper[k](v) if k in mapper else v
-            for k, v in dct.items()}
-
-def duplicates(iterable):
-    return [k for k, v
-            in Counter(chain(*iterable)).items()
-            if v > 1]
-
-def subregistry(cls):
-    def initsub(cls, **kwargs):
-        cls.__init_subclass__(**kwargs) # FIXME: not sure how to make this work
-        name = cls.__name__
-        if name in cls.registry:
-            raise ValueError(f"duplicate definition of '{name}'")
-        cls.registry[name] = cls
-
-    cls.registry = {}
-    cls.__init_subclass__ = initsub
-    return cls
 
 @cache
 def nointro():
@@ -805,24 +765,14 @@ def nointro():
     return {item['sha1']: item['name'] for item
             in readtsv(resources.files(__package__).joinpath('nointro.tsv'))}
 
-class TSVLoader:
-    """ Helper class for turning tsv rows into constructor arguments """
-    def __init__(self, convmap):
-        self.convmap = convmap
-        # convmap should provide column names, a default value if the column
-        # isn't set, and a conversion function if the column is set
-
-    def parse(self, row):
-        pass
-
-
-def loadyaml(data):
-    # Just so I don't have to remember the extra argument everywhere.
-    # Should take anything yaml.load will take.
-    return yaml.load(data, Loader=yaml.SafeLoader)
-
 
 def slurp(path, *args, **kwargs):
+    """ Read the contents of a file.
+
+    Trivial helper. A fair number of loading functions expect to receive a
+    path rather than an open file; this provides a compatible interface, e.g.
+    for function tables.
+    """
     with flexopen(path, *args, **kwargs) as f:
         return f.read()
 
@@ -843,23 +793,33 @@ def sha1(file):
 
 
 def chunk(seq, chunksize):
+    """ Iterate over chunks of a sequence.
+
+    The yielded chunks are produced by slicing; thus they may be copies,
+    depending on the underlying type.
+    """
     for i in range(0, len(seq), chunksize):
         yield seq[i:i+chunksize]
+
 
 def debug_structure(data, loglevel=logging.DEBUG):
     """ yamlize a data structure and log it as debug """
     for line in yaml.dump(data).splitlines():
         log.log(loglevel, line)
 
+
 def pairwise(iterable):
+    """ Iterate over consecutive pairs in an iterable. """
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b)
+
 
 def roundup(n, base):
     """ Round N up to the next multiple of `base` """
     # credit: https://stackoverflow.com/a/14092788/
     return n - n % (-base)
+
 
 def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
     """ Handle exceptions while iterating over a sequence
@@ -867,18 +827,39 @@ def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
     This mainly exists to be used as a jinja filter when generating
     documentation, though in principle it will work elsewhere.
     """
-    ct = len(sequence)
     extypes = extypes or (Exception,)
-    for i in range(len(sequence)):
+    sequence = iter(sequence)
+    while True:
         try:
-            yield sequence[i]
+            yield next(sequence)
+        except StopIteration:
+            break
         except extypes as ex:
             log.warning(ex)
             yield errstr.format(ex=ex)
 
+
+def denonify(mapping):
+    """ Replace Nones in a mapping with the empty string.
+
+    Used mainly during jinja rendering.
+    """
+    return {k: '' if v is None else v
+            for k, v in mapping.items()}
+
+
 @cache
 def jinja_env():
+    """ Return the jinja environment used for doc generation. """
+    def finalizer(obj):
+        """ Finalize objects for jinja rendering. """
+        return ('' if obj is None
+                else finalizer(dc.asdict(obj)) if dc.is_dataclass(obj)
+                else denonify(obj) if isinstance(obj, Mapping)
+                else obj)
+
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
+    escape_formats = ["html", "htm", "xml", "jinja"]  # Is this really needed?
     tpl_loader = jinja2.ChoiceLoader([
         jinja2.FileSystemLoader(user_templates),
         jinja2.PackageLoader('romtool'),
@@ -886,13 +867,19 @@ def jinja_env():
     env = jinja2.Environment(
             loader=tpl_loader,
             extensions=['jinja2.ext.do'],
-            finalize=lambda obj: "" if obj is None else obj,
-            autoescape=jinja2.select_autoescape(["html", "htm", "xml", "jinja"])
+            finalize=finalizer,
+            autoescape=jinja2.select_autoescape(escape_formats)
             )
     env.filters["safe_iter"] = safe_iter
     return env
 
+
 def tsv2html(infile, caption=None):
+    """ Convert a tsv file to html.
+
+    At present this is done with a jinja template. Probably it should
+    actually be done with bs4 or something.
+    """
     reader = csv.reader(infile, dialect='rt_tsv')
     template = jinja_env().get_template('tsv2html.html')
     return template.render(
@@ -901,24 +888,31 @@ def tsv2html(infile, caption=None):
             rows=reader
             )
 
-def jrender(_template, **kwargs):
-    return jinja_env().get_template(_template).render(**kwargs)
+
+def jrender(_template, **context):
+    """ Look up a jinja template and render it with context.
+
+    Mostly this removes the need for the caller to think about jinja
+    environment details.
+    """
+    return jinja_env().get_template(_template).render(**context)
+
 
 def nodestats(node):
     """ Get some debugging statistics about an anynode node """
-    childcount = lambda node: len(node.children)
-    largest = max(node.descendants, key=childcount)
+    largest = max(node.descendants, key=lambda node: len(node.children))
     return {
         str(node): {
             'height': node.height,
             'depth': node.depth,
             'children': len(node.children),
             'descendants': len(node.descendants),
-            'largest child': f'{largest} ({childcount(largest)} children)',
+            'largest child': f'{largest} ({len(largest.children)} children)',
             }
         }
 
-class lstr:
+
+class lstr:  # pylint: disable=invalid-name,too-few-public-methods
     """ Calls a function only when its result needs to be printed """
     def __init__(self, func, *args, **kwargs):
         self.func = func

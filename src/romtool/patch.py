@@ -3,14 +3,15 @@
 import os
 import codecs
 import itertools
+from itertools import repeat
+
+from . import util
+from .exceptions import RomtoolError
 
 _IPS_HEADER = "PATCH"
 _IPS_FOOTER = "EOF"
 _IPS_BOGO_ADDRESS = 0x454f46
 _IPS_RLE_THRESHOLD = 10  # How many repeats before trying to use RLE?
-
-from . import util
-from .exceptions import RomtoolError
 
 
 class PatchError(RomtoolError):
@@ -25,7 +26,7 @@ class PatchValueError(PatchError):
     """ A patch's format is correct but it contains contradictory data."""
 
 
-class Patch(object):
+class Patch:
     """ A ROM patch."""
     def __init__(self, data=None, rom=None):
         """ Create a Patch.
@@ -125,55 +126,56 @@ class Patch(object):
     @classmethod
     def from_ipst(cls, f):
         """ Load an ipst patch file. """
-        # Skip empty or commented lines.
-        f = (line for line in f if not line or not line.startswith("#"))
 
-        header = next(f).rstrip()
-        if header != _IPS_HEADER:
-            raise PatchFormatError("Header mismatch reading IPST file.")
+        def parse_line(line):
+            """ Parse one line of an ipst file
 
-        changes = {}
-        for line_number, line in enumerate(f, 1):
-            # remove comments and trailing whitespace. If the remaining line is
-            # empty, skip it. If it's the footer, stop. Otherwise process as
-            # usual.
-            line = line.partition('#')[0].rstrip()
-            if not line:
-                continue
-            # Check for EOF marker
-            if line == _IPS_FOOTER:
-                break
-
+            Returns an offset and an iterable of byte values to put there.
+            Raises an exception if something is wrong with the record.
+            """
             # Normal records have three parts, RLE records have four. There's
             # probably a cleaner way to do this.
             parts = line.split(":")
             if len(parts) == 3:
                 offset, size, data = parts
-                # No need to require size on constructed input. It's just
-                # there to ease inspecting actual IPS files.
+                # The size component is optional; it only exists to ease
+                # inspecting actual IPS files. If present it must be correct.
                 size = size or hex(len(data) // 2)
                 length, expected = len(data) // 2, int(size, 16)
                 if length != expected:
-                    msg = (f"Data length mismatch on line {line_number} "
-                           f"(specified {hex(expected)} bytes, received {hex(length)})")
-                    raise ValueError(msg)
-                for i, byte in enumerate(bytes.fromhex(data)):
-                    changes[int(offset, 16)+i] = byte
-            elif len(parts) == 4:
+                    raise ValueError(f"size field ({size}) does not match "
+                                     f"data length ({length} bytes)")
+                return int(offset, 16), bytes.fromhex(data)
+            if len(parts) == 4:
                 # For consistency with above, don't enforce the size field
                 parts[1] = parts[1] or '0000'
                 offset, size, rle_size, value = [int(part, 16)
                                                  for part in parts]
                 if value > 0xFF:
-                    msg = ("Line {}: RLE value {:02X} "
-                           "won't fit in one byte.")
-                    raise PatchValueError(msg.format(line_number, value))
-                for i in range(rle_size):
-                    changes[offset+i] = value
-            else:
-                msg = "Line {}: IPST format error."
-                raise PatchFormatError(msg.format(line_number))
+                    raise ValueError(f"multi-byte RLE value {value:02X}")
+                return offset, repeat(value, rle_size)
+            raise ValueError("expected 3-4 colon-separated fields")
 
+        # Ignore comments and trailing whitespace; note line numbers. The
+        # first real line must be a valid header. Each subsequent real line
+        # must be a valid IPS record. When we hit the footer, stop.
+        changes = {}
+        lines = enumerate((line.partition('#')[0].rstrip() for line in f), 1)
+        if next((line for i, line in lines if line), None) != _IPS_HEADER:
+            raise PatchFormatError("IPST header malformed or missing")
+        for i, line in lines:  # reuse iterator to keep line numbering
+            if not line:
+                continue
+            if line == _IPS_FOOTER:
+                break
+            try:
+                offset, data = parse_line(line)
+            except ValueError as ex:
+                raise PatchValueError(f"Error on line {i}: {ex}") from ex
+            for i, value in enumerate(data):
+                changes[offset+i] = value
+        else:
+            raise PatchFormatError("IPST footer malformed or missing")
         return Patch(changes)
 
     @classmethod
@@ -205,17 +207,14 @@ class Patch(object):
         blocks = self._blockify(self.changes)
 
         # Deal with bogoaddress issues.
-        try:
+        if _IPS_BOGO_ADDRESS in blocks:
+            if bogobyte is None:
+                msg = ("A change started at 0x454F46 (EOF) "
+                       "but a valid bogobyte was not provided.")
+                raise PatchValueError(msg)
             data = blocks.pop(_IPS_BOGO_ADDRESS)
             bogo = bogobyte.to_bytes(1, "big")
             blocks[_IPS_BOGO_ADDRESS-1] = bogo + data
-        except KeyError:
-            # Nothing starts at bogoaddr so we're OK.
-            pass
-        except AttributeError:
-            msg = ("A change started at 0x454F46 (EOF) "
-                   "but a valid bogobyte was not provided.")
-            raise PatchValueError(msg)
         return blocks
 
     def to_ips(self, f, bogobyte=None):
@@ -245,7 +244,7 @@ class Patch(object):
                 fmt = "{:06X}:{:04X}:{:04X}:{:01X}"
                 print(fmt.format(offset, 0, len(data), data[0]), file=f)
             else:
-                datastr = ''.join('{:02X}'.format(d) for d in data)
+                datastr = ''.join(f'{d:02X}' for d in data)
                 fmt = "{:06X}:{:04X}:{}"
                 print(fmt.format(offset, len(data), datastr), file=f)
         print(_IPS_FOOTER, file=f)

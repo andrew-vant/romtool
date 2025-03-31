@@ -1,3 +1,5 @@
+""" Romtool configuration-handling functions. """
+
 import os
 import logging
 from importlib.resources import files
@@ -18,8 +20,9 @@ DEFAULTS = {f.name: _loadyaml(f.read_text())
             for f in files(__name__).iterdir()
             if f.suffix == '.yaml'}
 
+
 @cache
-def load(name, search_paths=None, refresh=False):
+def load(name, search_paths=None):
     """ Load a yaml config file
 
     The file will be merged with (and override) any defaults for the same file.
@@ -40,7 +43,7 @@ def load(name, search_paths=None, refresh=False):
     dataset.update(DEFAULTS[name])
     for path in search_paths:
         try:
-            with open(Path(path, name)) as f:
+            with open(Path(path, name), encoding='utf8') as f:
                 dataset.update(loadyaml(f))
         except FileNotFoundError as ex:
             log.debug(ex)

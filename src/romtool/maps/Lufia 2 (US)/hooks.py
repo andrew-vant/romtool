@@ -1,9 +1,7 @@
-import logging
-from pprint import pprint
-from functools import partial
-from io import BytesIO
+""" Romtool hooks for Lufia 2. """
 
-from romtool.structures import Structure
+import logging
+
 from romtool.field import IntField
 from romtool.io import Unit
 from romtool.util import HexInt
@@ -28,9 +26,9 @@ class MonsterExtra(IntField):
 
     known_extypes = [0x03, 0x07, 0x08]
 
-    # FIXME: Is there a way to alter a logger within the main dump/load loop such
-    # that it can print the index of the monster being processed even if the
-    # function logging the message does not know it?
+    # FIXME: Is there a way to alter a logger within the main dump/load loop
+    # such that it can print the index of the monster being processed even if
+    # the function logging the message does not know it?
 
     @classmethod
     def _extras(cls, obj):
@@ -40,7 +38,7 @@ class MonsterExtra(IntField):
             if not extype:
                 return
             if extype not in cls.known_extypes:
-                log.warning(f"Unknown monster extype found: 0x{extype:.2X}")
+                log.warning("Unknown monster extype found: 0x%.2X", extype)
             sl = slice(3*i+1, 3*i+3, Unit.bytes)
             yield extype, tail[sl]
 
@@ -48,14 +46,14 @@ class MonsterExtra(IntField):
         view = next((view for extype, view
                      in self._extras(obj)
                      if extype == self.arg),
-                     None)
+                    None)
         if view is None:
             return None
         start = self.offset.eval(obj)
         end = start + (self.size.eval(obj) * self.unit)
         return view[start:end]
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, realtype=None):
         view = self._view(obj)
         if view is None:
             return None
@@ -64,24 +62,27 @@ class MonsterExtra(IntField):
             value = HexInt(value, len(view))
         return value
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         # Probably this conversion should happen elsewhere...
         value = None if value == '' else value
         view = self._view(obj)
+        fid = self.id
+        name = self.name
+
         if view is None and value is None:
             return  # Nothing to do
-        elif value == self.read(obj):
+        if value == self.read(obj):
             return  # Still nothing to do
-        elif view is None and value is not None:
-            msg = f"Can't safely add {self.id} ({self.name}) to a monster (yet)"
+        if view is None and value is not None:
+            msg = f"Can't safely add {fid} ({name}) to a monster yet"
             raise NotImplementedError(msg)
-        elif view is not None and value is None:
-            msg = f"Can't safely remove {self.id} ({self.name}) from a monster (yet)"
+        if view is not None and value is None:
+            msg = f"Can't safely remove {fid} ({name}) from a monster (yet)"
             raise NotImplementedError(msg)
-        else:
-            view.uint = value
+        view.uint = value
 
     def parse(self, string):
         return int(string, 0) if string else None
+
 
 MAP_FIELDS = {'exmon': MonsterExtra}

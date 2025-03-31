@@ -1,6 +1,19 @@
-#!/usr/bin/python3
+""" An incredibly stupid attempt to detect unknown charsets.
+
+Everything about this module is terrible. It was intended to ease figuring
+out the character sets of games. It *sort of* does that, but it's badly
+designed, badly commented, slow, and quite possibly a fundamentally misguided
+idea in the first place. The right way to do this is almost certainly to
+visually inspect the rom for a font-like bitmap and go from there.
+
+To the extent that this functions at all, it does so by looking for byte
+sequences in which the diffs between bytes match the diffs between characters
+in the input string.
+"""
+# FIXME: either make this module not suck, or rip it out.
 
 import string
+from dataclasses import dataclass
 
 
 # Given a string and a byte stream, how do I know if it matches?
@@ -16,38 +29,59 @@ import string
 # map, but probably not our terminator character.
 
 class NoMapping(Exception):
-    pass
+    """ Mo possible mapping fits the given data. """
+
 
 class MappingConflictError(Exception):
-    pass
+    """ More than one character maps to the same byte. """
+
 
 class UnusedSubset(Exception):
-    pass
+    """ A given character subset doesn't appear in a pattern. """
 
-class Subset(object):
-    def __init__(self, domain, text):
+
+@dataclass
+class Subset:  # pylint: disable=too-many-instance-attributes
+    """ A subset of a potential character mapping.
+
+    Helper class for pattern checking. Precalculates the ordinal diffs of
+    each character in a pattern string from the first character in the
+    `domain` string. The domain is expected to be lowercase, uppercase, or
+    digit characters, as provided by std.string. The underlying intuition
+    is that uppercase characters are likely to be contiguous in almost any
+    character map, and the same is true for lowercase and digits, but no
+    assumptions can be made about contiguity between the three subsets of
+    possible characters.
+
+    Also records some related data useful for consistency checks.
+    """
+    domain: str
+    text: str
+
+    def __post_init__(self):
         try:
-            first = next(i for i, c in enumerate(text) if c in domain)
-        except StopIteration:
-            raise UnusedSubset
+            first = next(i for i, c in enumerate(self.text)
+                         if c in self.domain)
+        except StopIteration as ex:
+            raise UnusedSubset from ex
 
-        self.string = domain
+        self.string = self.domain
         self.slen = len(self.string)
         self.refidx = first
-        self.refchar = text[self.refidx]
+        self.refchar = self.text[self.refidx]
         self.reford = ord(self.refchar)
-        self.rootchar = domain[0]
+        self.rootchar = self.domain[0]
         self.rootord = ord(self.rootchar)
 
-        self.rootdiffs = [domain.find(c) for c in text]
+        self.rootdiffs = [self.domain.find(c) for c in self.text]
         self.rootdiffs = [(i if i != -1 else None) for i in self.rootdiffs]
 
-class Pattern(object):
+
+class Pattern:  # pylint: disable=too-few-public-methods
+    """ A known string to look for in ROM data."""
     def __init__(self, s):
         self.string = s
         self.length = len(s)
-
-
         # Precalculate the first upper, lower and digit character in the
         # string, because we'll need them repeatedly and the scan is
         # surprisingly expensive.
@@ -66,8 +100,8 @@ class Pattern(object):
         for subset in self.subsets:
             refbyte = data[subset.refidx]
             rootbyte = refbyte - (subset.reford - subset.rootord)
-            # Check and reject mappings that go out of bounds. This is a cheap way
-            # of detecting many misses.
+            # Check and reject mappings that go out of bounds. This is a
+            # cheap way of detecting many misses.
             if rootbyte < 0 or rootbyte + subset.slen > 255:
                 raise NoMapping("Mapping would go out of bounds")
             subset.refbyte = refbyte
@@ -108,8 +142,12 @@ class Pattern(object):
             elif charset[char] != byte:
                 raise NoMapping("Contradiction detected")
 
-
     def buildmap(self, data):
+        """ Try to build a character map mapping this pattern to input data.
+
+        Returns a dictionary mapping characters to bytes. Raises NoMapping if
+        no consistent map is possible.
+        """
         self._refpoints(data)
         self._diffcheck(data)
         self._overlapcheck()
@@ -118,13 +156,14 @@ class Pattern(object):
         # If we get here, we have a consistent and mostly-complete map.
         return charset
 
+
 def merge(*dicts):
+    """ Merge character-map subsets and check them for conflicts. """
     out = {}
     for d in dicts:
         for k, v in d.items():
             if k in out and v != out[k]:
                 msg = "%s mapped as both %s and %s"
                 raise MappingConflictError(msg, k, v, out[k])
-            else:
-                out[k] = v
+            out[k] = v
     return out

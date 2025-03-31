@@ -1,4 +1,7 @@
-#!/usr/bin/python3
+""" Run romtool.
+
+See cli.py for arguments, etc.
+"""
 
 from .cli import main
 

@@ -1,3 +1,4 @@
+""" Objects representing a ROM file. """
 import string
 import logging
 import math
@@ -5,7 +6,6 @@ import io
 import re
 import subprocess as sp
 from functools import cmp_to_key
-from itertools import groupby
 from os.path import splitext, basename
 from os.path import join as pathjoin
 from shutil import which
@@ -21,11 +21,12 @@ from .io import Unit, BitArrayView as Stream
 from .structures import Structure, Strings, Table, Index, EntityList
 from .rommap import RomMap
 from .util import locate
-from .exceptions import MapError, RomError, RomtoolError, ChangesetError
+from .exceptions import RomError, RomtoolError, ChangesetError
 
 
 log = logging.getLogger(__name__)
 headers = util.load_builtins('headers', '.tsv', Structure.define_from_tsv)
+
 
 class RomFormatError(RomError):
     """ Input file not the expected type of ROM """
@@ -35,7 +36,7 @@ class HeaderError(RomFormatError):
     """ ROM header failed to validate """
 
 
-class Rom(util.RomObject):
+class Rom(util.NodeMixin):
     """ Base class for ROMs """
     romtype = 'unknown'
     prettytype = "Unknown ROM type"
@@ -60,10 +61,12 @@ class Rom(util.RomObject):
         self.map = rommap
         self.tables = Dict()
         # Load indexes before any tables that depend on them
+
         def cmp(spec1, spec2):
             return (1 if spec1.index == spec2.id
                     else -1 if spec2.index == spec1.id
                     else 0)
+
         for spec in sorted(self.map.tables.values(), key=cmp_to_key(cmp)):
             # Check for table class overrides, otherwise infer from spec
             cls = getattr(rommap.hooks, spec.cls,
@@ -73,7 +76,7 @@ class Rom(util.RomObject):
                      else self.tables[spec.index] if spec.index in self.tables
                      else Index(spec.index, self.tables, spec.count))
             log.info("creating table %s as class %s", spec.id, cls)
-            self.tables[spec.id] = cls(self, self.data, spec, index)
+            self.tables[spec.id] = cls(self.data, self, spec, index)
         # Sanity check
         for t in self.tables.values():
             assert (t.spec.index not in self.map.tables
@@ -104,6 +107,7 @@ class Rom(util.RomObject):
 
     @property
     def rom(self):
+        """ Alias for rom.data. """
         return self.data
 
     @property
@@ -116,7 +120,7 @@ class Rom(util.RomObject):
         for name, elist in self.entities.items():
             log.info("Dumping %s (%s items)", name, len(elist))
             path = pathjoin(folder, f'{name}.tsv')
-            util.dumptsv(path, elist, force, elist.columns(), '_idx')
+            util.dumptsv(path, elist, force, elist.etype.keys(), '_idx')
 
     def lookup(self, key):
         """ Look up a rom table or entityset by ID """
@@ -139,9 +143,10 @@ class Rom(util.RomObject):
             except FileNotFoundError as ex:
                 log.warning("skipping %s: %s", _set, ex)
                 continue
-            byidx = lambda row: int(row['_idx'], 0)
             try:
-                contents = sorted(contents, key=byidx)
+                # Put items back in their original order if possible.
+                contents = sorted(contents,
+                                  key=lambda row: int(row['_idx'], 0))
             except KeyError:
                 log.warning('%s._idx not present; using input order', _set)
             data[_set] = contents
@@ -254,7 +259,7 @@ class Rom(util.RomObject):
         """ Generate changeset dictionary """
         # This might be hard. Loop over each table, look for items that differ
         # between orig and self, emit table:name:key:value dict tree
-        raise Exception("Changeset generator not implemented yet")
+        raise RomtoolError("Changeset generator not implemented yet")
 
     def apply_patch(self, patch):
         """ Apply a Patch to this ROM """
@@ -278,7 +283,7 @@ class Rom(util.RomObject):
         for ext in extensions:
             if ext in cls.registry:
                 msg = ("%s attempted to claim %s extension, but it is "
-                      "already registered; ignoring")
+                       "already registered; ignoring")
                 log.warning(msg, name, ext)
             else:
                 log.debug('registering file extension %s as %s', ext, name)

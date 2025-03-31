@@ -49,7 +49,6 @@ import shutil
 import itertools
 import json
 import re
-import codecs
 from datetime import datetime
 from importlib import resources
 from itertools import groupby
@@ -703,7 +702,7 @@ def cmd_search(args):
     elif args.values:
         search_values(args)
     else:
-        raise Exception("don't know how to search for that")
+        raise RomtoolError("don't know how to search for that")
 
 
 def search_index(args):
@@ -777,12 +776,11 @@ def search_strings(args):
     codec = rom.map.ttables[args.encoding].clean
     offset = 0
     vowels = re.compile(r'[AEIOUYaeiouy]')
-    binary = re.compile(r'\[\$[ABCDEF1234567890]+\]')
     special = re.compile(r'\[[A-Z0-9]+\]')
     nonword = re.compile(r'\W+')
     pbar = partial(alive_bar, disable=not args.progress, enrich_print=False)
 
-    def report_hit(string, consumed, minlen=3): # FIXME: take minlen from args
+    def report_hit(string, consumed, minlen=3):  # FIXME: take minlen from args
         """ Check whether a decoded string counts as a hit
 
         Tries to determine whether a string is Actual Text rather than

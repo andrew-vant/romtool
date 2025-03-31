@@ -1,30 +1,30 @@
 """This module contains classes for locating data within a ROM."""
 
 import os
-import importlib.resources as resources
+import importlib.util
 import logging
 import types
-from typing import Mapping, Sequence
 from codecs import CodecInfo
 from collections import ChainMap
-from functools import partial
-from itertools import chain
 from dataclasses import dataclass, field, fields
+from functools import partial
+from hashlib import sha1
+from importlib import resources
+from itertools import chain
 from os.path import relpath, basename
 from pathlib import Path
-from hashlib import sha1
+from typing import Mapping, Sequence
 from typing import Type
-import importlib.util
 
 from addict import Dict
 from appdirs import AppDirs
 
-from . import util, text, config
-from .util import cache, get_subfiles as subfiles, Handler
-from .structures import Structure, BitField, Table, TableSpec
+from . import config, util
+from .exceptions import MapError, RomDetectionError
+from .field import Field, StructField, DEFAULT_FIELDS
+from .structures import Structure, BitField, TableSpec
 from .text import TextTable
-from .exceptions import RomtoolError, MapError, RomDetectionError
-from .field import Field, IntField, StructField, DEFAULT_FIELDS
+from .util import cache, get_subfiles as subfiles, Handler
 
 
 log = logging.getLogger(__name__)
@@ -32,26 +32,33 @@ ichain = chain.from_iterable  # convenience
 dirs = AppDirs("romtool")
 
 
+@dataclass
 class MapTest:
-    def __init__(self, table, item, attribute, value):
-        self.table = table
-        self.item = int(item, 0)
-        self.attribute = attribute or None
+    """ Known table data, used to test map correctness. """
+    table: str       # name of table
+    item: int        # index within table
+    attribute: str   # structure attribute name
+    value: object    # expected value of attribute
+
+    def __post_init__(self):
+        self.item = int(self.item, 0)
+        self.attribute = self.attribute or None
         try:
-            self.value = int(value, 0)
+            self.value = int(self.value, 0)
         except ValueError:
-            self.value = value
+            pass
+
 
 @dataclass
-class RomMap:
+class RomMap:  # pylint: disable=too-many-instance-attributes
     """ A ROM map
 
     This describes what kinds of structures a given ROM contains, their data
     format, their locations within the rom, and, for textual data, their
     encoding.
     """
-    _adctfld = partial(field, default_factory=Dict)
     _ext_suffixes = ['.asm', '.ips', '.ipst', '.yaml', '.json']
+    _adctfld = staticmethod(partial(field, default_factory=Dict))
 
     name: str = None
     path: Path = None
@@ -78,10 +85,10 @@ class RomMap:
         for name, struct in self.structs.items():
             assert name in self.handlers
             assert issubclass(self.handlers[name], StructField)
-            for field in struct.fields:
-                if field.type not in self.handlers:
+            for fld in struct.fields:
+                if fld.type not in self.handlers:
                     # can't happen?
-                    msg = f"unknown type for {name}.{field.id}: {field.type}"
+                    msg = f"unknown type for {name}.{fld.id}: {fld.type}"
                     raise MapError(msg)
         for name, table in self.tables.items():
             if table.type not in self.handlers:
@@ -90,13 +97,18 @@ class RomMap:
 
     @property
     def sets(self):
+        """ Get the names of table sets present in this map.
+
+        At present, each set represents a type-of-entity for which data may
+        be spread across multiple tables.
+        """
         return set(t.set for t in self.tables.values() if t.set)
 
     def find(self, top):
         """ Find the ROM corresponding to this map under top """
         if isinstance(top, str):
             top = Path(top)
-        for parent, dirs, files in os.walk(top):
+        for parent, _, files in os.walk(top):
             for filename in files:
                 if filename == self.meta.file:
                     path = Path(parent, filename)
@@ -135,10 +147,10 @@ class RomMap:
             root = Path(root)
         kwargs = Dict(path=root)
         try:
-            with root.joinpath('meta.yaml').open() as f:
+            with root.joinpath('meta.yaml').open(encoding='utf8') as f:
                 kwargs.meta = Dict(util.loadyaml(f))
         except FileNotFoundError as ex:
-            log.warning(f"map metadata missing: {ex}")
+            log.warning("map metadata missing: %s", ex)
 
         # Load python hooks, if available. This has to be done first, because
         # it might provide types used later. FIXME: I am not sure if I'm doing
@@ -157,7 +169,7 @@ class RomMap:
         # TODO: It should be possible to hook codecs in just like structs or
         # whatever. That makes it possible to handle things like compressed
         # text.
-        def load_tt(name, f):
+        def load_tt(name, f):  # pylint: disable=unused-argument
             return TextTable.variants(f)
 
         def load_enum(name, f):
@@ -243,7 +255,7 @@ class MapDB(Mapping):
 
     def __init__(self, root):
         self.root = Path(root) if isinstance(root, str) else root
-        with self.root.joinpath('hashdb.txt').open() as f:
+        with self.root.joinpath('hashdb.txt').open(encoding='utf8') as f:
             self.hashdb = dict((line.strip().split(maxsplit=1) for line in f))
 
     # hash and eq implemented mainly to allow caching getitem results
@@ -271,7 +283,7 @@ class MapDB(Mapping):
             return RomMap.load(path)
         except KeyError as ex:
             msg = f"unrelated keyerror during rmap load: {ex}"
-            raise Exception(msg) from ex
+            raise MapError(msg) from ex
 
     @classmethod
     def cache_clear(cls):

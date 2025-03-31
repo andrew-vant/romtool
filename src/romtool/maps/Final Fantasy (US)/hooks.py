@@ -1,12 +1,13 @@
+""" Romtool hooks for FF1. """
+
 import logging
 
-from romtool.field import Field, IntField, StructField
-from romtool.structures import Structure
+from romtool.field import IntField
 
 
-_save_data_offset = 0x400
-_save_data_length = 0x400
-_save_checksum_offset = 0xFD
+_SAVE_DATA_OFFSET = 0x400
+_SAVE_DATA_LENGTH = 0x400
+_SAVE_CHECKSUM_OFFSET = 0xFD
 log = logging.getLogger(__name__)
 
 
@@ -27,12 +28,12 @@ class SpellArgument(IntField):
         tp_name = self._typemap.get(obj.code)
         return obj.root.map.structs[tp_name] if tp_name else int
 
-    def read(self, obj, objtype=None):
+    def read(self, obj, realtype=None):
         view = self.view(obj)
         _type = self._realtype(obj)
         return view.uint if _type is int else _type(view, obj)
 
-    def write(self, obj, value):
+    def write(self, obj, value, realtype=None):
         view = self.view(obj)
         _type = self._realtype(obj)
         if _type is int:
@@ -60,7 +61,7 @@ def save_checksum(data):
     # do that.
 
     data = list(data)
-    data[_save_checksum_offset] = 0
+    data[_SAVE_CHECKSUM_OFFSET] = 0
     return sum(data) % 0xFF ^ 0xFF
 
 
@@ -74,13 +75,14 @@ def sanitize_save(savefile):
     # changes, since it never gets recalculated in-game. But maybe that should
     # be in linter
 
-    savefile.seek(_save_data_offset)
-    data = savefile.read(_save_data_length)
-    oldsum = data[_save_checksum_offset]
+    savefile.seek(_SAVE_DATA_OFFSET)
+    data = savefile.read(_SAVE_DATA_LENGTH)
+    oldsum = data[_SAVE_CHECKSUM_OFFSET]
     checksum = save_checksum(data)
     msg = "Updating checksum. Old checksum was 0x%02X, new checksum is 0x%02X"
     log.info(msg, oldsum, checksum)
-    savefile.seek(_save_data_offset + _save_checksum_offset)
+    savefile.seek(_SAVE_DATA_OFFSET + _SAVE_CHECKSUM_OFFSET)
     savefile.write(bytes([checksum]))
+
 
 MAP_FIELDS = {'effect': SpellArgument}

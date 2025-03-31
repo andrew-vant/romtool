@@ -1,5 +1,15 @@
+[MAIN]
+# Tries to test inside the relevant venv, if any. Avoids spurious import
+# errors for dependencies that are installed in the venv but not the
+# local system. Requires pylint-venv
+init-hook=
+	try: import pylint_venv
+	except ImportError: pass
+	else: pylint_venv.inithook()
+
 [MESSAGES CONTROL]
 
+ignore=version.py
 disable=fixme,logging-format-interpolation
 max-line-length=79
 good-names=i,j,k,v,ex,Run,_,tt,ba

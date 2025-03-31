@@ -7,21 +7,19 @@ import dataclasses as dc
 import logging
 from collections import UserList, ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
-from itertools import chain, combinations, groupby, islice
+from itertools import chain, combinations, islice
 from functools import partial, cached_property
-from contextlib import contextmanager
 from os.path import basename, splitext
 from io import BytesIO
-from abc import ABC, abstractmethod
+from abc import ABC
 from string import ascii_letters
 
-import yaml
 from addict import Dict
 from asteval import Interpreter
 
-from .field import Field, StructField, FieldExpr
+from .field import Field, FieldExpr
 from . import util
-from .util import cache, locate, RomObject, SequenceView, CheckedDict, HexInt
+from .util import cache, RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -61,7 +59,12 @@ class Entity(MutableMapping):
         cls._keys = [f.name for f in sorted(cls._all_fields)]
 
     @classmethod
+    def keys(cls):  # pylint: disable=arguments-differ
+        yield from cls._keys
+
+    @classmethod
     def define(cls, name, tables):
+        """ Define an entity type that proxies to the given tables. """
         return type(name, (cls,), {}, tables=tables)
 
     def __init__(self, index):
@@ -117,13 +120,19 @@ class Entity(MutableMapping):
             raise AttributeError(attr)
         super().__setattr__(attr, value)
 
-    def update(self, other):
+    def update(self, other=(), /, **kwargs):
         """ Update this entity from a dictionary-like object
 
         Repeated setitem calls can get expensive. This provides a more
         performant alternative. The input dictionary should be keyed by field
         name. "extra" keys are ignored.
         """
+        # The MutableMapping interface expects us to handle key-value pairs
+        # and kwargs, although we haven't had a need for it yet.
+        if not isinstance(other, Mapping):
+            other = dict(other)
+        other = ChainMap(other, kwargs)
+
         # Table item lookups are where most of the cost seems to be, so let's
         # see if we can limit it to once per table
         for table, keys in self._keys_by_table.items():
@@ -177,7 +186,8 @@ class EntityList(Sequence):
             raise ValueError(f"Tried to create an EntityList with no name "
                              f"from tables: {', '.join(tables)}")
         if len(lengths) == 0:
-            raise ValueError(f"Tried to create EntityList '{name}' with no underlying tables")
+            raise ValueError(f"Tried to create EntityList '{name}' "
+                             f"with no underlying tables")
         if len(lengths) != 1:
             raise ValueError(f"Tables making up an EntityList must have "
                              f"equal lengths {lengths}")
@@ -196,9 +206,6 @@ class EntityList(Sequence):
     def __len__(self):
         return self._length
 
-    def columns(self):
-        return self.etype._keys
-
 
 class Structure(Mapping, RomObject):
     """ A structure in the ROM."""
@@ -212,12 +219,8 @@ class Structure(Mapping, RomObject):
         cls.fields.sorted = sorted(cls.fields)
 
     @cache
-    def __new__(cls, view, parent=None):
+    def __new__(cls, *_, **__):
         return super().__new__(cls)
-
-    def __init__(self, view, parent=None):
-        self.view = view
-        self.parent = parent
 
     def __getitem__(self, key):
         return self.fields.byname[key].__get__(self)
@@ -242,17 +245,20 @@ class Structure(Mapping, RomObject):
             pass
         raise LookupError(f"Couldn't find {key} in {self}")
 
-    @classmethod
-    def size(cls):
-        """ Get total size of structure, in bits
-
-        If the structure size is variable, get the maximum possible size
-        """
-        return sum(field.size.eval(cls) * field.unit
-                   for field in cls.fields)
+    @property
+    def size(self):
+        sz_nm = super().size
+        sz_struct = sum(field.size.eval(self) * field.unit
+                        for field in self.fields)
+        log.warning("this method was removed because it shadowed a "
+                    "NodeMixin one. As far as I know it's unused for other "
+                    "purposes. Returning nodemixin size %s; if you expected "
+                    "structure size %s, there's a bug here.",
+                    sz_nm, sz_struct)
 
     @classmethod
     def attrs(cls):
+        """ Get an iterator over this structure's field IDs. """
         return iter(cls.fields.byid)
 
     def __iter__(self):
@@ -274,11 +280,10 @@ class Structure(Mapping, RomObject):
         if spec == 'byid':
             return ''.join(f'{field.id}: {getattr(self, field.id)}\n'
                            for field in self.fields)
-        elif spec == 'byname':
+        if spec == 'byname':
             return ''.join(f'{field.name}: {self[field.name]}\n'
                            for field in self.fields)
-        else:
-            return super().__format__(spec)
+        return super().__format__(spec)
 
     def __str__(self):
         cls = type(self).__name__
@@ -326,12 +331,14 @@ class Structure(Mapping, RomObject):
 
     @classmethod
     def define_from_tsv(cls, path, extra_fieldtypes=None):
+        """ Define a structure type from a TSV file path. """
         name = splitext(basename(path))[0]
         rows = util.readtsv(path)
         return cls.define_from_rows(name, rows, extra_fieldtypes)
 
     @classmethod
     def define_from_rows(cls, name, rows, extra_fieldtypes=None):
+        """ Define a structure type from the rows in a TSV file. """
         fields = []
         for row in rows:
             try:
@@ -352,6 +359,12 @@ class Structure(Mapping, RomObject):
 
 
 class BitField(Structure):
+    """ A bitfield.
+
+    Bitfields organize several bits into a block, usually one byte in size,
+    where each bit has a different meaning. Usually they are flags of some
+    sort.
+    """
     def __init_subclass__(cls):
         super().__init_subclass__()
         for f in cls.fields:
@@ -406,7 +419,11 @@ class BitField(Structure):
                 else next(k for k, v in self.items() if v))
 
     def parse(self, s):
-        if not len(s):
+        """ Update this bitfield from a string representation.
+
+        For the allowed representations, see __format__.
+        """
+        if not s:
             self.view.uint = 0
         elif s in self:
             self.view.uint = 0
@@ -421,7 +438,11 @@ class BitField(Structure):
 
 
 @dc.dataclass
-class TableSpec:
+class TableSpec:  # pylint: disable=R0902,R0903  # (unneeded on newer pylints?)
+    """ Table specification
+
+    Describes the format and location of a data table.
+    """
     id: str
     type: str
     fid: str = None
@@ -448,6 +469,7 @@ class TableSpec:
 
     @classmethod
     def from_tsv_row(cls, row):
+        """ Define a spec from a row in a TSV file. """
         kwargs = Dict(((k, v) for k, v in row.items() if v))
         kwargs.offset = HexInt(kwargs.offset)
         kwargs.count = int(kwargs.count, 0)
@@ -455,14 +477,10 @@ class TableSpec:
         kwargs.size = int(kwargs.size, 0) if kwargs.size else None
         return cls(**kwargs)
 
-    def asdict(self):
-        return {k: '' if v is None else v
-                for k, v in dc.asdict(self).items()}
-
 
 class Table(Sequence, RomObject, ABC):
     """ A ROM data table """
-    def __init__(self, parent, view, spec, index=None):
+    def __init__(self, view, parent, spec, index=None):
         """ Create a table
 
         parent: The parent object (usually a Rom)
@@ -470,8 +488,7 @@ class Table(Sequence, RomObject, ABC):
         spec:   The table spec
         index:  a list of offsets within the view
         """
-        self.parent = parent
-        self.view = view
+        super().__init__(view, parent)
         self.spec = spec
         # FIXME: why doesn't this break when creating a Strings?
         self._index = index or [i*(spec.stride or spec.size)
@@ -525,8 +542,8 @@ class Table(Sequence, RomObject, ABC):
             if len(indices) != len(v):
                 msg = "mismatched slice length; {len(indices)} != {len(v)}"
                 raise ValueError(msg)
-            for i, v in zip(range(i.start, i.stop, i.step), v):
-                self[i] = v
+            for idx, value in zip(range(i.start, i.stop, i.step), v):
+                self[idx] = value
         elif self.struct:
             self[i].copy(v)
         else:
@@ -578,18 +595,28 @@ class Table(Sequence, RomObject, ABC):
         for i, v in mapping.items():
             self[i] = v
 
-    def lookup(self, name):
+    def lookup(self, key):
         """ Get the first item in self with a given name """
         try:
-            return next(item for item in self if item.name == name)
-        except AttributeError:
+            return next(item for item in self if item.name == key)
+        except AttributeError as ex:
             raise AttributeError(f"Tried to look up {self.spec.type} by name, "
-                                  "but they are nameless")
-        except StopIteration:
-            raise LookupError(f"No object with name: {name}")
+                                 f"but they are nameless") from ex
+        except StopIteration as ex:
+            raise LookupError(f"No object with name: {key}") from ex
 
 
 class Index(Sequence):
+    """ A dynamic table index
+
+    Used when table item offsets require a calculation more complex than just
+    `offset + stride * i`. The supplied expression is evaluated when looking
+    up items. Its available symbols are everything in `symtable`, plus the
+    variable `i` for the item being looked up. Alternately, the expression
+    may be a key in the symtable; in that case it is assumed to be a
+    reference to another table, lookups will be forwarded, and [i] need not
+    be included in the expression.
+    """
     def __init__(self, expr, symtable, length):
         self.expr = expr
         self.length = length
@@ -603,7 +630,8 @@ class Index(Sequence):
         return str(self.expr)
 
     def __repr__(self):
-        return f"{type(self)}({self.expr!r}, {self.length!r}, {self.symtable!r})"
+        return (f"{type(self)}"
+                f"({self.expr!r}, {self.length!r}, {self.symtable!r})")
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -633,6 +661,7 @@ class Strings(Table):  # more generic type: Series?
     """
     @cached_property
     def codec(self):
+        """ The character encoding for strings in this table. """
         return self.root.map.ttables[self.spec.display].clean
 
     def __iter__(self):
@@ -670,7 +699,7 @@ class Strings(Table):  # more generic type: Series?
         # principle, though, e.g. where changes to item N are depended on by
         # N+1.
         spec = self.spec
-        log.debug(f"updating string table {spec.id}")
+        log.debug("updating string table %s", spec.id)
         last = max(mapping)
         out = BytesIO()
         safe_length = 0  # original bytecount
@@ -684,10 +713,11 @@ class Strings(Table):  # more generic type: Series?
             new = mapping.get(i, old)
             if new == old:
                 # Don't re-encode, it can make no-op 'changes'
-                log.debug(f"no change: {spec.id}[{i}]: '{old}' -> '{new}' ({oldbytes.hex()})")
+                log.debug("no change: %s[%s]: '%s' -> '%s' (%s)",
+                          spec.id, i, old, new, oldbytes.hex())
                 out.write(oldbytes)
             else:
-                log.debug(f"changed {spec.id}[{i}]: '{old}' -> '{new}'")
+                log.debug("changed %s[%s]: '%s' -> '%s'", spec.id, i, old, new)
                 out.write(self.codec.encode(new)[0])
                 changed = True
         out = out.getvalue()
