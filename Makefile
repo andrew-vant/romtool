@@ -28,7 +28,7 @@ wheel : dist/$(wheel)
 nointro : $(nointro)
 
 dist/$(wheel) : $(nointro)
-	$(python) setup.py bdist_wheel
+	pyproject-build
 
 src/romtool/nointro.tsv : tools/dats.txt FORCE
 	$(python) tools/rtbuild.py datomatic -v -f $< -o $@

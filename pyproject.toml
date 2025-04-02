@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=64", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "romtool"
+dynamic = ["version"]
+description = "Library and tool for manipulating video game ROMs."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Andrew Vant", email = "ajvant@gmail.com"}
+]
+keywords = ["rom", "roms", "snes"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+dependencies = [
+    "addict>=2",
+    "alive-progress>=2",
+    "anytree",
+    "appdirs",
+    "asteval",
+    "bitarray>=1.5.0",
+    "docopt",
+    "jinja2",
+    "more-itertools",
+    "patricia-trie>=10",
+    "pyyaml>=3.10",
+]
+
+[project.optional-dependencies]
+dev = ["setuptools-scm>=8", "wheel"]
+test = ["pytest-subtests", "tox"]
+
+[project.urls]
+"Homepage" = "https://github.com/andrew-vant/romtool"
+
+[project.scripts]
+romtool = "romtool.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+write_to = "src/romtool/version.py"
+fallback_version = "UNKNOWN"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
