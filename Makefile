@@ -51,13 +51,13 @@ pynsist.cfg : pynsist.in.cfg FORCE
 deb :
 	mkdir -p dist
 	fpm \
-		-f \
-		-n python3-romtool \
-		-s python \
-		-t deb \
-		--python-bin python3 \
-		--python-package-name-prefix python3 \
-		-p dist/$(deb) \
+		--force                                        \
+		--name                        python3-romtool  \
+		--input-type                  python           \
+		--output-type                 deb              \
+		--python-bin                  python3          \
+		--python-package-name-prefix  python3          \
+		--package                     dist/$(deb)      \
 		setup.py
 	ls -t dist/*.deb | head -n1 | xargs dpkg --info
 
