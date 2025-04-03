@@ -5,7 +5,7 @@
  with the package. It sort-of-has to be done at build time because
  there's no easy way to download these at runtime. The files don't
  seem to be available at fixed urls, you have to go through multiple
- posts to get at them. Easier to download them once myself and
+ pages to get at them. Easier to download them once myself and
  then generate the data I need 
 -->
 <xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
