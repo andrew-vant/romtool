@@ -53,10 +53,13 @@ class BitArrayView(NodeMixin):
     BitArrayView.bits.
     """
     def __new__(cls, auto, *args, **kwargs):
-        # bitarrays are unhashable. Farm to separate new for view vs bitarray
-        # and just cache the view one.
+        # Instantiating a view is surprisingly expensive, and views have no
+        # mutable state, so cache them and return an existing one if
+        # possible. The additional check for bitarray here is a workaround
+        # for bitarray issue #232.
         return (cls._newcache(auto, *args, **kwargs)
                 if isinstance(auto, Hashable)
+                and not isinstance(auto, bitarray)
                 else super().__new__(cls))
 
     @classmethod

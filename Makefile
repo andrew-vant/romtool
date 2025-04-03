@@ -10,7 +10,7 @@ ifdef OS
   # or things won't work. FIXME: find a way to single-source that. Also,
   # py.exe won't accept a patch version and I'm not sure what will
   # happen if it differs. Probably something bad.
-  python = py.exe -3.10
+  python = py.exe
   all = winpkg
   $(info windows detected ($$OS: $(OS)))
 else

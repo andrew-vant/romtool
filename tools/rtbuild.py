@@ -19,6 +19,7 @@ from argparse import ArgumentParser, FileType
 from os.path import splitext
 from itertools import chain
 from pathlib import Path
+from platform import python_version
 
 from appdirs import AppDirs
 
@@ -108,6 +109,7 @@ def cmd_nsist(args):
     cfg = ConfigParser()
     cfg.read(args.infile)
     cfg['Application']['version'] = get_version()
+    cfg['Python']['version'] = python_version()
     cfg.write(args.outfile)
 
 

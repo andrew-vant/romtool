@@ -40,6 +40,12 @@ way I've been able to get them is as part of [Visual Studio Community
 Edition][vsce]. They appear on the Individual Components tab when
 installing or modifying.
 
+You will additionally need the nointro/datomatic ROM XML files. I’ve yet
+to figure out how to automate downloading them, but you can get them
+manually [here][dats]; you want the “Main, C/C” options. Extract the dat
+files to `~/.local/share/romtool/datomatic`; the make jobs will look for
+them there.
+
 ## Setting up a build environment
 
 1. Install the prerequisites above.
