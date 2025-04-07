@@ -54,22 +54,24 @@ structured.
 
 ## Installation
 
-There is a packaged installer available for Windows (FIXME: link here).
+You can find installation packages on the [release page][releases].
 
-On Linux, for now, install from pip: `pip install romtool`. Be aware
-that you may need to have a C compiler installed for `pip install` to
-work, as romtool has at least one dependency (bitarray) that does not
-provide pre-built wheels.
+Windows users should download and run `romtool_{version}.exe`.
 
-Sometime before v1.0, I intend to arrange .deb and .rpm packages. The
-main blockers for this are dependencies that do not themselves provide
-packages.
+Users on other platforms should download
+`romtool-${VERSION}-py3-none-any.whl` and install it with `pipx` or
+`pip`. Installation of dependencies may require a local C compiler on
+some platforms.
 
 For development installs, see CONTRIBUTING.md.
 
-The installation process should place the `romtool` command somewhere in
-your PATH, but I don't trust this yet and would like feedback. If
-`romtool --help` prints usage instructions, you're good to go.
+In the future, installation from pypi will also be supported. I also
+want to provide .deb and .rpm packages. The main blockers for this are
+dependencies that do not themselves provide packages in those formats.
+
+If `romtool --help` prints usage instructions, you're good to go. If the
+install succeeded but the command is not found, see the first item in
+the [Troubleshooting](#troubleshooting) section below.
 
 ## Tutorial
 
@@ -285,9 +287,20 @@ Notes on specific common issues follow.
 
 **romtool: command not found (or not recognized, etc)**
 
-The directory romtool was installed to isn't in your PATH. You'll have
-to add it. On linux, this is probably `$HOME/.local/bin`. On windows, it
-is `%LOCALAPPDATA%\Programs\Python\PythonXY\Scripts`.
+The directory containing the `romtool` executable isn't in your PATH.
+
+First try closing and reopening your terminal, or logging out and back
+in again. This will fix cases where the installer already updated PATH,
+but the setting is only checked at startup. If that doesn’t work, you’ll
+have to add the install directory to PATH yourself.
+
+On windows, you can reach the PATH settings by running
+`rundll32 sysdm.cpl,EditEnvironmentVariables`, and the path to add is
+`%USERPROFILE%\AppData\Local\Programs\romtool\bin`.
+
+On linux, PATH is set in your shell’s startup scripts -- most commonly
+in `~/.profile`, `~/.bash_profile`, or `~/.bashrc` -- and the path to
+add is `${HOME}/.local/bin`.
 
 **Q. ROM map detection failed. Why?**
 
@@ -400,3 +413,4 @@ packages for fasmg (yet) or the macro sets (probably ever).
 [loc]: https://www.libreoffice.org/
 [uet]: #useful-tools
 [mesen]: https://www.mesen.ca/
+[releases]: https://github.com/andrew-vant/romtool/releases/latest
