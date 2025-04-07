@@ -601,7 +601,7 @@ def cmd_ident(args):
             raise RomtoolError("multiple output formats specified")
         return (False if args.short or args.format == 'short'
                 else True if args.long or args.format == 'long'
-                else len(args.rom) <= 1)
+                else len(args.roms) <= 1)
 
     first = True
     for filename in args.roms:
