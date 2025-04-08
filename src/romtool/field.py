@@ -8,7 +8,7 @@ from abc import ABC
 from collections.abc import Mapping
 from collections import ChainMap
 from dataclasses import dataclass, fields
-from functools import partial
+from functools import cached_property, partial
 from io import BytesIO
 
 from asteval import Interpreter
@@ -74,23 +74,31 @@ class FieldExpr:
             raise ValueError("empty fieldexpr spec")
         self.spec = spec
 
-        # Eval of any kind can be dangerous, and I'd like third-party maps to
-        # be safe-ish, so for now let's avoid any builtin stuff at all and see
-        # if it's good enough.
-        #
-        # NOTE: Interpreter creation is *surprisingly* expensive, espcially the
-        # default symtable creation. So skip the default creation and make the
-        # interpreter only once. We'll set the actual symtable just before
-        # using it.
-        self.interpreter = Interpreter({}, minimal=True)
+    @cached_property
+    def interpreter(self):
+        """ The interpreter used to evaluate this field.
 
-        # NOTE: eval itself is pretty expensive, and the vast majority of
-        # these expressions are simple integers. Let's pre-calculate if
-        # possible.
+        Interpreter creation is *surprisingly* expensive, especially the
+        default symtable creation, so this creates the interpreter only on
+        first use, with no symtable. Set the actual symtable just before
+        evaluation.
+        """
+        # This is a property rather than an attribute to avoid breaking
+        # asdict() on parent objects -- asdict relies on objects being
+        # pickleable, and interpreters aren't.
+        return Interpreter({}, minimal=True)
+
+    @cached_property
+    def value(self):
+        """ Static value of this expression, if possible.
+
+        Eval is pretty expensive, and the vast majority of expressions are
+        simple integers. In such cases it can be evaled once and never again.
+        """
         try:
-            self.value = int(spec, 0)
+            return int(self.spec, 0)
         except ValueError:
-            self.value = self.DYNAMIC
+            return self.DYNAMIC
 
     def __repr__(self):
         return f"{type(self)}('{self.spec}')"

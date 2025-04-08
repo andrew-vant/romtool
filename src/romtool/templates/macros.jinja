@@ -2,8 +2,7 @@
 <li><a href="#{{ id }}">{{ title }}</a>
   <ol>
     {%- for key, item in dct.items() %}
-    {%- set name = item.spec and item.spec.name or key %}
-    <li><a href="#{{ id }}-{{ key }}">{{ name }}</a></li>
+    <li><a href="#{{ id }}-{{ key }}">{{ item | name }}</a></li>
     {%- endfor %}
   </ol>
 </li>
@@ -57,15 +56,15 @@ hack in entity.items() #}
 {%- macro structtable(struct, classes) -%}
 {%- set content = [] %}
 {%- for field in struct.fields %}
-{%- do content.append(field.asdict()) %}
+{%- do content.append(field | asdict) %}
 {%- endfor %}
-{{ mappingtable(content, classes, struct.fields[0].asdict().keys()) }}
+{{ mappingtable(content, classes, struct.fields[0] | asdict) }}
 {%- endmacro -%}
 
 {%- macro tablespecs(tables, classes) -%}
 {%- set content = [] %}
 {%- for table in tables %}
-{%- do content.append(table.asdict()) %}
+{%- do content.append(table | asdict) %}
 {%- endfor %}
 {{ mappingtable(content, classes) }}
 {%- endmacro -%}
@@ -87,10 +86,10 @@ The table index begins at <span class="offset">{{ index.offset }}</span>;
 index entries are {{ index._index.stride }}-byte {{ endian }}
 integer offsets relative to <span class="offset">{{ table.offset }}</span>.
 {%- else %}
-First item starts at <span class="offset">{{ table.offset }}</span>.
+First item starts at <span class="offset">{{ table.spec.offset }}</span>.
 {%- endif %}
 </p>
-{%- if table._struct %}
+{%- if table.struct %}
 {{ mappingtable(table, ["scroll"], table[0].keys()|list) }}
 {%- else %}
 <figure class="table">

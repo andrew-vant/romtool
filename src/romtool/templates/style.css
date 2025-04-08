@@ -28,13 +28,14 @@ body {
 main {
 	grid-area: content;
 	overflow: auto;
+	padding-right: 4em;
 }
 
 h1,h2,h3 { margin: 2em 0 1em;}
 
-article {
-	max-width: 80ch;
-}
+p, figcaption { max-width: 80ch; }
+figure {margin: 0 0; }
+figcaption {max-width: 75ch; }
 
 table {
 	border: 1px solid;

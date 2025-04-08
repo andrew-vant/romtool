@@ -1,18 +1,26 @@
 """ Romtool hooks for 7th Saga. """
 
-from romtool.rom import SNESRom
+from romtool.structures import Table
 from romtool.util import ChainView
 
 
-class Rom(SNESRom):
-    """ A 7th Saga ROM. """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # The weapon, armor, and item indexes are consecutive, and collectively
-        # form one big table. Item cross-references are often indices to the
-        # overall table rather than a particular subset, making resolving them
-        # difficult; a reference to table index #30 is an item, while a
-        # reference to table index #104 is a weapon.
+class LootTable(Table):
+    """ Loot table wrapper.
+
+    The weapon, armor, and item indexes are consecutive, and collectively
+    form one big table. Item cross-references are often indices to the
+    overall table rather than a particular subset, making resolving them
+    difficult; a reference to table index #30 is an item, while a
+    reference to table index #104 is a weapon.
+    """
+    @property
+    def _sources(self):
         sources = [self.root.entities[k]
                    for k in ['items', 'weapons', 'armor']]
-        self.tables['loot'] = ChainView(*sources)
+        return ChainView(*sources)
+
+    def __getitem__(self, i):
+        return self._sources[i]
+
+    def __setitem__(self, i, v):
+        self._sources[i] = v

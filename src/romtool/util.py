@@ -831,24 +831,14 @@ def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
             yield errstr.format(ex=ex)
 
 
-def denonify(mapping):
-    """ Replace Nones in a mapping with the empty string.
-
-    Used mainly during jinja rendering.
-    """
-    return {k: '' if v is None else v
-            for k, v in mapping.items()}
-
-
 @cache
 def jinja_env():
     """ Return the jinja environment used for doc generation. """
+    # Filters to add to the environment
     def finalizer(obj):
-        """ Finalize objects for jinja rendering. """
-        return ('' if obj is None
-                else finalizer(dc.asdict(obj)) if dc.is_dataclass(obj)
-                else denonify(obj) if isinstance(obj, Mapping)
-                else obj)
+        return '' if obj is None else obj
+    def getname(obj):
+        return obj.__name__ if isinstance(obj, type) else obj.name
 
     user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
     escape_formats = ["html", "htm", "xml", "jinja"]  # Is this really needed?
@@ -863,6 +853,8 @@ def jinja_env():
             autoescape=jinja2.select_autoescape(escape_formats)
             )
     env.filters["safe_iter"] = safe_iter
+    env.filters["asdict"] = dc.asdict
+    env.filters["name"] = getname
     return env
 
 
@@ -888,6 +880,7 @@ def jrender(_template, **context):
     environment details.
     """
     return jinja_env().get_template(_template).render(**context)
+
 
 
 def nodestats(node):
