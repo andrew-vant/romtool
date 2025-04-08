@@ -7,7 +7,7 @@ import types
 from codecs import CodecInfo
 from collections import ChainMap
 from dataclasses import dataclass, field, fields
-from functools import partial
+from functools import cache, partial
 from hashlib import sha1
 from importlib import resources
 from itertools import chain
@@ -24,7 +24,7 @@ from .exceptions import MapError, RomDetectionError
 from .field import Field, StructField, DEFAULT_FIELDS
 from .structures import Structure, BitField, TableSpec
 from .text import TextTable
-from .util import cache, get_subfiles as subfiles, Handler
+from .util import get_subfiles as subfiles, Handler
 
 
 log = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
-from functools import lru_cache, partial
+from functools import cache, partial
 from importlib import resources
 from itertools import chain, tee
 from pathlib import Path
@@ -48,14 +48,6 @@ class TSV(csv.Dialect):  # pylint: disable=too-few-public-methods
 csv.register_dialect('rt_tsv', TSV)
 TSVReader = partial(csv.DictReader, dialect='rt_tsv')
 TSVWriter = partial(csv.DictWriter, dialect='rt_tsv')
-
-
-def cache(function):
-    """ Simple unbounded cache decorator
-
-    Backport of functools.cache. Here to avoid dependency on 3.9+.
-    """
-    return lru_cache(maxsize=None)(function)
 
 
 class CheckedDict(dict):

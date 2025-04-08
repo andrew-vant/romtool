@@ -8,7 +8,7 @@ import logging
 from collections import UserList, ChainMap
 from collections.abc import Mapping, Sequence, MutableMapping
 from itertools import chain, combinations, islice
-from functools import partial, cached_property
+from functools import cache, cached_property, partial
 from os.path import basename, splitext
 from io import BytesIO
 from abc import ABC
@@ -19,7 +19,7 @@ from asteval import Interpreter
 
 from .field import Field, FieldExpr
 from . import util
-from .util import cache, RomObject, SequenceView, CheckedDict, HexInt
+from .util import RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 

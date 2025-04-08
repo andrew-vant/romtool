@@ -8,13 +8,13 @@ import enum
 import hashlib
 import zlib
 from collections.abc import Hashable
-from functools import partial
+from functools import cache, partial
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba
 
 from .util import FormatSpecifier, HexInt, NodeMixin
-from .util import bytes2ba, cache, chunk, throw
+from .util import bytes2ba, chunk, throw
 
 log = logging.getLogger(__name__)
 trace = partial(log.log, logging.NOTSET)

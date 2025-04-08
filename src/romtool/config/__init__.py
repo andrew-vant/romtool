@@ -4,13 +4,11 @@ import os
 import logging
 from importlib.resources import files
 from pathlib import Path
-from functools import partial
+from functools import cache, partial
 
 import yaml
 from addict import Dict
 from appdirs import user_config_dir
-
-from ..util import cache
 
 
 _loadyaml = partial(yaml.load, Loader=yaml.SafeLoader)
