@@ -35,7 +35,7 @@ csv.register_dialect(
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class DatRom:
     """ Container for the datomatic rom data we're interested in """
     name: str
@@ -80,23 +80,28 @@ class CLIParser(ArgumentParser):
 def cmd_datomatic(args):
     """ Build rom db from datomatic files """
     def load_infile(infile):
-        log.info("reading %s", infile.name)
+        log.debug("reading %s", infile.name)
         with open(infile, 'r') as f:
             dm = Datomatic(f)
         for i, dr in enumerate(dm.roms):
             yield dr
-        log.info("found %s rom definitions", i)
+        log.info("found %s rom definitions in %s", i, infile.name)
 
     datpath = Path(AppDirs("romtool").user_data_dir, 'datomatic')
     for line in args.file_list or []:
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        args.infile.append(Path(datpath, line))
+        matches = list(datpath.glob(line))
+        if not matches:
+            raise FileNotFoundError(
+                f"can't find {datpath / line}; get it from the datomatic "
+                f"daily P/C snapshots")
+        args.infile.extend(matches)
 
     log.debug("sorting output")
-    data = sorted(chain.from_iterable(load_infile(f) for f in args.infile))
-    log.info("writing to %s", args.outfile.name)
+    data = sorted(set(chain.from_iterable(load_infile(f) for f in args.infile)))
+    log.info("writing %s entries to %s", len(data), args.outfile.name)
     headers = [field.name for field in fields(DatRom)]
     writer = csv.DictWriter(args.outfile, headers, dialect='tsv')
     writer.writeheader()

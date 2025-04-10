@@ -3,8 +3,9 @@
 # For now, I am relying on an explicit list to (try to) prevent
 # accidental removal from a given release. If any of these files are
 # missing, builds will fail. Extras are ignored. Files are looked for in
-# ~/.local/share/romtool/datomatic.
+# ~/.local/share/romtool/datomatic. Globs are used because the
+# download adds a datestamp that we don't care about.
 
-Nintendo - Nintendo Entertainment System (Parent-Clone) (20211117-052703).dat
-Nintendo - Super Nintendo Entertainment System (Parent-Clone) (20211126-074155).dat
-Nintendo - Game Boy Advance (Parent-Clone) (20211127-100922).dat
+Nintendo - Nintendo Entertainment System (Headerless) (Parent-Clone) (*-*).dat
+Nintendo - Super Nintendo Entertainment System (Parent-Clone) (*-*).dat
+Nintendo - Game Boy Advance (Parent-Clone) (*-*).dat
