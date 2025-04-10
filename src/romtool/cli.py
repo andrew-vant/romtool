@@ -485,6 +485,7 @@ def cmd_document(args):
                for t in rom.map.tables.values()}
     tables = {tid: table for tid, table in rom.tables.items()
               if tid not in indexes}
+    sys.stdout.reconfigure(encoding='utf8')
     print(util.jrender('monolithic.html',
                        rom=rom,
                        tables=tables,
