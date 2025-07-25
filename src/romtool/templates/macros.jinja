@@ -82,27 +82,14 @@ items of type <span class="type">{{ table.spec.type }}</span>.
 {%- set endian = 'little-endian' if index.spec.type.endswith('le')
                  else 'big-endian' if index.spec.type.endswith('be')
                  else '' %}
-The table index begins at <span class="offset">{{ index.offset }}</span>;
-index entries are {{ index._index.stride }}-byte {{ endian }}
-integer offsets relative to <span class="offset">{{ table.offset }}</span>.
+The table index begins at <span class="offset">{{ index.spec.offset }}</span>;
+index entries are {{ index.spec.stride }}-byte {{ endian }}
+integer offsets relative to <span class="offset">{{ table.spec.offset }}</span>.
 {%- else %}
 First item starts at <span class="offset">{{ table.spec.offset }}</span>.
 {%- endif %}
 </p>
-{%- if table.struct %}
-{{ mappingtable(table, ["scroll"], table[0].keys()|list) }}
-{%- else %}
-<figure class="table">
-<table class="scroll">
-<thead><tr><td>#</td><td>Value</td></tr></thead>
-<tbody>
-{%- for item in table | safe_iter %}
-<tr><td>{{ loop.index0 }}</td><td>{{ item }}</td></tr>
-{%- endfor %}
-</tbody>
-</table>
-</figure>
-{%- endif %}
+{{ table }}
 {%- endmacro -%}
 
 {%- macro tbl2html(rows, caption) -%}

@@ -1,10 +1,6 @@
 {#-
   Expected context:
     rom: rom object
-    tables: dict of tables
-    structures: rom structure registry
-
-  (desired context: just the ROM, get everything else from there)
 #}
 {%- extends "base.html" %}
 {%- from "macros.jinja" import datatable, mappingtable, structtable,
@@ -63,16 +59,16 @@ toclist, tablespecs %}
     {%- include 'structs.md' -%}
     {%- for name, struct in rom.map.structs.items() %}
     <h3 id="structs-{{ name }}">{{ name }}</h3>
-    {{- structtable(struct, ["scroll"]) }}
+    {{- struct }}
     {%- endfor %}
     <h2 id="entities">Data Dump by Entity</h2>
     {%- for name, dataset in rom.entities.items() %}
     <h3 id="entities-{{ name }}">{{ name }}</h3>
     <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
-    {{- mappingtable(dataset, ["scroll"], dataset[0].keys()|list) }}
+    {{ dataset }}
     {%- endfor %}
     <h2 id="table">Data Dump by Table</h2>
-    {%- for table in tables.values() %}
+    {%- for table in rom.tables.values() %}
     {{- datatable(table) }}
     {%- endfor %}
     <h2 id="references">References</h2>

@@ -188,6 +188,7 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
         Sorting an iterable of fields directly will use this key.
         """
         return (
+                self.id != 'id',
                 not self.is_name,
                 self.is_slop,
                 self.is_ptr,

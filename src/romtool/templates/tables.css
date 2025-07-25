@@ -19,22 +19,17 @@ table.scroll {
 
 .scroll thead {
 	position: sticky;
+	z-index: 10;
 	inset-block-start: 0;
-	background: gainsboro;
 }
 
-.scroll td:nth-child(-n+2) { background: white; }
-.scroll th {background: gainsboro;}
-.scroll td:first-child { z-index: 1; }
-.scroll td:nth-child(2) { z-index: 2; }
-.scroll thead { z-index: 10; }
-.scroll th:first-child { z-index: 11; }
-.scroll th:nth-child(2) { z-index: 12; }
-
-.scroll td:nth-child(-n+2),.scroll th:nth-child(-n+2) {
+.scroll th {background: gainsboro}
+.scroll td.identifier {background: white}
+.scroll .identifier {
 	position: sticky;
 	inset-inline-start: 0;
 }
+.scroll td:last-child {padding-right: 4em;}
 
 .tablenotes {
 	display: grid;

@@ -140,7 +140,7 @@ class BitArrayView(NodeMixin):
         """
         if len(self) % Unit.bytes:
             raise ValueError("Not an even number of bytes")
-        return self.offset // Unit.bytes
+        return HexInt(self.offset // Unit.bytes)
 
     @property
     def os_bytemod(self):
