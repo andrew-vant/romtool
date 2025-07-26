@@ -86,7 +86,8 @@ The table index begins at <span class="offset">{{ index.spec.offset }}</span>;
 index entries are {{ index.spec.stride }}-byte {{ endian }}
 integer offsets relative to <span class="offset">{{ table.spec.offset }}</span>.
 {%- else %}
-First item starts at <span class="offset">{{ table.spec.offset }}</span>.
+There is no table index; items start at <span class="offset">
+{{ table.spec.offset }}</span> and appear sequentially after that.
 {%- endif %}
 </p>
 {{ table }}

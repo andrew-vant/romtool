@@ -203,8 +203,9 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     @property
     def is_name(self):
         """ Check if the field is the name of the parent object. """
-        return any((s.lower().startswith('name')
-                    for s in [self.id, self.name]))
+        return (not self.is_ptr
+                and any((s.lower().startswith('name')
+                         for s in [self.id, self.name])))
 
     @property
     def is_flag(self):

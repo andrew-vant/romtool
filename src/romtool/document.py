@@ -117,16 +117,24 @@ def tbl_bitfield(cls, *args, **kwargs):
     tableize(specs, None, identifiers=None)
     tbl_notes(notes)
 
+
 def tbl_table_dump(table):
-    return tableize(dict(offset=offset, value=obj)
+    """ Document the items in a ROM table. """
+
+    def mkdict(offset, obj):
+        """ Create instance dicts to send to tableize. """
+        d = dict(offset=offset)
+        d.update(obj if isinstance(obj, Mapping)
+                 else {'value': obj})
+        return d
+
+    return tableize(mkdict(offset, obj)
                     for offset, obj
                     in table.with_offsets())
 
 
-
-
 def finalize(obj):
-    """ Jinja object finalizer. """
+    """ Jinja finalizer hook. """
     def issubcls(obj, _type):
         """ issubclass wrapper that plays nice with non-class inputs """
         return isinstance(obj, type) and issubclass(obj, _type)

@@ -62,14 +62,25 @@ toclist, tablespecs %}
     {{- struct }}
     {%- endfor %}
     <h2 id="entities">Data Dump by Entity</h2>
+    <p>These are lists of all known data in the ROM. This section is
+    meant for players; related tables have been joined and irrelevant
+    fields omitted to produce something as legible as possible.</p>
     {%- for name, dataset in rom.entities.items() %}
     <h3 id="entities-{{ name }}">{{ name }}</h3>
     <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
     {{ dataset }}
     {%- endfor %}
     <h2 id="table">Data Dump by Table</h2>
+    <p>These are the data tables as they appear in the ROM, without
+    joining into logical objects. The offsets given for each entry are
+    relative to the start of the ROM data. If your ROM has a header,
+    their position in the file will differ.</p>
+    <p>This is probably only useful if you are hand-hacking in a hex
+    editor.</p>
     {%- for table in rom.tables.values() %}
+    {%- if table not in rom.indexes %}
     {{- datatable(table) }}
+    {%- endif %}
     {%- endfor %}
     <h2 id="references">References</h2>
     <h3 id="data-types">Data Types</h3>
