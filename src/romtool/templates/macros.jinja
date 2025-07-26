@@ -2,56 +2,12 @@
 <li><a href="#{{ id }}">{{ title }}</a>
   <ol>
     {%- for key, item in dct.items() %}
-    <li><a href="#{{ id }}-{{ key }}">{{ item | name }}</a></li>
+    <li><a href="#{{ id }}-{{ key }}">{{ item | name | title }}</a></li>
     {%- endfor %}
   </ol>
 </li>
 {%- endmacro -%}
 
-{%- macro mappingtable(table, classes, keys, numbering) -%}
-{%- set ns = namespace(headings=[]) %}
-{%- set numbering = numbering|default(true) %}
-<figure class="table">
-<table class="{{ ' '.join(classes) }}">
-{%- for item in table %}
-{%- if loop.first %}
-<thead><tr>
-  {%- if numbering %}<th scope="col">#</th>{%- endif %}
-  {%- set ns.headings = keys |
-                        reject("eq", "comment") |
-                        list %}
-  {%- for key in ns.headings %}
-  <th scope="col">{{ key }}</th>
-  {%- endfor %}
-</tr></thead>
-<tbody>
-{%- endif -%}
-<tr>
-{%- if numbering %}<td>{{ loop.index0 }}</td>{%- endif %}
-{%- for key in ns.headings %}
-{#- FIXME: appears very slow. Find some way to use or imitate the perf
-hack in entity.items() #}
-  <td>{{ item.get(key, 'ERR') if item.get else item[key] }}</td>
-{%- endfor %}
-</tr>
-{%- endfor %}
-</tbody>
-</table>
-<figcaption>
-  {%- for item in table if item.comment %}
-  {%- if loop.first %}
-  <p>Notes:</p>
-  <dl class="tablenotes">
-  {%- endif %}
-  <dt>{{ item.name }}</dt>
-  <dd>{{ item.comment }}</dd>
-  {%- if loop.last %}
-  </dl>
-  {%- endif %}
-  {%- endfor %}
-</figcaption>
-</figure>
-{%- endmacro -%}
 
 {%- macro structtable(struct, classes) -%}
 {%- set content = [] %}

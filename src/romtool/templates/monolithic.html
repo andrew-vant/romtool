@@ -3,8 +3,7 @@
     rom: rom object
 #}
 {%- extends "base.html" %}
-{%- from "macros.jinja" import datatable, mappingtable, structtable,
-toclist, tablespecs %}
+{%- from "macros.jinja" import datatable, toclist %}
 
 {%- block head %}
 <title>{{ rom.name }} ROM Documentation</title>
@@ -49,12 +48,7 @@ toclist, tablespecs %}
 
     <h2 id="tables">Data Tables</h2>
     {%- include 'tables.md' -%}
-    {{ mappingtable(
-      rom.map.tables.values(),
-      ["scroll"],
-      ["name","id","type","offset","count","stride","index"],
-      false
-      ) }}
+    {{ rom }}
     <h2 id="structs">Structure Type Formats</h2>
     {%- include 'structs.md' -%}
     {%- for name, struct in rom.map.structs.items() %}
@@ -63,11 +57,12 @@ toclist, tablespecs %}
     {%- endfor %}
     <h2 id="entities">Data Dump by Entity</h2>
     <p>These are lists of all known data in the ROM. This section is
-    meant for players; related tables have been joined and irrelevant
-    fields omitted to produce something as legible as possible.</p>
+    meant for players; where possible, related tables have been joined,
+    and integer cross-references rendered as object names.</p>
+    <p>Each dataset is also available in .tsv format, which you can open
+    in most spreadsheet applications.</p>
     {%- for name, dataset in rom.entities.items() %}
-    <h3 id="entities-{{ name }}">{{ name }}</h3>
-    <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
+    <h3 id="entities-{{ name }}">{{ name.title() }}</h3>
     {{ dataset }}
     {%- endfor %}
     <h2 id="table">Data Dump by Table</h2>

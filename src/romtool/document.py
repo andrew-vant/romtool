@@ -10,10 +10,11 @@ import appdirs
 import dominate
 import jinja2
 from dominate import tags
-from dominate.tags import dd, dl, dt, p, tr, td, th
+from dominate.tags import a, dd, dl, dt, p, tr, td, th
 from markupsafe import Markup
 from more_itertools import unique_everseen
 
+from .rom import Rom
 from .structures import BitField, EntityList, Structure, Table
 from .util import safe_iter, TSVReader
 
@@ -52,7 +53,9 @@ def tableize(data, numbered='#', identifiers='id name'):
     identifiers = (identifiers.split()
                    if isinstance(identifiers, str)
                    else list(identifiers or []))
-    data = [item if isinstance(item, Mapping) else {"value": item}
+    data = [item if isinstance(item, Mapping)
+            else asdict(item) if is_dataclass(item)
+            else {"value": item}
             for item in data]
     columns = table_cols(data)
     with tags.thead():
@@ -133,6 +136,46 @@ def tbl_table_dump(table):
                     in table.with_offsets())
 
 
+@tags.figure(cls="table")
+def tbl_entity_dump(table):
+    """ Document the items in an EntityList. """
+    tableize(table)
+    with tags.figcaption():
+        a("(as tsv)", cls="dump", href=f"{table.name}.tsv")
+
+
+@tags.figure(cls="table")
+def tbl_rom_toplevel(rom):
+    """ Document the top-level list of ROM tables. """
+    def index(table):
+        """ Concisely describe the table index """
+        if not isinstance(table._index, Table):
+            return None
+        spec = table._index.spec
+        tp = spec.type
+        ct = spec.count
+        os = spec.offset
+        return f'{tp}*{ct}@{os}'
+
+    # This is irritatingly explicit just to pick out/rename some fields.
+    tables = sorted(rom.tables.values(),
+                    key=lambda t: (t in rom.indexes, t.spec.set, t.name))
+    entries = ({'name':   table.spec.name,
+                'group':  table.spec.set,
+                'type':   table.spec.type,
+                'offset': table.spec.offset,
+                'count':  table.spec.count,
+                'stride': table.spec.stride,
+                'index':  index(table)}
+               for table in tables
+               if table not in rom.indexes)
+    notes = {table.name: table.spec.comment
+             for table in tables
+             if table.spec.comment}
+    tableize(entries, None, None)
+    tbl_notes(notes)
+
+
 def finalize(obj):
     """ Jinja finalizer hook. """
     def issubcls(obj, _type):
@@ -142,8 +185,9 @@ def finalize(obj):
     # doesn't work because it interferes with finalize.
     return (Markup(tbl_bitfield(obj)) if issubcls(obj, BitField)
             else Markup(tbl_structdef(obj)) if issubcls(obj, Structure)
-            else Markup(tableize(obj)) if isinstance(obj, EntityList)
+            else Markup(tbl_entity_dump(obj)) if isinstance(obj, EntityList)
             else Markup(tbl_table_dump(obj)) if isinstance(obj, Table)
+            else Markup(tbl_rom_toplevel(obj)) if isinstance(obj, Rom)
             else '' if obj is None
             else obj)
 
