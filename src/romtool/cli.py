@@ -58,14 +58,14 @@ from collections import namedtuple
 from inspect import getdoc
 from pathlib import Path
 
-import jinja2
 import yaml
 from addict import Dict
 from appdirs import AppDirs
 from docopt import docopt
 from alive_progress import alive_bar
 
-from . import document as doc, util, config, charset
+from . import util, config, charset
+from .document import document
 from .rommap import RomMap, MapDB
 from .rom import Rom
 from .patch import Patch
@@ -467,18 +467,9 @@ def cmd_document(args):
         * data table contents (optional, slow)
     """
     rom = _loadrom(args.rom, args.map, args.patches)
-    path = Path(rom.map.path, "rom.tsv")
     log.info("Documenting data tables")
-    indexes = {t.index: rom.map.tables[t.index]
-               for t in rom.map.tables.values()}
-    tables = {tid: table for tid, table in rom.tables.items()
-              if tid not in indexes}
     sys.stdout.reconfigure(encoding='utf8')
-    print(doc.jrender('monolithic.html',
-                       rom=rom,
-                       tables=tables,
-                       indexes=indexes))
-    #     rom.document(args.outdir, args.force)
+    print(document(rom))
     # except FileExistsError as ex:
     #     log.error("%s (use --force to permit overwriting)", ex)
     #     sys.exit(1)

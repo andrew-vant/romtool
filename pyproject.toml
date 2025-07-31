@@ -31,6 +31,7 @@ dependencies = [
     "docopt",
     "dominate",
     "jinja2",
+    "markdown",
     "more-itertools",
     "patricia-trie>=10",
     "pyyaml>=3.10",

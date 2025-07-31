@@ -99,3 +99,7 @@ There is no table index; items start at <span class="offset">
   </tbody>
 </table>
 {%- endmacro -%}
+
+{%- macro hid(identifier) %}
+{{ '{#' + identifier + '}' }}
+{%- endmacro %}

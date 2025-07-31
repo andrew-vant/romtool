@@ -1,16 +1,21 @@
+""" Rom documentation generation.
+
+A combination of jinja, markdown, and dominate is used to generate the docs.
+This is annoyingly complicated, especially when rendering data tables.
+"""
+
 import logging
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from functools import cache, partial
 from itertools import chain
-from operator import attrgetter
 from pathlib import Path
 
 import appdirs
-import dominate
 import jinja2
 from dominate import tags
 from dominate.tags import a, dd, dl, dt, p, tr, td, th
+from markdown import markdown, Markdown
 from markupsafe import Markup
 from more_itertools import unique_everseen
 
@@ -70,7 +75,6 @@ def tableize(data, numbered='#', identifiers='id name'):
                 if numbered is not None:
                     th(i, scope='row', cls='identifier')
                 for col in columns:
-                    value = row.get(col)
                     td(str(denonify(row.get(col))),
                        cls=col.lower() in identifiers and f'identifier {col}')
 
@@ -87,14 +91,14 @@ def tbl_notes(notes):
 
 
 @tags.figure(cls="table")
-def tbl_structdef(cls, *args, **kwargs):
+def tbl_structdef(cls):
     """ Document a structure's fields in HTML.
 
     Returns an HTML figure with a table inside it. Any field-specific notes
     are placed in the figure caption. """
     notes = {field.name: field.comment for field in cls.fields
              if field.comment}
-    specs = [dict(field=field.name, **asdict(field)) for field in cls.fields]
+    specs = [{'field': field.name, **asdict(field)} for field in cls.fields]
     for spec in specs:
         # Remove keys we don't want in the headers
         for key in 'id name display order comment'.split():
@@ -104,12 +108,8 @@ def tbl_structdef(cls, *args, **kwargs):
 
 
 @tags.figure(cls="table")
-def tbl_bitfield(cls, *args, **kwargs):
+def tbl_bitfield(cls):
     """ Document a bitfield structure. """
-
-    def by_offset(field):
-        """ Get the offset of a bit, for sorting. """
-        return field.offset.value
 
     notes = {field.name: field.comment for field in cls.fields
              if field.comment}
@@ -126,7 +126,7 @@ def tbl_table_dump(table):
 
     def mkdict(offset, obj):
         """ Create instance dicts to send to tableize. """
-        d = dict(offset=offset)
+        d = {'offset': offset}
         d.update(obj if isinstance(obj, Mapping)
                  else {'value': obj})
         return d
@@ -175,12 +175,12 @@ def tbl_rom_toplevel(rom):
     tableize(entries, None, None)
     tbl_notes(notes)
 
+def issubcls(obj, _type):
+    """ issubclass wrapper that plays nice with non-class inputs """
+    return isinstance(obj, type) and issubclass(obj, _type)
 
 def finalize(obj):
     """ Jinja finalizer hook. """
-    def issubcls(obj, _type):
-        """ issubclass wrapper that plays nice with non-class inputs """
-        return isinstance(obj, type) and issubclass(obj, _type)
     # The Markup() here stops Jinja from escaping the output. The safe filter
     # doesn't work because it interferes with finalize.
     return (Markup(tbl_bitfield(obj)) if issubcls(obj, BitField)
@@ -216,6 +216,7 @@ def jinja_env():
     env.filters["asdict"] = asdict
     env.filters["name"] = getname
     env.filters["tableize"] = tableize
+    env.filters["markdown"] = partial(markdown, extensions=['extra', 'toc'])
     return env
 
 
@@ -245,3 +246,17 @@ def jrender(_template, **context):
     environment details.
     """
     return jinja_env().get_template(_template).render(**context)
+
+
+def document(rom):
+    """ Generate documentation for a ROM. """
+    md = Markdown(extensions=['extra', 'toc'],
+                  extension_configs={'toc': {
+                      'toc_depth': '2-6',
+                      'title': rom.name,
+                      }})
+    content = md.convert(jrender('monolithic.md', rom=rom))
+    return jrender('monolithic.html',
+                   rom=rom,
+                   content=content,
+                   toc=md.toc)  # pylint: disable=no-member # added by extension

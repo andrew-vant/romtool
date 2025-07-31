@@ -104,6 +104,13 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
         """
         return set(t.set for t in self.tables.values() if t.set)
 
+    @property
+    def bitfields(self):
+        """ Get bitfield types in the map. """
+        return {name: struct for name, struct
+                in self.structs.items()
+                if issubclass(struct, BitField)}
+
     def find(self, top):
         """ Find the ROM corresponding to this map under top """
         if isinstance(top, str):
