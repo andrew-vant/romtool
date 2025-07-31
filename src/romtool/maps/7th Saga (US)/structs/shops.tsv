@@ -1,26 +1,26 @@
-id	name	offset	size	origin	type	arg	ref_bak	display	order	pointer	comment
-wp1	Weapon 1	0	1		uint		weapons				
-wp2	Weapon 2	1	1		uint		weapons				
-wp3	Weapon 3	2	1		uint		weapons				
-wp4	Weapon 4	3	1		uint		weapons				
-wp5	Weapon 5	4	1		uint		weapons				
-arm1	Armor 1	5	1		uint		armor				
-arm2	Armor 2	6	1		uint		armor				
-arm3	Armor 3	7	1		uint		armor				
-arm4	Armor 4	8	1		uint		armor				
-arm5	Armor 5	9	1		uint		armor				
-arm6	Armor 6	10	1		uint		armor				
-arm7	Armor 7	11	1		uint		armor				
-arm8	Armor 8	12	1		uint		armor				
-it1	Item 1	13	1		uint		items				
-it2	Item 2	14	1		uint		items				
-it3	Item 3	15	1		uint		items				
-it4	Item 4	16	1		uint		items				
-it5	Item 5	17	1		uint		items				
-it6	Item 6	18	1		uint		items				
-it7	Item 7	19	1		uint		items				
-it8	Item 8	20	1		uint		items				
-it9	Item 9	21	1		uint		items				
+id	name	offset	size	origin	type	arg	ref	display	order	pointer	comment
+wp1	Weapon 1	0	1		uint		loot				
+wp2	Weapon 2	1	1		uint		loot				
+wp3	Weapon 3	2	1		uint		loot				
+wp4	Weapon 4	3	1		uint		loot				
+wp5	Weapon 5	4	1		uint		loot				
+arm1	Armor 1	5	1		uint		loot				
+arm2	Armor 2	6	1		uint		loot				
+arm3	Armor 3	7	1		uint		loot				
+arm4	Armor 4	8	1		uint		loot				
+arm5	Armor 5	9	1		uint		loot				
+arm6	Armor 6	10	1		uint		loot				
+arm7	Armor 7	11	1		uint		loot				
+arm8	Armor 8	12	1		uint		loot				
+it1	Item 1	13	1		uint		loot				
+it2	Item 2	14	1		uint		loot				
+it3	Item 3	15	1		uint		loot				
+it4	Item 4	16	1		uint		loot				
+it5	Item 5	17	1		uint		loot				
+it6	Item 6	18	1		uint		loot				
+it7	Item 7	19	1		uint		loot				
+it8	Item 8	20	1		uint		loot				
+it9	Item 9	21	1		uint		loot				
 inn	Inn Price	22	2		uintle						
 nmp	Name Pointer	24	3		uintle			pointer			
 name	Name	nmp-0xC00000	12	root	strz			main		nmp	

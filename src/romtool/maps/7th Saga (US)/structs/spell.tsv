@@ -2,7 +2,7 @@ id	name	offset	size	type	origin	arg	display	order	info	comment
 pow	Spell Power	0	2	uintle					stats	
 tgt	Targeting	2	1	uint			target		behavior	0: Single Enemy | 1: All Enemies | 2: Single Ally | 3: Unknown | 4: Map
 mpc	MP Cost	3	2	uintle					stats	
-dom	Domain	5	1	uint			domain		behavior	0: All | 1: Battle | 2: Map
+avail	Availability	5	1	uint			availability		behavior	0: All | 1: Battle | 2: Map
 emt	Element	6	1	uint			element		stats	0: No element (e.g. healing) | 1: Thunder | 2: Unused | 3: Unused | 4: Fire | 5: Ice | 6: Death | 7: Effect | 2 and 3 are unknown and probably unused. But usable.
 unk1	Unknown 1	7	1	bin					unknown	
 unk2	Status?	8	1	bin					unknown	
