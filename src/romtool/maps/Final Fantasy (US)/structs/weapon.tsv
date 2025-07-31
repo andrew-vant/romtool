@@ -1,9 +1,9 @@
-id	name	offset	size	type	display	order	info	comment
-hit	Hit%	0	1	uint				
-dmg	Damage	1	1	uint				
-crit	Crit Rate	2	1	uint				
-spl	Spell	3	1	uint				Probably an index into the spell array.
-elem	Element	4	1	elements				
-bonus	Strong vs Monster	5	1	genera				
-gfx	Sprite	6	1	uint	hex			
-pal	Palette	7	1	uint	hex			
+name	id	offset	size	type	ref	arg	display	order	info	comment
+Hit%	hit	0	1	uint						
+Damage	dmg	1	1	uint						
+Crit Rate	crit	2	1	uint						
+Spell	spl	3	1	uint	spells	-1				Subtract 1 to get index into the spell array.
+Element	elem	4	1	elements						
+Strong vs Monster	bonus	5	1	genera						
+Sprite	gfx	6	1	uint			hex			
+Palette	pal	7	1	uint			hex			

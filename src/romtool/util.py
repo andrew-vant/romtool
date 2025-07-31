@@ -2,7 +2,6 @@
 
 import contextlib
 import csv
-import dataclasses as dc
 import hashlib
 import io
 import logging
@@ -18,8 +17,6 @@ from itertools import chain, tee
 from pathlib import Path
 
 import anytree
-import appdirs
-import jinja2
 import yaml
 from bitarray import bitarray
 from bitarray.util import bits2bytes
@@ -181,6 +178,8 @@ class IndexInt(int):
     """ An int representing a table index
 
     Dumps and parses as the name of the corresponding item in a given table.
+    -1 converts as the empty string, to accomodate cases where 0 means
+    'nothing'.
     """
     def __new__(cls, table, value):
         if not isinstance(table, Sequence):
@@ -188,7 +187,7 @@ class IndexInt(int):
                              "something that isn't a table")
         if isinstance(value, str):
             try:
-                value = int(value, 0)
+                value = int(value, 0) if value else -1
             except ValueError:
                 value = locate(table, value)
         self = int.__new__(cls, value)
@@ -198,14 +197,14 @@ class IndexInt(int):
     @property
     def obj(self):
         """ Look up the item with this index in the underlying table. """
-        return self.table[self]  # pylint: disable=no-member
+        return None if self < 0 else self.table[self]  # pylint: disable=no-member
 
     def __repr__(self):
         # pylint: disable=no-member
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
-        return getattr(self.obj, 'name', str(int(self)))
+        return '' if self < 0 else getattr(self.obj, 'name', str(int(self)))
 
 
 def throw(ex, *args, **kwargs):

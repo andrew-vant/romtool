@@ -1,5 +1,5 @@
-id	name	offset	size	type	order	info	comment
-weight	Weight	0	1	uint			0-64 range
-abs	Absorb	1	1	uint			
-res	Resist	2	1	elements			Status Psn/Stn Time Death Fire Ice Lightning Earth
-spl	Spell	3	1	uint			Probably an index into the spell array.
+id	name	offset	size	type	ref	arg	order	info	comment	B
+weight	Weight	0	1	uint					Purported range 0-64; unclear why.	1
+abs	Absorb	1	1	uint						2
+res	Resist	2	1	elements						3
+spl	Spell	3	1	uint	spells	-1			Subtract 1 to get index into spell array.	4

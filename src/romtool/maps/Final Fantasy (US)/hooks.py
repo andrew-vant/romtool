@@ -25,7 +25,7 @@ class SpellArgument(IntField):
                 0x0A: 'elements'}
 
     def _realtype(self, obj):
-        tp_name = self._typemap.get(obj.code)
+        tp_name = self._typemap.get(obj.func)
         return obj.root.map.structs[tp_name] if tp_name else int
 
     def read(self, obj, realtype=None):
