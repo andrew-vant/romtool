@@ -155,7 +155,8 @@ def tbl_rom_toplevel(rom):
         tp = spec.type
         ct = spec.count
         os = spec.offset
-        return f'{tp}*{ct}@{os}'
+        sz = spec.stride
+        return f'{tp}({sz})*{ct}@{os}'
 
     # This is irritatingly explicit just to pick out/rename some fields.
     tables = sorted(rom.tables.values(),
