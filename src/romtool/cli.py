@@ -58,7 +58,6 @@ from collections import namedtuple
 from inspect import getdoc
 from pathlib import Path
 
-import jinja2
 import yaml
 from addict import Dict
 from appdirs import AppDirs
@@ -66,6 +65,7 @@ from docopt import docopt
 from alive_progress import alive_bar
 
 from . import util, config, charset
+from .document import document
 from .rommap import RomMap, MapDB
 from .rom import Rom
 from .patch import Patch
@@ -467,31 +467,9 @@ def cmd_document(args):
         * data table contents (optional, slow)
     """
     rom = _loadrom(args.rom, args.map, args.patches)
-    structures = {}
-    for path in util.get_subfiles(rom.map.path, 'structs', '.tsv'):
-        name = path.stem
-        log.info("Generating doc table for %s", path)
-        name = path.stem.title()
-        try:
-            with open(path, encoding='utf-8') as file:
-                structures[name] = util.tsv2html(file, name)
-        except jinja2.TemplateSyntaxError as ex:
-            log.critical("Error while documenting %s structure: [%s:%s] %s",
-                         name, ex.name, ex.lineno, ex.message)
-            sys.exit(2)
-    path = Path(rom.map.path, "rom.tsv")
     log.info("Documenting data tables")
-    indexes = {t.index: rom.map.tables[t.index]
-               for t in rom.map.tables.values()}
-    tables = {tid: table for tid, table in rom.tables.items()
-              if tid not in indexes}
     sys.stdout.reconfigure(encoding='utf8')
-    print(util.jrender('monolithic.html',
-                       rom=rom,
-                       tables=tables,
-                       indexes=indexes,
-                       structures=structures))
-    #     rom.document(args.outdir, args.force)
+    print(document(rom))
     # except FileExistsError as ex:
     #     log.error("%s (use --force to permit overwriting)", ex)
     #     sys.exit(1)

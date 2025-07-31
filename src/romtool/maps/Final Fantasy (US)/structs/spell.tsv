@@ -1,9 +1,9 @@
 id	name	offset	size	type	display	order	info	comment
 acc	Accuracy	0	1	uint				
-effect	Effectivity	1	1	effect				The nature of this value is determined by the Effect Routine property
-elem	Element	2	1	elements				Status Psn/Stn Time Death Fire Ice Lightning Earth
+effect	Effectivity	1	1	effect				Actual type determined by the spell's function.
+elem	Element	2	1	elements				
 tgt	Target	3	1	targets				Only one bit is ever set
-code	Effect Routine	4	1	uint	ecode			Determines what the spell does
+func	Function	4	1	uint	ecode	-1		Determines spell behavior. Probably an index into a function pointer array.
 gfx	Sprite	5	1	uint	hex			
 pal	Palette	6	1	uint	hex			
 unk1	Unknown 1	7	1	uint	hex			

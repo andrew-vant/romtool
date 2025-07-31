@@ -106,6 +106,13 @@ class Rom(util.NodeMixin):
                 or "Unknown ROM")
 
     @property
+    def indexes(self):
+        """ List of tables that are indexes for another table. """
+        return set(t._index for t in self.tables.values()
+                   if isinstance(t._index, Table)
+                   and t._index in self.tables.values())
+
+    @property
     def rom(self):
         """ Alias for rom.data. """
         return self.data

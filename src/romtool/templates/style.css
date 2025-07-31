@@ -7,7 +7,7 @@ body {
 		"sidebar content" 100vh
 		/ auto 1fr;
 }
-#sidebar {
+.toc {
 	grid-area: sidebar;
 	background: linear-gradient(
 		to right,
@@ -17,9 +17,10 @@ body {
 		);
 	padding: 2em;
 	overflow: auto;
+	white-space: nowrap;
 }
 
-#sidebar h1 {
+.toctitle {
 	font-size: large;
 	font-weight: bold;
 	max-width: 20ch;
@@ -51,13 +52,21 @@ thead {
 	font-weight: bold;
 }
 
-th { padding: 4px; }
+dl {
+	display: grid;
+	grid: "term def" / auto 1fr;
+	gap: .2em;
+}
+th { padding: 4px; grid-area: term;}
 td {
+	grid-area: def;
 	padding: 4px;
 	border: 1px solid grey;
 }
 
-#sidebar > ol > ol { list-style-type: lower-roman; }
+.toc ul { list-style-type: upper-roman;}
+.toc ul ul { list-style-type: decimal; }
+.toc ul ul ul { list-style-type: lower-roman; }
 li { margin: 2px; }
 
 

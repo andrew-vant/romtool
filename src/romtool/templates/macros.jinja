@@ -2,56 +2,12 @@
 <li><a href="#{{ id }}">{{ title }}</a>
   <ol>
     {%- for key, item in dct.items() %}
-    <li><a href="#{{ id }}-{{ key }}">{{ item | name }}</a></li>
+    <li><a href="#{{ id }}-{{ key }}">{{ item | name | title }}</a></li>
     {%- endfor %}
   </ol>
 </li>
 {%- endmacro -%}
 
-{%- macro mappingtable(table, classes, keys, numbering) -%}
-{%- set ns = namespace(headings=[]) %}
-{%- set numbering = numbering|default(true) %}
-<figure class="table">
-<table class="{{ ' '.join(classes) }}">
-{%- for item in table %}
-{%- if loop.first %}
-<thead><tr>
-  {%- if numbering %}<th scope="col">#</th>{%- endif %}
-  {%- set ns.headings = keys |
-                        reject("eq", "comment") |
-                        list %}
-  {%- for key in ns.headings %}
-  <th scope="col">{{ key }}</th>
-  {%- endfor %}
-</tr></thead>
-<tbody>
-{%- endif -%}
-<tr>
-{%- if numbering %}<td>{{ loop.index0 }}</td>{%- endif %}
-{%- for key in ns.headings %}
-{#- FIXME: appears very slow. Find some way to use or imitate the perf
-hack in entity.items() #}
-  <td>{{ item.get(key, 'ERR') if item.get else item[key] }}</td>
-{%- endfor %}
-</tr>
-{%- endfor %}
-</tbody>
-</table>
-<figcaption>
-  {%- for item in table if item.comment %}
-  {%- if loop.first %}
-  <p>Notes:</p>
-  <dl class="tablenotes">
-  {%- endif %}
-  <dt>{{ item.name }}</dt>
-  <dd>{{ item.comment }}</dd>
-  {%- if loop.last %}
-  </dl>
-  {%- endif %}
-  {%- endfor %}
-</figcaption>
-</figure>
-{%- endmacro -%}
 
 {%- macro structtable(struct, classes) -%}
 {%- set content = [] %}
@@ -82,27 +38,15 @@ items of type <span class="type">{{ table.spec.type }}</span>.
 {%- set endian = 'little-endian' if index.spec.type.endswith('le')
                  else 'big-endian' if index.spec.type.endswith('be')
                  else '' %}
-The table index begins at <span class="offset">{{ index.offset }}</span>;
-index entries are {{ index._index.stride }}-byte {{ endian }}
-integer offsets relative to <span class="offset">{{ table.offset }}</span>.
+The table index begins at <span class="offset">{{ index.spec.offset }}</span>;
+index entries are {{ index.spec.stride }}-byte {{ endian }}
+integer offsets relative to <span class="offset">{{ table.spec.offset }}</span>.
 {%- else %}
-First item starts at <span class="offset">{{ table.spec.offset }}</span>.
+There is no table index; items start at <span class="offset">
+{{ table.spec.offset }}</span> and appear sequentially after that.
 {%- endif %}
 </p>
-{%- if table.struct %}
-{{ mappingtable(table, ["scroll"], table[0].keys()|list) }}
-{%- else %}
-<figure class="table">
-<table class="scroll">
-<thead><tr><td>#</td><td>Value</td></tr></thead>
-<tbody>
-{%- for item in table | safe_iter %}
-<tr><td>{{ loop.index0 }}</td><td>{{ item }}</td></tr>
-{%- endfor %}
-</tbody>
-</table>
-</figure>
-{%- endif %}
+{{ table }}
 {%- endmacro -%}
 
 {%- macro tbl2html(rows, caption) -%}
@@ -155,3 +99,7 @@ First item starts at <span class="offset">{{ table.spec.offset }}</span>.
   </tbody>
 </table>
 {%- endmacro -%}
+
+{%- macro hid(identifier) %}
+{{ '{#' + identifier + '}' }}
+{%- endmacro %}

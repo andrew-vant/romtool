@@ -2,7 +2,6 @@
 
 import contextlib
 import csv
-import dataclasses as dc
 import hashlib
 import io
 import logging
@@ -18,8 +17,6 @@ from itertools import chain, tee
 from pathlib import Path
 
 import anytree
-import appdirs
-import jinja2
 import yaml
 from bitarray import bitarray
 from bitarray.util import bits2bytes
@@ -181,6 +178,8 @@ class IndexInt(int):
     """ An int representing a table index
 
     Dumps and parses as the name of the corresponding item in a given table.
+    -1 converts as the empty string, to accomodate cases where 0 means
+    'nothing'.
     """
     def __new__(cls, table, value):
         if not isinstance(table, Sequence):
@@ -188,7 +187,7 @@ class IndexInt(int):
                              "something that isn't a table")
         if isinstance(value, str):
             try:
-                value = int(value, 0)
+                value = int(value, 0) if value else -1
             except ValueError:
                 value = locate(table, value)
         self = int.__new__(cls, value)
@@ -198,14 +197,14 @@ class IndexInt(int):
     @property
     def obj(self):
         """ Look up the item with this index in the underlying table. """
-        return self.table[self]  # pylint: disable=no-member
+        return None if self < 0 else self.table[self]  # pylint: disable=no-member
 
     def __repr__(self):
         # pylint: disable=no-member
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
-        return getattr(self.obj, 'name', str(int(self)))
+        return '' if self < 0 else getattr(self.obj, 'name', str(int(self)))
 
 
 def throw(ex, *args, **kwargs):
@@ -829,58 +828,6 @@ def safe_iter(sequence, errstr="[[ {ex} ]]", extypes=(Exception,)):
         except extypes as ex:
             log.warning(ex)
             yield errstr.format(ex=ex)
-
-
-@cache
-def jinja_env():
-    """ Return the jinja environment used for doc generation. """
-    # Filters to add to the environment
-    def finalizer(obj):
-        return '' if obj is None else obj
-    def getname(obj):
-        return obj.__name__ if isinstance(obj, type) else obj.name
-
-    user_templates = Path(appdirs.user_data_dir('romtool'), 'templates')
-    escape_formats = ["html", "htm", "xml", "jinja"]  # Is this really needed?
-    tpl_loader = jinja2.ChoiceLoader([
-        jinja2.FileSystemLoader(user_templates),
-        jinja2.PackageLoader('romtool'),
-        ])
-    env = jinja2.Environment(
-            loader=tpl_loader,
-            extensions=['jinja2.ext.do'],
-            finalize=finalizer,
-            autoescape=jinja2.select_autoescape(escape_formats)
-            )
-    env.filters["safe_iter"] = safe_iter
-    env.filters["asdict"] = dc.asdict
-    env.filters["name"] = getname
-    return env
-
-
-def tsv2html(infile, caption=None):
-    """ Convert a tsv file to html.
-
-    At present this is done with a jinja template. Probably it should
-    actually be done with bs4 or something.
-    """
-    reader = csv.reader(infile, dialect='rt_tsv')
-    template = jinja_env().get_template('tsv2html.html')
-    return template.render(
-            caption=caption,
-            headers=next(reader),
-            rows=reader
-            )
-
-
-def jrender(_template, **context):
-    """ Look up a jinja template and render it with context.
-
-    Mostly this removes the need for the caller to think about jinja
-    environment details.
-    """
-    return jinja_env().get_template(_template).render(**context)
-
 
 
 def nodestats(node):

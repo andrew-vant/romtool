@@ -1,14 +1,11 @@
 {#-
   Expected context:
-    rom: rom object
-    tables: dict of tables
-    structures: rom structure registry
-
-  (desired context: just the ROM, get everything else from there)
+    rom: Rom object
+    content: Main text as html
+    toc: Table of contents from markdown-extra toc extension
 #}
 {%- extends "base.html" %}
-{%- from "macros.jinja" import datatable, mappingtable, structtable,
-toclist, tablespecs %}
+{%- from "macros.jinja" import datatable, toclist %}
 
 {%- block head %}
 <title>{{ rom.name }} ROM Documentation</title>
@@ -19,79 +16,10 @@ toclist, tablespecs %}
 {%- endblock %}
 
 {%- block body %}
-<nav id="sidebar" class="toc">
-<h1>{{ rom.name }}</h1>
-<ol>
-  <li><a href="#tables">Data Tables</a></li>
-  {{ toclist("Structure Type Formats", "structs", rom.map.structs) }}
-  {{ toclist("Data Dump by Entity", "entities", rom.entities) }}
-  {{ toclist("Data Dump by Table", "table", tables) }}
-  <li><a href="#references">References</a>
-  <ol>
-    <li><a href="#data-types">Data Types</a></li>
-    <li><a href="#glossary">Glossary</a></li>
-    {%- if rom.map.meta.credits %}
-    <li><a href="#acknowledgements">Acknowledgements</a></li>
-    {%- endif %}
-  </ol>
-  </li>
-</ol>
-</nav>
+{{ toc | safe }}
 <main>
   <article id="content">
-    <h1 id="top">{{ rom.name }}</h1>
-
-    <p>This document describes the ROM data structures for
-    "{{ rom.name }}", and includes a dump of all data thus described.
-    The descriptions and the dump are derived from the same
-    underlying code and definitions; to the extent that the dump is
-    correct, the structure specs should be too.</p>
-
-    <p>If you are writing a tool to edit the game, start here, at the
-    top. If you simply want to see what's in the game data, you can skip
-    ahead to the <a href="#entities">Data Dump by Entity</a> section.</p>
-
-    <h2 id="tables">Data Tables</h2>
-    {%- include 'tables.md' -%}
-    {{ mappingtable(
-      rom.map.tables.values(),
-      ["scroll"],
-      ["name","id","type","offset","count","stride","index"],
-      false
-      ) }}
-    <h2 id="structs">Structure Type Formats</h2>
-    {%- include 'structs.md' -%}
-    {%- for name, struct in rom.map.structs.items() %}
-    <h3 id="structs-{{ name }}">{{ name }}</h3>
-    {{- structtable(struct, ["scroll"]) }}
-    {%- endfor %}
-    <h2 id="entities">Data Dump by Entity</h2>
-    {%- for name, dataset in rom.entities.items() %}
-    <h3 id="entities-{{ name }}">{{ name }}</h3>
-    <a class="dump" href="{{ name }}.tsv">(as tsv)</a>
-    {{- mappingtable(dataset, ["scroll"], dataset[0].keys()|list) }}
-    {%- endfor %}
-    <h2 id="table">Data Dump by Table</h2>
-    {%- for table in tables.values() %}
-    {{- datatable(table) }}
-    {%- endfor %}
-    <h2 id="references">References</h2>
-    <h3 id="data-types">Data Types</h3>
-    <p><strong>FIXME</strong>: This section to contain information on
-    primitive data types.</p>
-    <h3 id="glossary">Glossary</h3>
-    <p><strong>FIXME</strong>: This section to contain romhacking jargon
-    definitions.</p>
-    {%- if rom.map.meta.credits %}
-    <h3 id="acknowledgements">Acknowledgements</h3>
-    <p>Information in this document was gathered from or otherwise aided
-    by the following sources:</p>
-    <ul>
-        {%- for name, link in rom.map.meta.credits.items() %}
-        <li><a href="{{ link }}">{{ name }}</a></li>
-        {%- endfor %}
-    </ul>
-    {%- endif %}
+    {{ content | safe }}
   </article>
 </main>
 {%- endblock %}

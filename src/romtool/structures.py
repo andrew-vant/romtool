@@ -566,6 +566,17 @@ class Table(Sequence, RomObject, ABC):
                 display=spec.display
                 )
 
+    @property
+    def has_index(self):
+        """ Check if the table has an in-rom index. """
+        return isinstance(self._index, Table)
+
+
+    def with_offsets(self):
+        """ Iterate over (offset, item) tuples. """
+        for i, obj in enumerate(self):
+            yield self.viewof(i).os_bytes, obj
+
     def viewof(self, i):
         """ Get a view of a given item in the list
 
