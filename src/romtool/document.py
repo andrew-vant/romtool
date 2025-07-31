@@ -158,9 +158,17 @@ def tbl_rom_toplevel(rom):
         sz = spec.stride
         return f'{tp}({sz})*{ct}@{os}'
 
+    def sortkey(table):
+        """ Sort key for tables. """
+        return (table in rom.indexes,
+                not table.spec.set,
+                table.spec.set or '',
+                table.name)
+
     # This is irritatingly explicit just to pick out/rename some fields.
-    tables = sorted(rom.tables.values(),
-                    key=lambda t: (t in rom.indexes, t.spec.set, t.name))
+    tables = [table for table in rom.tables.values()
+              if table not in rom.indexes]
+
     entries = ({'name':   table.spec.name,
                 'group':  table.spec.set,
                 'type':   table.spec.type,
@@ -168,8 +176,8 @@ def tbl_rom_toplevel(rom):
                 'count':  table.spec.count,
                 'stride': table.spec.stride,
                 'index':  index(table)}
-               for table in tables
-               if table not in rom.indexes)
+               for table in sorted(tables, key=sortkey))
+
     notes = {table.name: table.spec.comment
              for table in tables
              if table.spec.comment}
