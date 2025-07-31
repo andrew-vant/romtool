@@ -102,6 +102,19 @@ class BitArrayView(NodeMixin):
         return hash(self) == hash(other)
 
     @property
+    def _endian(self):
+        """ Compatibility shim for bitarray.endian()
+
+        bitarray v3.4.0 replaced the endian() method with a data descriptor.
+        This forwards to whatever's appropriate. Remove it once 3.4+
+        propagates to current distro versions; for now I want to allow for
+        using the distro-provided package.
+        """
+        return (self.ba.endian
+                if isinstance(self.ba.endian, str)
+                else self.ba.endian())
+
+    @property
     def sha1(self):
         """ SHA1 hash of the view's contents. """
         return hashlib.sha1(self.bytes).hexdigest()
@@ -223,7 +236,7 @@ class BitArrayView(NodeMixin):
 
     @hex.setter
     def hex(self, s):
-        self.bits = hex2ba(s, endian=self.ba.endian())
+        self.bits = hex2ba(s, endian=self._endian)
 
     @property
     def bits(self):
@@ -249,7 +262,7 @@ class BitArrayView(NodeMixin):
 
     @bin.setter
     def bin(self, string):
-        self.bits = bitarray(string, endian=self.ba.endian())
+        self.bits = bitarray(string, endian=self._endian)
 
     @property
     def bytes(self):
@@ -266,7 +279,7 @@ class BitArrayView(NodeMixin):
 
     @bytes.setter
     def bytes(self, _bytes):
-        self.bits = bytes2ba(_bytes, endian=self.ba.endian())
+        self.bits = bytes2ba(_bytes, endian=self._endian)
 
     @property
     def uint(self):
@@ -278,7 +291,7 @@ class BitArrayView(NodeMixin):
         if isinstance(i, str):
             i = int(i, 0)
         old = self.uint
-        self.bits = int2ba(i, length=len(self), endian=self.ba.endian())
+        self.bits = int2ba(i, length=len(self), endian=self._endian)
         if old != self.uint:
             trace("change detected: %s -> %s", old, self.uint)
 
@@ -317,7 +330,7 @@ class BitArrayView(NodeMixin):
         self.bits = int2ba(
                 i,
                 length=len(self),
-                endian=self.ba.endian(),
+                endian=self._endian,
                 signed=True
                 )
         if old != self.int:
