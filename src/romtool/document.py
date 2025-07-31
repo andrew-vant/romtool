@@ -101,7 +101,7 @@ def tbl_structdef(cls):
     specs = [{'field': field.name, **asdict(field)} for field in cls.fields]
     for spec in specs:
         # Remove keys we don't want in the headers
-        for key in 'id name display order comment'.split():
+        for key in 'name display order comment'.split():
             spec.pop(key)
     tableize(specs, identifiers='id field')
     tbl_notes(notes)
