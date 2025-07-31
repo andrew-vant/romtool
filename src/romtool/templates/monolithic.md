@@ -62,7 +62,7 @@ uint
 : Unsigned integer, single-byte.
 
 uintbe
-: Unsigned integer, bit-endian.
+: Unsigned integer, big-endian.
 
 uintle
 : Unsigned integer, little-endian.
