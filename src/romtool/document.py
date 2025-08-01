@@ -262,7 +262,6 @@ def document(rom):
     md = Markdown(extensions=['extra', 'toc'],
                   extension_configs={'toc': {
                       'toc_depth': '2-6',
-                      'title': rom.name,
                       }})
     content = md.convert(jrender('monolithic.md', rom=rom))
     return jrender('monolithic.html',

@@ -7,7 +7,8 @@ body {
 		"sidebar content" 100vh
 		/ auto 1fr;
 }
-.toc {
+
+#sidebar {
 	grid-area: sidebar;
 	background: linear-gradient(
 		to right,
@@ -64,7 +65,7 @@ dd { grid-column: 2; }
 th { padding: 4px; }
 td { padding: 4px; border: 1px solid grey; }
 
-.toc ul { list-style-type: upper-roman;}
+.toc ul { list-style-type: upper-roman; padding-left: 3ch;}
 .toc ul ul { list-style-type: decimal; }
 .toc ul ul ul { list-style-type: lower-roman; }
 li { margin: 2px; }

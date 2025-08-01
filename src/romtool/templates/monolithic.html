@@ -16,7 +16,10 @@
 {%- endblock %}
 
 {%- block body %}
-{{ toc | safe }}
+<nav id="sidebar">
+  <a href="#top" class="toctitle">{{ rom.name }}</a>
+  {{ toc | safe }}
+</nav>
 <main>
   <article id="content">
     {{ content | safe }}
