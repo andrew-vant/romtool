@@ -34,7 +34,7 @@ main {
 
 h1,h2,h3 { margin: 2em 0 1em;}
 
-p, figcaption { max-width: 80ch; }
+p, li, figcaption { max-width: 80ch; }
 figure {margin: 0 0; }
 figcaption {max-width: 75ch; }
 
