@@ -6,6 +6,7 @@ import logging
 import types
 from codecs import CodecInfo
 from collections import ChainMap
+from contextlib import suppress
 from dataclasses import dataclass, field, fields
 from functools import cache, partial
 from hashlib import sha1
@@ -226,7 +227,10 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
                 rpath = relpath(path, root)
                 log.info("Loading %s '%s' from %s", otype, name, rpath)
                 with path.open() as f:
-                    kwargs[kwarg][name] = loader(name, f)
+                    tp = loader(name, f)
+                    with Handler.missing(log):
+                        tp.__doc__ = path.with_suffix('.md').read_text()
+                    kwargs[kwarg][name] = tp
 
         # Now load the rom tables. Note that this doesn't instantiate them,
         # just stores the appropriate kwargs for use by the program.

@@ -52,8 +52,7 @@ sense to do so, e.g. for pointers.
 Character strings may have a fixed length, or they may have a terminator
 byte indicating the end of the string (typically 0).
 
-These are the primitive-type variants that may appear in structure
-fields below:
+These are the primitive types that may appear in structure fields below:
 
 int
 : Signed integer.
@@ -90,18 +89,21 @@ strz
 
 ### Bitfields
 
-Bitfields are sets of single-bit flags grouped together. In the
-following, the bits in each field are numbered in lsb0 order unless
-otherwise stated. That is, bit 0 is the least-significant bit of the
-first byte, bit 8 is the least-significant bit of the second byte, and
-so on.
+Bitfields are sets of single-bit flags grouped together, typically as
+part of a larger structure.
 
-Each bit is assigned a letter as a mnemonic label. The letters are used
-as a shorthand in the data dumps when multiple bits are set.
+Within this document, the bits in each field are numbered in lsb0 order
+unless otherwise stated; that is, bit 0 is the least-significant bit of
+the first byte, bit 8 is the least-significant bit of the second byte,
+and so on. Each bit is assigned a letter as a mnemonic label. The
+letters are used as a shorthand in the data dumps when multiple bits are
+set; uppercase for 1, lowercase for 0.
 
 {%- for name, struct in rom.map.bitfields.items() %}
 
 #### {{ name | title }}
+
+{{ struct.__doc__ }}
 
 {{ struct }}
 
@@ -123,6 +125,8 @@ if present, specifies which other table.
 {%- if struct not in rom.map.bitfields.values() %}
 
 #### {{ name | title }}
+
+{{ struct.__doc__ }}
 
 {{ struct }}
 
