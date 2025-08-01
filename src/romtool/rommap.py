@@ -125,10 +125,15 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
         raise FileNotFoundError(f"no matching rom for {self.name}")
 
     @classmethod
-    def load(cls, root):
+    @cache
+    def load(cls, root, extensions=False):
         """ Create a ROM map from a directory tree
 
         root: the directory holding the map's spec files
+        extensions: Whether to load extension files.
+
+        Maps are cached on first load; multiple calls return the same object.
+        The cache can be cleared with RomMap.load.cache_clear().
         """
 
         log.info("Loading ROM map from %s", root)
@@ -195,6 +200,15 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
             kwargs.handlers[name] = StructField
             return bfcls
 
+        def load_tablespecs(name, f):
+            """ Load tablespecs from a tsv file. Yields id:spec pairs."""
+            for record in util.readtsv(f):
+                # I don't remember why I needed to filter out unused keys, it
+                # might be possible to trim that.
+                record = Dict(((k, v) for k, v in record.items()
+                              if k in (f.name for f in fields(TableSpec))))
+                yield record.id, TableSpec.from_tsv_row(record)
+
         loaders = [
             ('text table', 'ttables', 'texttables', '.tbl',  load_tt),
             ('enum',       'enums',   'enums',      '.yaml', load_enum),
@@ -216,18 +230,18 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
 
         # Now load the rom tables. Note that this doesn't instantiate them,
         # just stores the appropriate kwargs for use by the program.
-
-        path = root.joinpath("rom.tsv")
-        log.info("Loading table specs from %s", path)
         kwargs.tables = Dict()
-        for record in util.readtsv(path):
-            record = Dict(((k, v) for k, v in record.items()
-                          if k in (f.name for f in fields(TableSpec))))
-            kwargs.tables[record['id']] = TableSpec.from_tsv_row(record)
-        # we should check that tables in the same set are the same length
-
+        paths = {"top-level": Path(root, "rom.tsv")}
+        if extensions:
+            paths["extension"] = Path(root, "ext", "rom.tsv")
+        for desc, path in paths.items():
+            log.info("loading %s table specs from %s",
+                     desc, relpath(path, root))
+            kwargs.tables.update(load_tablespecs(desc, path))
+        # TODO: Consider checking that grouped tables are the same length
         kwargs.tests = cls.get_tests(root)
-        kwargs.extensions = list(subfiles(root, 'ext', cls._ext_suffixes))
+        kwargs.extensions = (list(subfiles(root, 'ext', cls._ext_suffixes))
+                             if extensions else [])
         return cls(basename(root), **kwargs)
 
     @classmethod
@@ -250,7 +264,7 @@ class MapDB(Mapping):
 
     A DB consists of a root directory with a hashdb.txt file in it, plus any
     number of individual map directories. MapDB keys are sha1 hashes; lookups
-    return a RomMap object.
+    return the path to the map.
 
     Individual maps are loaded on first lookup. The resulting RomMap is
     cached, and multiple lookups return the same object. The cache can be
@@ -285,12 +299,7 @@ class MapDB(Mapping):
     @cache
     def __getitem__(self, sha):
         log.debug("looking for %s under %s", sha, self.root)
-        path = self.root.joinpath(self.hashdb[sha])
-        try:
-            return RomMap.load(path)
-        except KeyError as ex:
-            msg = f"unrelated keyerror during rmap load: {ex}"
-            raise MapError(msg) from ex
+        return Path(self.root, self.hashdb[sha])
 
     @classmethod
     def cache_clear(cls):
@@ -328,14 +337,13 @@ class MapDB(Mapping):
                  will be looked for in the default locations.
         nodefaults: Do not search the default locations.
 
-        Returns a RomMap object, or raises RomDetectionError.
+        Returns the path to an appropriate map, or raises RomDetectionError.
         """
         sha = util.sha1(romfile)
         db = ChainMap(
             *(sources or []),
             *([] if nodefaults else cls.defaults()),
         )
-        try:
-            return db[sha]
-        except KeyError as ex:
-            raise RomDetectionError(str(ex), romfile) from ex
+        if sha not in db:
+            raise RomDetectionError(sha, romfile)
+        return db[sha]

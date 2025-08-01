@@ -1,0 +1,2 @@
+id	fid	name	iname	set	type	offset	count	stride	size	index	priority	display	cls	comment
+spell_palettes	pal	Spell Palette Overrides	Palette Override	spells	uint	0x9E000	64	1						Romtool extension. The default 255 does nothing; any other number overrides the palette set in the spell's gfx script.

@@ -93,7 +93,7 @@ except ImportError:
 # romtool and they're free to supply their own.
 
 
-def _loadrom(romfile, mapdir=None, patches=None):
+def _loadrom(romfile, mapdir=None, patches=None, extensions=False):
     """ Load a rom from a file with an appropriate map
 
     Helper function to reduce command boilerplate.
@@ -105,7 +105,8 @@ def _loadrom(romfile, mapdir=None, patches=None):
     if patches:
         raise NotImplementedError("Pre-patching of dumps not yet implemented")
     with open(romfile, 'rb') as file:
-        rmap = RomMap.load(mapdir) if mapdir else MapDB.detect(file)
+        rmap = RomMap.load(mapdir or MapDB.detect(file),
+                           extensions=extensions)
         return Rom.make(file, rmap)
 
 
@@ -122,6 +123,7 @@ def cmd_dump(args):
     Options:
         -m, --map PATH      Specify path to ROM map
         -f, --force         Overwrite existing output files
+        -E, --extend        Include map-provided extension tables
 
         -h, --help          Print this help
         -v, --verbose       Verbose output
@@ -133,7 +135,7 @@ def cmd_dump(args):
     dumping. This is intended to allow examining a patch's effects without
     physically modifying the rom.
     """
-    rom = _loadrom(args.rom, args.map, args.patches)
+    rom = _loadrom(args.rom, args.map, args.patches, args.extend)
     log.info("Dumping ROM data to: %s", args.outdir)
     os.makedirs(args.outdir, exist_ok=True)
     try:
@@ -204,7 +206,7 @@ def cmd_build(args):
 
     if args.sanitize:
         raise NotImplementedError("--sanitize option not yet implemented")
-    rom = _loadrom(args.rom, args.map)
+    rom = _loadrom(args.rom, args.map, extensions=args.extend)
     # For each supported changeset type, specify a set of functions to apply in
     # sequence to the filename to load it.
     typeloaders = {'.ips': [Patch.load, rom.apply_patch],
@@ -452,6 +454,7 @@ def cmd_document(args):
     Options:
         -m, --map PATH      Specify path to ROM map
         -f, --force         Overwrite existing output files
+        -E, --extend        Also document map-provided extensions
 
         -h, --help          Print this help
         -v, --verbose       Verbose output
@@ -466,7 +469,7 @@ def cmd_document(args):
         * data structure formats
         * data table contents (optional, slow)
     """
-    rom = _loadrom(args.rom, args.map, args.patches)
+    rom = _loadrom(args.rom, args.map, args.patches, args.extend)
     log.info("Documenting data tables")
     sys.stdout.reconfigure(encoding='utf8')
     print(document(rom))
