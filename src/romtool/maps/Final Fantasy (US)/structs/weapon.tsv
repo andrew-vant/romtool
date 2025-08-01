@@ -1,9 +1,9 @@
 name	id	offset	size	type	ref	arg	display	order	info	comment
 Hit%	hit	0	1	uint						
 Damage	dmg	1	1	uint						
-Crit Rate	crit	2	1	uint						
+Crit Rate	crit	2	1	uint						Bugged; weapon index is used instead.
 Spell	spl	3	1	uint	spells	-1				Subtract 1 to get index into the spell array.
-Element	elem	4	1	elements						
-Strong vs Monster	bonus	5	1	genera						
+Element	elem	4	1	elements						Bugged; does nothing
+Strong Vs	bonus	5	1	genera						Bugged; does nothing
 Sprite	gfx	6	1	uint			hex			
 Palette	pal	7	1	uint			hex			
