@@ -54,15 +54,15 @@ thead {
 
 dl {
 	display: grid;
-	grid: "term def" / auto 1fr;
+	grid: auto-flow / auto 1fr;
 	gap: .2em;
+	padding: 0 2em;
 }
-th { padding: 4px; grid-area: term;}
-td {
-	grid-area: def;
-	padding: 4px;
-	border: 1px solid grey;
-}
+dt { grid-column: 1; }
+dd { grid-column: 2; }
+
+th { padding: 4px; }
+td { padding: 4px; border: 1px solid grey; }
 
 .toc ul { list-style-type: upper-roman;}
 .toc ul ul { list-style-type: decimal; }

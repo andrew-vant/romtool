@@ -39,21 +39,4 @@ table.scroll {
 }
 .scroll td:last-child {padding-right: 4em;}
 
-.tablenotes {
-	display: grid;
-	grid: auto-flow / auto 1fr;
-	gap: .5em;
-	padding-left: 2em;
-	padding-right: 2em;
-	counter-reset: tablenotes 0;
-}
-
-.tablenotes dt { counter-increment: tablenotes 1; }
-.tablenotes dt::before {
-	content: counter(tablenotes) ". ";
-	display: inline-block;
-	width: 3ch;
-	padding-right: 1ch;
-	text-align: right;
-}
 .tablenotes dt::after { content: ":" }
