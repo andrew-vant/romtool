@@ -241,7 +241,10 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
         for desc, path in paths.items():
             log.info("loading %s table specs from %s",
                      desc, relpath(path, root))
-            kwargs.tables.update(load_tablespecs(desc, path))
+            try:
+                kwargs.tables.update(load_tablespecs(desc, path))
+            except FileNotFoundError as ex:
+                log.debug(ex)
         # TODO: Consider checking that grouped tables are the same length
         kwargs.tests = cls.get_tests(root)
         kwargs.extensions = (list(subfiles(root, 'ext', cls._ext_suffixes))
