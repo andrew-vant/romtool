@@ -1,4 +1,4 @@
-Monster generas.
+Monster types.
 
 Of the three uses of this bitfield, two of them are bugged.
 
