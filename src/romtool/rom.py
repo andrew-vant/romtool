@@ -7,7 +7,7 @@ import re
 import subprocess as sp
 from functools import cmp_to_key
 from os.path import splitext, basename
-from os.path import join as pathjoin
+from os.path import join as pathjoin, relpath
 from shutil import which
 from tempfile import TemporaryDirectory
 
@@ -125,8 +125,9 @@ class Rom(util.NodeMixin):
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
         for name, elist in self.entities.items():
-            log.info("Dumping %s (%s items)", name, len(elist))
             path = pathjoin(folder, f'{name}.tsv')
+            log.info("Dumping %s (%s items) to %s",
+                     name, len(elist), relpath(path, folder))
             util.dumptsv(path, elist, force, elist.etype.keys(), '_idx')
 
     def lookup(self, key):

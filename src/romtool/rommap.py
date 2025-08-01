@@ -169,7 +169,7 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
         kwargs.hooks = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(kwargs.hooks)
-            log.info("hooks loaded from %s", path)
+            log.info("hooks loaded from %s", relpath(path, root))
         except FileNotFoundError:
             log.info("skipping hooks, %s not present", path)
 
@@ -239,7 +239,7 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
         """
         path = Path(root, "tests.tsv")
         try:
-            log.info("Loading test specs from %s", path)
+            log.info("Loading test specs from %s", relpath(path, root))
             return [MapTest(**row) for row in util.readtsv(path)]
         except FileNotFoundError:
             return []
