@@ -204,7 +204,14 @@ class IndexInt(int):
         return f"IndexInt({self.table.name} #{int(self)} ({str(self)})"
 
     def __str__(self):
-        return '' if self < 0 else getattr(self.obj, 'name', str(int(self)))
+        if self < 0:
+            return ''
+        try:
+            return getattr(self.obj, 'name', str(int(self)))
+        except IndexError as ex:
+            log.debug("%s #%s does not exist (%s)",
+                      self.table.name, int(self), ex)
+        return str(int(self))
 
 
 def throw(ex, *args, **kwargs):
@@ -257,7 +264,8 @@ class Locator:
         """ Look up a sequence item by name
 
         Returns the index of the first item that is either a matching string,
-        or has a .name attribute that is a matching string.
+        or has a .name attribute that is a matching string. If there is no
+        name attribute, also check if the name is itself an integer index.
         """
         # TODO: Made a util function so lookups don't require all sequences to
         # have a locate() methods. Can't do it in-place because I need to
@@ -268,8 +276,11 @@ class Locator:
         try:
             return next(i for i, e in enumerate(sequence) if e.name == name)
         except AttributeError as ex:
-            raise MapError(f"Tried to look up {sequence.name} by name, "
-                           f"but they are nameless") from ex
+            try:
+                return int(name, 0)
+            except ValueError:
+                raise MapError(f"Tried to look up {sequence.name} by name, "
+                               f"but they are nameless") from ex
         except StopIteration as ex:
             seqname = getattr(sequence, 'id', 'sequence')
             raise ValueError(f"No object named {name} in {seqname}") from ex
