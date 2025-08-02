@@ -455,6 +455,7 @@ def cmd_document(args):
         -m, --map PATH      Specify path to ROM map
         -f, --force         Overwrite existing output files
         -E, --extend        Also document map-provided extensions
+        -o, --out PATH      Output file
 
         -h, --help          Print this help
         -v, --verbose       Verbose output
@@ -471,8 +472,8 @@ def cmd_document(args):
     """
     rom = _loadrom(args.rom, args.map, args.patches, args.extend)
     log.info("Documenting data tables")
-    sys.stdout.reconfigure(encoding='utf8')
-    print(document(rom))
+    with util.flexopen(args.out or sys.stdout, 'w', encoding='utf8') as f:
+        print(document(rom), file=f)
     # except FileExistsError as ex:
     #     log.error("%s (use --force to permit overwriting)", ex)
     #     sys.exit(1)
