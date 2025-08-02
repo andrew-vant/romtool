@@ -1,9 +1,9 @@
-id	name	offset	size	type	mod	display	order	info	comment
+id	name	offset	size	type	ref	display	order	info	comment
 xp	Exp	0	2	uintle			16		
 gld	Gold	2	2	uintle			15		
 hp	HP	4	2	uintle			1		
 mor	Morale	6	1	uint			9		
-ai	AI Skillset	7	1	uint		hex	17		
+ai	AI Script	7	1	int	ai		17		-1 if the monster has no skills
 evd	Evasion	8	1	uint			8		
 def	Defense	9	1	uint			6		
 hits	Hits	10	1	uint			4		

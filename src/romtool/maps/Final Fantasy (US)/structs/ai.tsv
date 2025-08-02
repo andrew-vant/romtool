@@ -1,0 +1,17 @@
+name	id	offset	size	type	ref	display	order	info	comment
+Spell Chance	splrate	0	1	uint					Chance to cast magic (out of 128)
+Special Chance	spcrate	1	1	uint					Chance to use a special (out of 128)
+Spell 1	spl1	2	1	int	spells				
+Spell 2	spl2	3	1	int	spells				
+Spell 3	spl3	4	1	int	spells				
+Spell 4	spl4	5	1	int	spells				
+Spell 5	spl5	6	1	int	spells				
+Spell 6	spl6	7	1	int	spells				
+Spell 7	spl7	8	1	int	spells				
+Spell 8	spl8	9	1	int	spells				
+End Spells	endspl	10	1	int	spells				Always -1
+Special 1	spc1	11	1	int	specials				
+Special 2	spc2	12	1	int	specials				
+Special 3	spc3	13	1	int	specials				
+Special 4	spc4	14	1	int	specials				
+End Specials	endspc	15	1	int	specials				Always -1

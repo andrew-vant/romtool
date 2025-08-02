@@ -20,3 +20,4 @@ specials		Specials	Special	specials	spell	0x0303F0	26	8
 wp_price	price	Weapon Prices	Price	weapons	uintle	0x037C38	40	2					
 a_price	price	Armor Prices	Price	armor	uintle	0x037C88	40	2					
 m_price	price	Spell Prices	Price	spells	uintle	0x037D60	64	2					
+ai		Monster AI		ai	ai	0x031020	44	16					Monster AI scripts
