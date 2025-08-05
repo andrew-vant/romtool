@@ -14,6 +14,7 @@ from io import BytesIO
 from asteval import Interpreter
 
 from .io import Unit
+from .text import get_tt_codec
 from .util import HexInt, IndexInt, locate, throw
 
 from .exceptions import RomtoolError, MapError
@@ -315,6 +316,10 @@ class StringField(Field):
 
     def codec(self, obj):
         """ Get the character encoding for this field. """
+        # If the current rom doesn't have a map, look at the built-in codecs
+        # instead. This may happen e.g. when trying to print SNES header data.
+        if not hasattr(obj.root, 'map'):
+            return get_tt_codec(self.display or 'ascii')
         _codec = obj.root.map.ttables[self.display or 'ascii']
         if not _codec:
             raise LookupError(f"no such codec: {self.display}")

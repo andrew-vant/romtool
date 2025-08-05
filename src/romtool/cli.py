@@ -593,11 +593,10 @@ def cmd_ident(args):
         elif use_long_format():
             print("%%")
         try:
-            rmap = MapDB.detect(filename)
+            rom = _loadrom(filename)
         except RomDetectionError:
-            rmap = None
-        with open(filename, 'rb') as file:
-            rom = Rom.make(file, rmap)
+            with open(filename, 'rb') as file:
+                rom = Rom.make(file)
         info = Dict()
         info.name = rom.name
         info.file = filename
