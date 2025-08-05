@@ -163,7 +163,7 @@ def tbl_rom_toplevel(rom):
         return (table in rom.indexes,
                 not table.spec.set,
                 table.spec.set or '',
-                table.name)
+                table.name or '')
 
     # This is irritatingly explicit just to pick out/rename some fields.
     tables = [table for table in rom.tables.values()
