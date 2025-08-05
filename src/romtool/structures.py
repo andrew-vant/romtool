@@ -88,7 +88,7 @@ class Entity(MutableMapping):
     def __getitem__(self, key):
         try:
             item = self._tables_by_name[key][self._i]
-        except ValueError as ex:
+        except LookupError as ex:
             raise KeyError from ex
         return item if not isinstance(item, Structure) else item[key]
 
@@ -138,9 +138,8 @@ class Entity(MutableMapping):
         for table, keys in self._keys_by_table.items():
             try:
                 item = table[self._i]
-            except ValueError as ex:
-                log.warning(f"can't set %s[%s]{keys}  ({ex})",
-                            table.id, self._i)
+            except IndexError as ex:
+                log.warning("can't update %s (%s)", self, ex)
                 continue
             if isinstance(item, Structure):
                 for k in keys:
@@ -161,7 +160,7 @@ class Entity(MutableMapping):
         for table, keys in self._keys_by_table.items():
             try:
                 item = table[self._i]
-            except ValueError as ex:
+            except IndexError as ex:
                 log.warning(f"can't get %s[%s]{keys}  ({ex})",
                             table.id, self._i)
                 continue
@@ -521,10 +520,12 @@ class Table(Sequence, RomObject, ABC):
 
     def __iter__(self):
         # IndexError can get raised from downstack, which the Sequence
-        # implementation of __iter__ interprets as the end of the table. This
-        # version lets it propagate.
+        # implementation of __iter__ interprets as the end of the table.
+        # Actual rom tables sometimes legitimately have items with bad
+        # offsets, and in most of those cases we want to report them and
+        # continue rather than stop.
         for i in range(len(self)):
-            yield self[i]
+            yield self.get(i, None)
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -549,6 +550,14 @@ class Table(Sequence, RomObject, ABC):
         else:
             item = RomObject(self.viewof(i), self)
             self.field.__set__(item, v)
+
+    def get(self, i, default=None):
+        """ Getter with a default for items with invalid offsets. """
+        try:
+            return self[i]
+        except IndexError as ex:
+            log.warning(f"can't get %s #%s (%s)", self.name, i, ex)
+            return None
 
     # Do not like these digging into foreign internals
     @property
@@ -575,7 +584,7 @@ class Table(Sequence, RomObject, ABC):
     def with_offsets(self):
         """ Iterate over (offset, item) tuples. """
         for i, obj in enumerate(self):
-            yield self.viewof(i).os_bytes, obj
+            yield self.spec.offset + self._index[i], obj
 
     def viewof(self, i):
         """ Get a view of a given item in the list
@@ -593,7 +602,7 @@ class Table(Sequence, RomObject, ABC):
         except IndexError as ex:
             msg = (f"bad offset for {self.name} #{i}: "
                    f"{os_self:#0x}+{os_item:#0x}")
-            raise ValueError(msg) from ex
+            raise IndexError(msg) from ex
 
     def update(self, mapping):
         """ Update the list from an index->item mapping
