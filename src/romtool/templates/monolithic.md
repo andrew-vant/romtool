@@ -1,4 +1,6 @@
-# {{ rom.name }} ROM Documentation
+# {{ rom.name }}
+
+## Introduction
 
 This document describes the ROM data structures for "{{ rom.name }}",
 and includes a dump of all data thus described. The descriptions and the
