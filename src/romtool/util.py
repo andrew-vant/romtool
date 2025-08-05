@@ -129,9 +129,17 @@ class HexInt(int):
 
     def __new__(cls, value, sz_bits=None):
         if isinstance(value, str):
-            value = int(value, 0)
+            # Where we have an external hex string, treat the number of
+            # digits in that string as indicative of max size. Relevant for
+            # offsets in spec files; related offsets in dumps should have a
+            # consistent formatting length.
+            if value.startswith("0x"):
+                sz_bits = (len(value) - 2) * 4
+                value = int(value, 16)
+            else:
+                value = int(value, 0)
         self = int.__new__(cls, value)
-        self.sz_bits = sz_bits or value.bit_length() or 8
+        self.sz_bits = sz_bits or byte_length(value)*8 or 8
         if self.sz_bits < value.bit_length():
             msg = f"can't fit {value} in {self.sz_bits} bits"
             raise ValueError(msg)
@@ -147,6 +155,14 @@ class HexInt(int):
         sign = '-' if self < 0 else ''
         return f'{sign}0x{abs(self):0{digits}X}'
 
+    def __add__(self, other):
+        # Make output also a hexint. TODO: do something intelligent with
+        # sz_bits.
+        return type(self)(int(self) + int(other))
+
+def byte_length(i):
+    """ Number of bytes needed to represent an int. """
+    return (i.bit_length() + 7) // 8
 
 class Offset(HexInt):
     """ An HexInt customized for working with offsets.
