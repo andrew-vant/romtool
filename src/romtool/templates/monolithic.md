@@ -7,6 +7,10 @@ and includes a dump of all data thus described. The descriptions and the
 dump are derived from the same underlying code and definitions; to the
 extent that the dump is correct, the structure specs should be too.
 
+This document applies to the following specific ROM version:
+
+{{ rom | identifiers }}
+
 If you are writing a tool to edit the game, start here, at the top. If
 you simply want to see what's in the game data, you can skip ahead to
 the [Data Dump](#data-dump) section.
@@ -35,7 +39,7 @@ data. If your ROM has a header, you can convert ROM offsets to file
 offsets by adding the length of the header.
 
 
-{{ rom }}
+{{ rom | tables }}
 
 ## Data Types
 

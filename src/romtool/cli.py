@@ -602,16 +602,7 @@ def cmd_ident(args):
         info.file = filename
         info.type = rom.prettytype
         info.size = len(rom.file.bytes)
-
-        hashalgs = ['crc32', 'sha1', 'md5']
-        for alg in hashalgs:
-            h_file = getattr(rom.file, alg)
-            h_data = getattr(rom.data, alg)
-            if h_file == h_data:
-                info[alg] = h_file
-            else:
-                info[alg + ' (file)'] = h_file
-                info[alg + ' (data)'] = h_data
+        info.update(sorted(rom.identifiers.items()))
 
         info.map = rom.map.path or "(no map found)"
         if args['header-data']:

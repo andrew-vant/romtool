@@ -122,6 +122,21 @@ class Rom(util.NodeMixin):
         """ A bitview of the ROM's data, omitting any header """
         return self.file
 
+    @property
+    def identifiers(self):
+        """ Dict of rom hashes; used in docs or for identification.
+
+        If the ROM file has a header (e.g. ines, smc), reports hashes for
+        both the ROM data and the whole file.
+        """
+        if self.file.crc32 == self.data.crc32:
+            return self.data.hashes
+        return {
+            f'{alg} ({section})': hsh
+            for section, source in [('file', self.file), ('data', self.data)]
+            for alg, hsh in source.hashes.items()
+            }
+
     def dump(self, folder, force=False):
         """ Dump all rom data to `folder` in tsv format"""
         for name, elist in self.entities.items():

@@ -144,6 +144,17 @@ def tbl_entity_dump(table):
         a("(as tsv)", cls="dump", href=f"{table.name}.tsv")
 
 
+@tags.dl(cls="identifiers")
+def rom_identifiers(rom, sep=':'):
+    """ List a rom's name and hashes as a dl. """
+    with dl():
+        dt(f'name{sep}')
+        dd(rom.name)
+        for k, v in sorted(rom.identifiers.items()):
+            dt(f'{k}{sep}')
+            dd(v)
+
+
 @tags.figure(cls="table")
 def tbl_rom_toplevel(rom):
     """ Document the top-level list of ROM tables. """
@@ -196,7 +207,7 @@ def finalize(obj):
             else Markup(tbl_structdef(obj)) if issubcls(obj, Structure)
             else Markup(tbl_entity_dump(obj)) if isinstance(obj, EntityList)
             else Markup(tbl_table_dump(obj)) if isinstance(obj, Table)
-            else Markup(tbl_rom_toplevel(obj)) if isinstance(obj, Rom)
+            else Markup(rom_identifiers(obj)) if isinstance(obj, Rom)
             else '' if obj is None
             else obj)
 
@@ -226,6 +237,8 @@ def jinja_env():
     env.filters["name"] = getname
     env.filters["tableize"] = tableize
     env.filters["markdown"] = partial(markdown, extensions=['extra', 'toc'])
+    env.filters["tables"] = tbl_rom_toplevel
+    env.filters["identifiers"] = rom_identifiers
     return env
 
 

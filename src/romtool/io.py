@@ -115,6 +115,15 @@ class BitArrayView(NodeMixin):
                 else self.ba.endian())
 
     @property
+    def hashes(self):
+        """ Dict of hashes of the view's contents.
+
+        Helper function for doc generation and identification.
+        """
+        return {alg: getattr(self, alg)
+                for alg in ['crc32', 'sha1', 'md5']}
+
+    @property
     def sha1(self):
         """ SHA1 hash of the view's contents. """
         return hashlib.sha1(self.bytes).hexdigest()
