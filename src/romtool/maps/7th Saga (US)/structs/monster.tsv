@@ -30,7 +30,7 @@ rice	Ice Resist	31	1	uintle						stats
 rvac	Death Resist	32	1	uintle						stats	
 reff	Effect Resist	33	1	uintle						stats	
 gld	Gold/Exp	34	2	uintle						stats	Experience is always 2.201 * Gold
-drp	Dropset	36	1	uintle						misc	
+drp	Dropset	36	1	uintle					dropsets	misc	
 script	Script	37	1	uintle						misc	
 boss	Boss Flag	38	1	uintle						flag	Monster won't run, can't be run from, and is immune to effects.
 nmp	Name Pointer	39	3	uintle		pointer				pointer	
