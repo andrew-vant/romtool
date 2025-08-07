@@ -19,7 +19,7 @@ from asteval import Interpreter
 
 from .field import Field, FieldExpr
 from . import util
-from .util import RomObject, SequenceView, CheckedDict, HexInt
+from .util import IndexInt, RomObject, SequenceView, CheckedDict, HexInt
 from .io import Unit
 from .exceptions import RomtoolError, MapError
 
@@ -163,13 +163,30 @@ class Entity(MutableMapping):
             except IndexError as ex:
                 log.warning(f"can't get %s[%s]{keys}  ({ex})",
                             table.id, self._i)
-                continue
-            if isinstance(item, Structure):
+                item = None
+            if item is None or isinstance(item, Structure):
                 for k in keys:
-                    yield (k, item[k])
+                    yield (k, item and item[k])
             else:
                 assert len(keys) == 1
                 yield (keys[0], item)
+
+    def flatten(self):
+        """ Get a dict of this entity with crossrefs flattened.
+
+        Used when generating documentation.
+        """
+        out = dict(self.items())
+        # items() key order may not match __iter__; use __iter__'s.
+        out = {k: out[k] for k in self if k in out}
+        xrefs = {k: v.obj for k, v in out.items()
+                 if isinstance(v, IndexInt)
+                 and isinstance(v.obj, Mapping)
+                 and not isinstance(v.obj, BitField)
+                 and not hasattr(v.obj, 'name')}
+        for xref, tgt in xrefs.items():
+            out.update((f"{xref}:{k}", v) for k, v in tgt.items())
+        return out
 
 
 class EntityList(Sequence):

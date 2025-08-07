@@ -55,6 +55,7 @@ def tableize(data, numbered='#', identifiers='id name'):
     An iterable or space-separated string of identifier-keys will have the
     'identifier' class applied to them.
     """
+    # TODO: link table headers for bitfields to the section describing them.
     identifiers = (identifiers.split()
                    if isinstance(identifiers, str)
                    else list(identifiers or []))
@@ -139,7 +140,7 @@ def tbl_table_dump(table):
 @tags.figure(cls="table")
 def tbl_entity_dump(table):
     """ Document the items in an EntityList. """
-    tableize(table)
+    tableize(item.flatten() for item in table)
     with tags.figcaption():
         a("(as tsv)", cls="dump", href=f"{table.name}.tsv")
 
