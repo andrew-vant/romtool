@@ -9,7 +9,7 @@ def	Defense	9	1	uint			6
 hits	Hits	10	1	uint			4		
 acc	Accuracy	11	1	uint			3		
 str	Strength	12	1	uint			2		
-crit	Crit Rate	13	1	uint			5		Ranges from 0-64 (0%-100%)
+crit	Crit Rate	13	1	uint			5		
 eatk	Attack Element	14	1	elements		sptdfile	10		
 satk	Attack Status	15	1	statuses		dspbtlmc	11		
 fam	Family	16	1	family		mdguwacr	14		
