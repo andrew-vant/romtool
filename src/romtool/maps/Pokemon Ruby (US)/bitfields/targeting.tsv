@@ -1,9 +1,9 @@
-id	name	unit	offset	size	type	display
-select	Select	bits	0	1	uint	S
-depend	Depends	bits	1	1	uint	D
-x	Unused	bits	2	1	uint	X
-random	Random	bits	3	1	uint	R
-foes	Foes	bits	4	1	uint	F
-user	User	bits	5	1	uint	U
-others	Others	bits	6	1	uint	O
-last	Last?	bits	7	1	uint	L
+id	name	unit	offset	size	type	display	comment
+custom	Custom	bits	0	1	uint	D	Behavior determined by the specific move.
+unk1	Unknown 1	bits	1	1	uint	X	
+random	Random	bits	2	1	uint	R	
+foes	Foes	bits	3	1	uint	F	
+self	Self	bits	4	1	uint	U	
+others	Others	bits	5	1	uint	O	
+field	Field	bits	6	1	uint	L	
+unk2	Unknown 2	bits	7	1	uint	X	
