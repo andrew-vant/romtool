@@ -148,12 +148,11 @@ def tbl_entity_dump(table):
 @tags.dl(cls="identifiers")
 def rom_identifiers(rom, sep=':'):
     """ List a rom's name and hashes as a dl. """
-    with dl():
-        dt(f'name{sep}')
-        dd(rom.name)
-        for k, v in sorted(rom.identifiers.items()):
-            dt(f'{k}{sep}')
-            dd(v)
+    dt(f'name{sep}')
+    dd(rom.name)
+    for k, v in sorted(rom.identifiers.items()):
+        dt(f'{k}{sep}')
+        dd(v)
 
 
 @tags.figure(cls="table")
