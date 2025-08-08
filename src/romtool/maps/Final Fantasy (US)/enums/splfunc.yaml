@@ -1,5 +1,5 @@
-0: Map Only
-1: Damage
+0: Non-Combat
+1: Inflict Damage
 2: Harm Undead
 3: Inflict Status
 4: Reduce Hits
@@ -14,6 +14,6 @@
 13: Buff Damage
 14: Reduce Evade
 15: Full Heal
-16: Raise Evade
+16: Buff Evade
 17: Remove Resists
 18: Force Status

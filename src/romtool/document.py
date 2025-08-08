@@ -7,6 +7,7 @@ This is annoyingly complicated, especially when rendering data tables.
 import logging
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
+from enum import EnumType
 from functools import cache, partial
 from itertools import chain
 from pathlib import Path
@@ -155,6 +156,13 @@ def rom_identifiers(rom, sep=':'):
         dd(v)
 
 
+@tags.dl(cls="enum")
+def enum_type(cls, sep=':'):
+    for member in cls:
+        dt(f'{member.value}{sep}')
+        dd(member.name)
+
+
 @tags.figure(cls="table")
 def tbl_rom_toplevel(rom):
     """ Document the top-level list of ROM tables. """
@@ -208,6 +216,7 @@ def finalize(obj):
             else Markup(tbl_entity_dump(obj)) if isinstance(obj, EntityList)
             else Markup(tbl_table_dump(obj)) if isinstance(obj, Table)
             else Markup(rom_identifiers(obj)) if isinstance(obj, Rom)
+            else Markup(enum_type(obj)) if isinstance(obj, EnumType)
             else '' if obj is None
             else obj)
 

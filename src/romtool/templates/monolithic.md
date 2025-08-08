@@ -93,6 +93,24 @@ str
 strz
 : Terminated character string.
 
+{%- if rom.map.enums %}
+
+### Enumerations
+
+Enumerations are integer types with discrete meanings. The following
+enum type(s) appear in this document:
+
+{%- for name, enum in rom.map.enums.items() %}
+
+#### {{ name | title }}
+
+{{ enum.__doc__ }}
+
+{{ enum }}
+
+{%- endfor %}
+{%- endif %}
+
 ### Bitfields
 
 Bitfields are sets of single-bit flags grouped together, typically as
