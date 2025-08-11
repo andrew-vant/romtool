@@ -14,7 +14,7 @@ from pathlib import Path
 
 import appdirs
 import jinja2
-from dominate import tags
+from dominate import document, tags
 from dominate.tags import a, dd, dl, dt, p, tr, td, th
 from markdown import markdown, Markdown
 from markupsafe import Markup
@@ -141,9 +141,19 @@ def tbl_table_dump(table):
 @tags.figure(cls="table")
 def tbl_entity_dump(table):
     """ Document the items in an EntityList. """
-    tableize(item.flatten() for item in table)
     with tags.figcaption():
-        a("(as tsv)", cls="dump", href=f"{table.name}.tsv")
+        a("(full page)", cls="dump", href=f"{table.name}.html")
+        a("(download)", cls="dump", href=f"{table.name}.tsv")
+    tableize(item.flatten() for item in table)
+
+
+def tbl_entity_singlefile(table):
+    d = document(title=table.name)
+    with d.head:
+        tags.link(rel='stylesheet', href='style.css')
+    with d.body:
+        tableize(item.flatten() for item in table)
+    return d
 
 
 @tags.dl(cls="identifiers")
@@ -279,14 +289,14 @@ def jrender(_template, **context):
     return jinja_env().get_template(_template).render(**context)
 
 
-def document(rom):
+def mkdocs(rom, outdir=None):
     """ Generate documentation for a ROM. """
     md = Markdown(extensions=['extra', 'toc'],
                   extension_configs={'toc': {
                       'toc_depth': '2-6',
                       }})
-    content = md.convert(jrender('monolithic.md', rom=rom))
-    return jrender('monolithic.html',
+    content = md.convert(jrender('index.md', rom=rom))
+    return jrender('index.html',
                    rom=rom,
                    content=content,
                    toc=md.toc)  # pylint: disable=no-member # added by extension

@@ -65,7 +65,7 @@ from docopt import docopt
 from alive_progress import alive_bar
 
 from . import util, config, charset
-from .document import document
+from .document import mkdocs, tbl_entity_singlefile
 from .rommap import RomMap, MapDB
 from .rom import Rom
 from .patch import Patch
@@ -444,7 +444,7 @@ def cmd_charmap(args):
 def cmd_document(args):
     """ Generate html documentation for a ROM
 
-    Usage: romtool document [--help] [options] <rom> [<outdir>] [<patches>...]
+    Usage: romtool document [--help] [options] <rom> [<patches>...]
 
     Arguments:
         rom       The ROM file to document
@@ -455,7 +455,8 @@ def cmd_document(args):
         -m, --map PATH      Specify path to ROM map
         -f, --force         Overwrite existing output files
         -E, --extend        Also document map-provided extensions
-        -o, --out PATH      Output file
+        -o, --outfile PATH  Output file
+        -O, --outdir PATH   Output directory
 
         -h, --help          Print this help
         -v, --verbose       Verbose output
@@ -472,12 +473,25 @@ def cmd_document(args):
     """
     rom = _loadrom(args.rom, args.map, args.patches, args.extend)
     log.info("Documenting data tables")
-    with util.flexopen(args.out or sys.stdout, 'w', encoding='utf8') as f:
-        print(document(rom), file=f)
-    # except FileExistsError as ex:
-    #     log.error("%s (use --force to permit overwriting)", ex)
-    #     sys.exit(1)
-    # log.info("Dump finished")
+    args.outfile = (args.outfile if args.outfile
+                    else Path(args.outdir, 'index.html') if args.outdir
+                    else sys.stdout)
+    with util.flexopen(args.outfile, 'w', encoding='utf8') as f:
+        log.info("writing documentation")
+        print(mkdocs(rom), file=f)
+    if not args.outdir:
+        log.debug("no directory for table dumps, skipping them")
+        return  # Nowhere to put the entity tables
+    args.outdir = Path(args.outdir)
+    args.outdir.mkdir(exist_ok=True)
+    for path in util.get_subfiles(None, 'templates', '.css'):
+        content = path.read_text(encoding='utf-8')
+        Path(args.outdir, path.name).write_text(content, encoding='utf-8')
+    for slug, dataset in rom.entities.items():
+        path = Path(args.outdir, f'{slug}.html')
+        with util.flexopen(path, 'w', encoding='utf8') as f:
+            print(tbl_entity_singlefile(dataset), file=f)
+    rom.dump(args.outdir, True)
 
 
 def cmd_findblocks(args):

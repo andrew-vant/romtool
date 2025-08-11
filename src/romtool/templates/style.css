@@ -2,7 +2,6 @@ body {
 	margin: 0;
 	padding: 0;
 	display: grid;
-	gap: 4em;
 	grid:
 		"sidebar content" 100vh
 		/ auto 1fr;
@@ -26,33 +25,23 @@ body {
 	font-weight: bold;
 	max-width: 20ch;
 }
+.toc ul { list-style-type: upper-roman; padding-left: 3ch;}
+.toc ul ul { list-style-type: decimal; }
+.toc ul ul ul { list-style-type: lower-roman; }
 
 main {
 	grid-area: content;
 	overflow: auto;
-	padding-right: 4em;
+	padding: 4em;
 }
 
 h1,h2,h3 { margin: 2em 0 1em;}
-
+/* We can't limit the content element's width directly, because we want
+ * to allow tables to be wider. So we have to limit all relevant
+ * children instead. I hate this. */
 p, li, figcaption { max-width: 80ch; }
-figure {margin: 0 0; }
-figcaption {max-width: 75ch; }
 
-table {
-	border: 1px solid;
-	border-collapse: collapse;
-}
-
-caption {
-	padding-bottom: 8px;
-	font-weight: bold;
-}
-
-thead {
-	font-weight: bold;
-}
-
+/* So far I've been using dl mostly for key-value pairs. */
 dl {
 	display: grid;
 	grid: auto-flow / auto 1fr;
@@ -62,14 +51,74 @@ dl {
 dt { grid-column: 1; }
 dd { grid-column: 2; }
 
-th { padding: 4px; }
-td { padding: 4px; border: 1px solid grey; }
-
-.toc ul { list-style-type: upper-roman; padding-left: 3ch;}
-.toc ul ul { list-style-type: decimal; }
-.toc ul ul ul { list-style-type: lower-roman; }
-li { margin: 2px; }
-
-
+/* Colorize certain span classes. */
 .offset {color: green;}
 .type   {color: darkgreen;}
+
+/* Global figure/table settings */
+figure {margin: 0 0; }
+figcaption {max-width: 75ch; }
+table { border: 1px solid; border-collapse: collapse; }
+thead { font-weight: bold; }
+th { padding: 4px; background: gainsboro; }
+td { padding: 4px; border: 1px solid grey; }
+.tablenotes dt::after { content: ":" }
+
+/* Stupid CSS tricks begin here.
+ *
+ * Scrollable tables will have the "scroll" css class. We want them to
+ * keep headers stickied and otherwise behavior sanely. This is harder
+ * than it sounds.
+ *
+ * We start with a really stupid way to limit table height on the index
+ * page, while allowing the same table to use the whole viewport on the
+ * single-page view. This relies on index-page tables being encapsulated
+ * in figures, while whole-page tables are direct children of <body>. */
+figure > table.scroll { max-height: 80vh; }
+body > table { grid-area: content; }
+
+.scroll {
+	/* Anything other than inline-block behaves badly. I don't remember
+	 * why. */
+	display: inline-block;
+	max-width: 100%;
+	max-height: 100%;
+	/* Borders are wonky and require th/td settings too. */
+	border-spacing: 0;
+	border-collapse: separate;
+	white-space: nowrap;
+	overflow-x: auto;
+	/* It's annoyingly hard to get the vertical scrollbar to neither
+	 * overlap content nor itself trigger a horizontal scrollbar.
+	 * The following sort-of-works but has equally annoying side
+	 * effects, hence commented-out for now. */
+	/*
+	overflow-y: auto;
+	scrollbar-gutter: auto;
+	*/
+}
+
+/* Make borders look right while scrolling. Mostly. */
+.scroll td, .scroll th {
+	border-top: none;
+	border-left: none;
+	border-right: 1px solid;
+	border-bottom: 1px solid;
+}
+
+/* Keep column headers on top and stickied. */
+.scroll thead {
+	position: sticky;
+	z-index: 10;
+	inset-block-start: 0;
+}
+
+/* Keep row identifiers sticky, and below the column headers. */
+td.identifier {background: white;}
+.scroll .identifier {
+	position: sticky;
+	inset-inline-start: 0;
+}
+
+ /* Make room for scrollbars until I figure out how to do them right. */
+.scroll td:last-child {padding-right: 4em;}
