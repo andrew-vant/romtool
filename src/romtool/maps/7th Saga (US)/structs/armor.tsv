@@ -1,6 +1,6 @@
 id	name	offset	origin	size	type	arg	display	pointer	order	info	comment
 guard	Guard+	0		2	uintle					stat	
-cost	Cost	2		2	uintle					stat	
+price	Price	2		2	uintle					stat	
 users	Users	4		1	users		koewxvjn			bitfield	
 rthn	Thunder Resist	5		1	uint					stat	
 ru1	Unused Resist 1	6		1	uint					unknown	No spells carry this element. 

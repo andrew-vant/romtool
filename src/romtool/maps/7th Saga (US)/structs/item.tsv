@@ -1,8 +1,8 @@
-id	name	offset	size	origin	type	arg	display	order	pointer	comment	
-tgt	Target	0	1		uint		target				
-con	Consumable	1	1		uint						
-cost	Cost	2	2		uintle						
-usr	Users	4	1		users						
-gem	Gem	5	1		uint					Gems sell for 100% of their value	 non-gems 50%
-nmp	Name Pointer	6	3		uintle		pointer				
-name	Name	nmp-0xC00000	10	root	strz		main		nmp		
+name	id	offset	size	origin	type	arg	display	order	pointer	comment
+Target	tgt	0	1		uint		target			
+Consumable	con	1	1		uint					
+Price	price	2	2		uintle					
+Users	usr	4	1		users					
+Gem	gem	5	1		uint					Gems sell for 100% of their value
+Name Pointer	nmp	6	3		uintle		pointer			
+Name	name	nmp-0xC00000	10	root	strz		main		nmp	

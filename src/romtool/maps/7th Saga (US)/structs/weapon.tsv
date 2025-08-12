@@ -1,6 +1,6 @@
 id	name	offset	origin	size	type	arg	display	order	info	comment
 pow	Power	0		2	uintle				stat	
-cst	Cost	2		2	uintle				stat	
+price	Price	2		2	uintle				stat	
 usr	Users	4		1	users		koewxvjn		bitfield	
 nmp	Name Pointer	5		3	uintle		pointer		pointer	
 unk1	Unknown 1	8		2	uintle				unknown	Appears to be a 2-byte uintle because it comes up as round numbers that way.

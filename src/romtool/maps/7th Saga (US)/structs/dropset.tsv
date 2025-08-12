@@ -1,17 +1,17 @@
-id	name	offset	size	type	ref	display	order	info	comment
-drp1	Item 1	0	1	uint	loot				Each item indexes a pointer table covering items, weapons, and armors.
-drp2	Item 2	1	1	uint	loot				
-drp3	Item 3	2	1	uint	loot				
-drp4	Item 4	3	1	uint	loot				
-drp5	Item 5	4	1	uint	loot				
-drp6	Item 6	5	1	uint	loot				
-drp7	Item 7	6	1	uint	loot				
-drp8	Item 8	7	1	uint	loot				
-drp9	Item 9	8	1	uint	loot				
-drp10	Item 10	9	1	uint	loot				
-drp11	Item 11	10	1	uint	loot				
-drp12	Item 12	11	1	uint	loot				
-drp13	Item 13	12	1	uint	loot				
-drp14	Item 14	13	1	uint	loot				
-drp15	Item 15	14	1	uint	loot				
-drp16	Item 16	15	1	uint	loot				
+id	name	offset	size	type	ref
+drp1	Item 1	0	1	uint	loot
+drp2	Item 2	1	1	uint	loot
+drp3	Item 3	2	1	uint	loot
+drp4	Item 4	3	1	uint	loot
+drp5	Item 5	4	1	uint	loot
+drp6	Item 6	5	1	uint	loot
+drp7	Item 7	6	1	uint	loot
+drp8	Item 8	7	1	uint	loot
+drp9	Item 9	8	1	uint	loot
+drp10	Item 10	9	1	uint	loot
+drp11	Item 11	10	1	uint	loot
+drp12	Item 12	11	1	uint	loot
+drp13	Item 13	12	1	uint	loot
+drp14	Item 14	13	1	uint	loot
+drp15	Item 15	14	1	uint	loot
+drp16	Item 16	15	1	uint	loot
