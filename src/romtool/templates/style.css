@@ -61,7 +61,7 @@ figcaption {max-width: 75ch; }
 table { border: 1px solid; border-collapse: collapse; }
 thead { font-weight: bold; }
 th { padding: 4px; background: gainsboro; }
-td { padding: 4px; border: 1px solid grey; }
+td { padding: 4px; }
 .tablenotes dt::after { content: ":" }
 
 /* Stupid CSS tricks begin here.
@@ -109,13 +109,12 @@ body > table { grid-area: content; }
 /* Keep column headers on top and stickied. */
 .scroll thead {
 	position: sticky;
-	z-index: 10;
+	z-index: 1;
 	inset-block-start: 0;
 }
 
-/* Keep row identifiers sticky, and below the column headers. */
-td.identifier {background: white;}
-.scroll .identifier {
+/* Keep row headers sticky, and below the column headers. */
+.scroll th[scope=row] {
 	position: sticky;
 	inset-inline-start: 0;
 }

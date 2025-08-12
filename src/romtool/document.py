@@ -67,18 +67,24 @@ def tableize(data, numbered='#', identifiers='id name'):
     columns = table_cols(data)
     with tags.thead():
         if numbered is not None:
-            th(numbered.title(), scope='col', cls='identifier')
+            th(numbered.title(), scope='row')
         for col in columns:
-            th(col.title(), scope='col',
-               cls=col.lower() in identifiers and f'identifier {col}')
+            # I haven't found a good way to indicate which header cells
+            # should sticky. Technically they should all be scope:col.
+            scope = 'row' if col.lower() in identifiers else 'col'
+            th(col.title(), scope=scope)
     with tags.tbody():
         for i, row in enumerate(data):
             with tr():
                 if numbered is not None:
-                    th(i, scope='row', cls='identifier')
+                    th(i, scope='row')
                 for col in columns:
-                    td(str(denonify(row.get(col))),
-                       cls=col.lower() in identifiers and f'identifier {col}')
+                    value = str(denonify(row.get(col)))
+                    if col.lower() in identifiers:
+                        th(value, scope='row')
+                    else:
+                        td(value)
+
 
 @tags.figcaption()
 def tbl_notes(notes):
