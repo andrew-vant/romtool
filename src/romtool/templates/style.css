@@ -62,6 +62,7 @@ table { border: 1px solid; border-collapse: collapse; }
 thead { font-weight: bold; }
 th { padding: 4px; background: gainsboro; }
 td { padding: 4px; }
+tbody tr:nth-child(even) {background: rgba(0, 0, 0, .05);}
 .tablenotes dt::after { content: ":" }
 
 /* Stupid CSS tricks begin here.
