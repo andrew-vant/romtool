@@ -1,4 +1,4 @@
 id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
-atk	Attacker	0	1		uint		ptype					
-def	Defender	1	1		uint		ptype					
+atk	Attacker	0	1		uint		type					
+def	Defender	1	1		uint		type					
 effect	Effectiveness	2	1		uint							

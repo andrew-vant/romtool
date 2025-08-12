@@ -1,7 +1,7 @@
 id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
 effect	Effect	0	1		uint		effect					
 power	Base Power	1	1		uint							
-tp	Type	2	1		uint		ptype					
+tp	Type	2	1		uint		type					
 acc	Accuracy	3	1		uint							
 pp	PP	4	1		uint							
 eacc	Effect Accuracy	5	1		uint							

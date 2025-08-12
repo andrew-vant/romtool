@@ -5,8 +5,8 @@ def	Base Defense	2	1		uint
 spd	Base Speed	3	1		uint							
 satk	Base Sp Atk	4	1		uint							
 sdef	Base Sp Def	5	1		uint							
-tp1	Type 1	6	1		uint		ptype					
-tp2	Type 2	7	1		uint		ptype					
+tp1	Type 1	6	1		uint		type					
+tp2	Type 2	7	1		uint		type					
 catch	Catch Rate	8	1		uint							
 xp	Base XP Yield	9	1		uint							
 ey_hp	HP EV	80	2	bits	uint							
@@ -22,9 +22,9 @@ item2	Item 2	14	2		uintle
 gender	Gender Threshold	16	1		uint							From zero (always male) to 254 (always female). 255 is Unknown.
 ec	Egg Cycles	17	1		uint							
 fs	Base Friendship	18	1		uint							
-gtype	Growth Type	19	1		uint		growth					Pretty sure this is an enum
-group1	Egg Group 1	20	1		uint		pgroup					
-group2	Egg Group 2	21	1		uint		pgroup					
+gtype	Growth Type	19	1		uint		growth					
+group1	Egg Group 1	20	1		uint		egg-group					
+group2	Egg Group 2	21	1		uint		egg-group					
 ability1	Ability 1	22	1		uint							
 ability2	Ability 2	23	1		uint							
 szf	Safari Zone Flee Rate	24	1		uint							

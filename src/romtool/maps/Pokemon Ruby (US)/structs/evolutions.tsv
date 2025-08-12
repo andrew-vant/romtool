@@ -1,16 +1,16 @@
 id	name	offset	size	unit	type	origin	display	order	arg	ref	info	comment
-em1	Evolution 1 Method	0	2		uintle		evmethod					
+em1	Evolution 1 Method	0	2		uintle		evolution-method					
 ep1	Evolution 1 Param	2	2		uintle							
 et1	Evolution 1 Target	4	2		uintle					species		The name lookups here make builds very slow at the moment
-em2	Evolution 2 Method	8	2		uintle		evmethod					
+em2	Evolution 2 Method	8	2		uintle		evolution-method					
 ep2	Evolution 2 Param	10	2		uintle							
 et2	Evolution 2 Target	12	2		uintle					species		
-em3	Evolution 3 Method	16	2		uintle		evmethod					
+em3	Evolution 3 Method	16	2		uintle		evolution-method					
 ep3	Evolution 3 Param	18	2		uintle							
 et3	Evolution 3 Target	20	2		uintle					species		
-em4	Evolution 4 Method	24	2		uintle		evmethod					
+em4	Evolution 4 Method	24	2		uintle		evolution-method					
 ep4	Evolution 4 Param	26	2		uintle							
 et4	Evolution 4 Target	28	2		uintle					species		
-em5	Evolution 5 Method	32	2		uintle		evmethod					
+em5	Evolution 5 Method	32	2		uintle		evolution-method					
 ep5	Evolution 5 Param	34	2		uintle							
 et5	Evolution 5 Target	36	2		uintle					species		
