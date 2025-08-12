@@ -111,7 +111,7 @@ def tbl_structdef(cls):
         # Remove keys we don't want in the headers
         for key in 'name display order comment'.split():
             spec.pop(key)
-    tableize(specs, identifiers='id field')
+    tableize(specs, identifiers='field')
     tbl_notes(notes)
 
 
