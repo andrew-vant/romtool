@@ -476,14 +476,15 @@ def cmd_document(args):
     args.outfile = (args.outfile if args.outfile
                     else Path(args.outdir, 'index.html') if args.outdir
                     else sys.stdout)
+    if args.outdir:
+        args.outdir = Path(args.outdir)
+        args.outdir.mkdir(parents=True, exist_ok=True)
     with util.flexopen(args.outfile, 'w', encoding='utf8') as f:
         log.info("writing documentation")
         print(mkdocs(rom), file=f)
     if not args.outdir:
         log.debug("no directory for table dumps, skipping them")
         return  # Nowhere to put the entity tables
-    args.outdir = Path(args.outdir)
-    args.outdir.mkdir(exist_ok=True)
     for path in util.get_subfiles(None, 'templates', '.css'):
         content = path.read_text(encoding='utf-8')
         Path(args.outdir, path.name).write_text(content, encoding='utf-8')
