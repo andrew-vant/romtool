@@ -574,7 +574,7 @@ class Table(Sequence, RomObject, ABC):
             return self[i]
         except IndexError as ex:
             log.warning(f"can't get %s #%s (%s)", self.name, i, ex)
-            return None
+            return default
 
     # Do not like these digging into foreign internals
     @property
