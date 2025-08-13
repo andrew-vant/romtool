@@ -476,6 +476,11 @@ class TableSpec:  # pylint: disable=R0902,R0903  # (unneeded on newer pylints?)
     comment: str = ''
 
     def __post_init__(self):
+        if not self.id:
+            raise MapError(f"map contains table with no ID.")
+        if not self.name:
+            log.warning("table '%s' is nameless; using id as name", self.id)
+            self.name = self.id
         self.fid = self.fid or self.id
         self.iname = self.iname or self.name
         self.size = self.size or self.stride
