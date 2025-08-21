@@ -73,6 +73,10 @@ class RomMap:  # pylint: disable=too-many-instance-attributes
     handlers: Mapping[str, Type[Field]] = field(default_factory=dict)
     extensions: Sequence[os.PathLike] = list
 
+    # TODO: hooks should be implemented differently. Allow structure types to
+    # be .py files in the struct directory, rather than defining them in
+    # hooks.py.
+
     def __post_init__(self):
         """ Perform sanity checks after construction """
         self.handlers = ChainMap(

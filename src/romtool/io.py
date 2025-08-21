@@ -9,6 +9,7 @@ import hashlib
 import zlib
 from collections.abc import Hashable
 from functools import cache, partial
+from typing import Protocol
 
 from bitarray import bitarray
 from bitarray.util import int2ba, ba2int, bits2bytes, ba2hex, hex2ba

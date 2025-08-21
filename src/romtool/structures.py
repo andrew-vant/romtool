@@ -690,6 +690,34 @@ class Index(Sequence):
         return result
 
 
+class List(Table):
+    """ A sequence of contiguous variable-length objects.
+
+    Handles cases where random access isn't possible; accessing item N
+    requires reading all previous items, and writing an item may require
+    re-writing all subsequent items (e.g. if an item changes length).
+    """
+
+    def __iter__(self):
+        view = self.view[self.spec.offset::self.spec.units]
+        for i in range(len(self)):
+            item, consumed = self.field.read(view)
+            yield item
+            view = view[consumed::]
+
+    def __getitem__(self, i):
+        return next(islice(self, i, None))
+
+    def __setitem__(self, i, v):
+        # Read through items, when we hit i, read it, check equality, if
+        # not-equal convert to bytes, check if new bytelength equals old
+        # bytelength. If bytelength is equal, write the new bytes and then
+        # stop. If it is not equal, read all remaining items, write ith item,
+        # write remaining items. Log warning if total bytes written exceeds
+        # total bytes read.
+
+
+
 class Strings(Table):  # more generic type: Series?
     """ A sequence of concatenated, terminated strings.
 

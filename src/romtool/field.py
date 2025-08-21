@@ -146,6 +146,14 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     - order    (output order)
     - comment  (additional notes)
     """
+    # FIXME: Probably TableSpec should be folded into this. Most attributes
+    # are the same, and .count has use cases inside structs, not just at the
+    # top level. Properly done, the top-level ROM object should itself be
+    # just a struct.
+
+    # FIXME 2: Fundamental issue with fields of variable length, e.g. structs
+    # or strings. Field.read() and .write() probably need to return bytes
+    # consumed/written, like codecs do.
 
     id: str
     name: str = None

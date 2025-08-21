@@ -364,6 +364,20 @@ class RomObject(NodeMixin):
         """
         raise NotImplementedError
 
+    def read(self, stream):
+        """ Read one object from a data stream.
+
+        Returns a tuple, (obj, bytes consumed (as bytes object, not count))
+        """
+        raise NotImplementedError
+
+    def write(self, stream):
+        """ Write one object to the stream.
+
+        Returns number of bytes written.
+        """
+        return stream.write(bytes(self))
+
 
 class Searchable:
     """ Generator wrapper that supports lookups by name. """
