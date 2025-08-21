@@ -53,7 +53,7 @@ class MonsterExtra(IntField):
         end = start + (self.size.eval(obj) * self.unit)
         return view[start:end]
 
-    def read(self, obj, realtype=None):
+    def read(self, obj):
         view = self._view(obj)
         if view is None:
             return None
@@ -62,7 +62,7 @@ class MonsterExtra(IntField):
             value = HexInt(value, len(view))
         return value
 
-    def write(self, obj, value, realtype=None):
+    def write(self, obj, value):
         # Probably this conversion should happen elsewhere...
         value = None if value == '' else value
         view = self._view(obj)

@@ -402,9 +402,9 @@ class IntField(Field):
         except (KeyError, AttributeError):
             return None
 
-    def read(self, obj, realtype=None):
+    def read(self, obj):
         view = self.view(obj)
-        i = getattr(view, (realtype or self.type)) + (self.arg or 0)
+        i = getattr(view, self.type) + (self.arg or 0)
         if self.display in ('hex', 'pointer'):
             i = HexInt(i, len(view))
         if self._enum(obj):
@@ -418,7 +418,7 @@ class IntField(Field):
                 raise ValueError(f"bad cross-reference key: {self.ref}")
         return i
 
-    def write(self, obj, value, realtype=None):
+    def write(self, obj, value):
         if isinstance(value, str):
             if self._enum(obj):
                 try:
@@ -444,17 +444,17 @@ class IntField(Field):
                 value = int(value, 0)
         view = self.view(obj)
         value -= (self.arg or 0)
-        setattr(view, (realtype or self.type), value)
+        setattr(view, self.type, value)
 
 
 class StructField(Field):
     """ Field containing a nested structure. """
-    def read(self, obj, realtype=None):
+    def read(self, obj):
         view = self.view(obj)
-        return obj.root.map.structs[realtype or self.type](view, obj)
+        return obj.root.map.structs[self.type](view, obj)
 
-    def write(self, obj, value, realtype=None):  # pylint: disable=unused-argument
-        target = self.read(obj, realtype=realtype)
+    def write(self, obj, value):  # pylint: disable=unused-argument
+        target = self.read(obj)
         if isinstance(value, str):
             target.parse(value)
         else:

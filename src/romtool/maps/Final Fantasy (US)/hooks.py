@@ -28,12 +28,12 @@ class SpellArgument(IntField):
         tp_name = self._typemap.get(obj.func)
         return obj.root.map.structs[tp_name] if tp_name else int
 
-    def read(self, obj, realtype=None):
+    def read(self, obj):
         view = self.view(obj)
         _type = self._realtype(obj)
         return view.uint if _type is int else _type(view, obj)
 
-    def write(self, obj, value, realtype=None):
+    def write(self, obj, value):
         view = self.view(obj)
         _type = self._realtype(obj)
         if _type is int:
