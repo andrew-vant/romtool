@@ -136,6 +136,7 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     - name     (arbitrary string; used as dictionary key and table heading)
     - type     (could be a sub-struct or str or custom type (FF1 spell arg))
     - origin   ([parent], rom, file)
+    - count    (number of items)
     - unit     (unit for offset/size; e.g. bits, bytes, kb)
     - offset   (offset from origin in units, or FieldExpr producing same)
     - size     (field size in units)
@@ -150,6 +151,7 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     name: str = None
     type: str = 'uint'
     origin: str = None
+    count: int = 1
     unit: Unit = Unit.bytes
     offset: FieldExpr = None
     size: FieldExpr = '1'
@@ -459,6 +461,25 @@ class StructField(Field):
             target.parse(value)
         else:
             value.copy(target)
+
+
+class ArrayField(Field):
+    """ Field containing an array. """
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        self._spec = TableSpec(**vars(self))
+
+    def read(self, obj, realtype=None):
+        return Table(self.view(obj), obj, self._spec)
+
+    def write(self, obj, value, realtype=None):
+        array = self.read(obj, realtype)
+        if isinstance(value, Mapping):
+            for i, v in value.items():
+                array[i] = v
+        else:
+            for i, v in enumerate(value):
+                array[i] = v
 
 
 class ObjectField(StructField):

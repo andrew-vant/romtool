@@ -1,6 +1,6 @@
-id	name	offset	size	type	display	order	info	comment
-xp	Exp	0	2	uintle				
-coins	Coins	2	1	uint				
-cookie	Cookie Drop	3	1	uint				
-drop	Item Drop	4	1	uint				
-rare	Rare Drop	5	1	uint				
+id	name	offset	size	type	ref	display	order	info	comment
+xp	Exp	0	2	uintle					
+coins	Coins	2	1	uint					
+cookie	Cookie Drop	3	1	uint	items				
+drop	Item Drop	4	1	uint	items				
+rare	Rare Drop	5	1	uint	items				
