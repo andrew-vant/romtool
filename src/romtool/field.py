@@ -144,6 +144,9 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     - ref      (int is an index of a table entry)
     - order    (output order)
     - comment  (additional notes)
+
+    Subclasses will want to override the read() and write() methods, and
+    use self.view to get the underlying bits.
     """
 
     id: str
@@ -399,47 +402,42 @@ class IntField(Field):
         """ Get any relevant enum type """
         try:
             return obj.root.map.enums.get(self.display)
-        except (KeyError, AttributeError):
+        except (KeyError, AttributeError) as ex:
+            log.debug(ex)
             return None
+
+    def _xref(self, obj):
+        """ Get cross-reference target, if any. """
+        if not self.ref:
+            return None
+        targets = ChainMap(obj.root.entities, obj.root.tables)
+        if self.ref not in targets:
+            raise MapError(f"bad cross-reference: {self.ref}")
+        return targets[self.ref]
 
     def read(self, obj):
         view = self.view(obj)
         i = getattr(view, self.type) + (self.arg or 0)
-        if self.display in ('hex', 'pointer'):
-            i = HexInt(i, len(view))
-        if self._enum(obj):
-            i = self._enum(obj)(i)
-        if self.ref:
-            for source in obj.root.entities, obj.root.tables:
-                if self.ref in source:
-                    i = IndexInt(source[self.ref], i)
-                    break
-            else:
-                raise ValueError(f"bad cross-reference key: {self.ref}")
-        return i
+        enum = self._enum(obj)
+        return (enum(i) if enum
+                else IndexInt(self._xref(obj), i) if self.ref
+                else HexInt(i, len(view)) if self.display in ('hex', 'pointer')
+                else i)
 
     def write(self, obj, value):
         if isinstance(value, str):
-            if self._enum(obj):
-                try:
-                    value = self._enum(obj)[value]
-                except KeyError:
-                    value = int(value, 0)
-            elif self.ref:
-                # FIXME: break crossref resolution into a separate function.
-                # Not sure if it should be part of the field or somewhere else.
+            enum = self._enum(obj)
+            xref = self._xref(obj)
+            if enum and value in enum:
+                value = enum[value]
+            elif xref:
                 if not value:
                     log.debug("empty cross-ref for %s ignored", self.name)
                     return
-                for source in obj.root.entities, obj.root.tables:
-                    if self.ref in source:
-                        key = value
-                        value = locate(source[self.ref], value)
-                        if source[value].name == key:
-                            return
-                        break
-                else:
-                    raise MapError(f"bad cross-reference: {self.ref}")
+                key = value
+                value = locate(xref, value)
+                if xref[value].name == key:
+                    return  # FIXME: Can't remember why, needs comment
             else:
                 value = int(value, 0)
         view = self.view(obj)
