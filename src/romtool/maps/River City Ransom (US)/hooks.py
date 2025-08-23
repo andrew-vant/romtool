@@ -33,13 +33,12 @@ class Buff(IntField):
         offset = self._offset(obj)
         return obj.view[offset:offset+1:Unit.bytes] if offset else None
 
-    def read(self, obj):
-        view = self.view(obj)
+    def read(self, obj, view):
         return view and view.int
 
-    def write(self, obj, value):
+    def write(self, obj, view, value):
         value = value or None
-        old = self.read(obj)
+        old = self.read(obj, view)
         if isinstance(value, str):
             value = int(value, 0)
         if value != old:

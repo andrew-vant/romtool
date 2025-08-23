@@ -145,8 +145,8 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     - order    (output order)
     - comment  (additional notes)
 
-    Subclasses will want to override the read() and write() methods, and
-    use self.view to get the underlying bits.
+    Subclasses must provide read(), write(), and parse() methods. See below
+    for their expected behavior.
     """
 
     id: str
@@ -161,6 +161,8 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     display: str = None
     order: int = 0
     comment: str = ''
+
+    NOOP = object()  # may be returned from parse() or passed to write()
 
     def __set_name__(self, owner, name):
         self.desc = f"{owner.__name__}.{name}"
@@ -244,6 +246,7 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
                    else obj.view.root if self.origin == 'root'
                    else obj.root.data if self.origin == 'rom'
                    else obj.view.root.find(self.origin))
+        # Now get the slice actually corresponding to this object
         offset = self.offset.eval(obj) * self.unit
         size = self.size.eval(obj) * self.unit
         end = offset + size
@@ -252,36 +255,53 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     def __get__(self, instance, owner=None):
         if instance is None:
             return self
-        return self.read(instance)
+        return self.read(instance, self.view(instance))
 
     def __set__(self, instance, value):
-        old = self.__get__(instance)
-        self.write(instance, value)
-        new = self.__get__(instance)
+        if isinstance(value, str):
+            value = self.parse(instance, value)
+        if value is self.NOOP:
+            return
+        view = self.view(instance)
+
+        # Can it ever be the case that writing and re-reading returns
+        # something different than the original value? Yes, at the moment
+        # StructField does this because its actual parsing happens in
+        # write(), not parse(). I really ought to fix that.
+        old = self.read(instance, view)
+        if value == old:  # order here might matter for some types?
+            return
+        log.debug("about to write")
+        self.write(instance, view, value)
+        new = self.read(instance, view)
         if new != old:
+            assert not self.id.startswith("drp")
             log.debug("change: %s.%s %s -> %s", instance, self.id, old, new)
 
-    def read(self, obj):
-        """ Read from a structure field
+    def read(self, obj, view):
+        """ Read this field from a bitview.
 
-        The default implementation assumes the field's `type` is a readable
-        attribute of a bitview.
+        The default implementation assumes the field's type is a readable
+        attribute of the bitview.
         """
-        view = self.view(obj)
         assert len(view) == self.size.eval(obj) * self.unit
         return getattr(view, self.type)
 
-    def write(self, obj, value):
+    def write(self, obj, view, value):  # pylint: disable=unused-argument
         """ Write to a structure field
 
         The default implementation assigns to the bitview attribute named by
         self.type.
         """
-        setattr(self.view(obj), self.type, value)
+        setattr(view, self.type, value)
 
-    def parse(self, string):
+    def parse(self, obj, string):
         """ Parse the string representation of this field's value type
 
+        The input value should be one produced by `str(self.read())`. Returns
+        a value type that can be passed on to .write(), or Field.NOOP to
+        indicate "make no change."
+        
         The default implementation returns the string unchanged.
         """
         return string
@@ -315,7 +335,7 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
 
 
 class StringField(Field):
-    """ Fixed-width string field. """
+    """ String field. """
 
     def codec(self, obj):
         """ Get the character encoding for this field. """
@@ -328,13 +348,12 @@ class StringField(Field):
             raise LookupError(f"no such codec: {self.display}")
         return _codec
 
-    def read(self, obj):
-        view = self.view(obj)
+    def read(self, obj, view):
         codec = self.codec(obj).std
         return codec.decode(view.bytes, 'bracketreplace')[0].rstrip()
 
-    def write(self, obj, value):
-        """ Write a fixed-width string
+    def write(self, obj, view, value):
+        """ Write a fixed-width string.
 
         Strings longer than the expected width are rejected; shorter strings
         are padded with spaces. Before writing, the old value is decoded and
@@ -342,46 +361,48 @@ class StringField(Field):
         prevents spurious changes when there are multiple valid encodings for a
         string.
         """
-        if value.rstrip() == self.read(obj).rstrip():
-            return  # ignore no-ops
+        # The no-op check needs to be somewhat fuzzy; we don't want
+        # spurious "changes" to be introduced by e.g. different valid
+        # encodings of the same string, or invisible whitespace differences
+        # that could be introduced by external tools.
+        if value.rstrip() == self.read(obj, view).rstrip():
+            return
         # Pad fixed-length strings with spaces. I feel like there should be a
         # better way to do this.
-        view = self.view(obj)
         codec = self.codec(obj).std
-        content = BytesIO(codec.encode(' ')[0] * len(view.bytes))
-        content.write(codec.encode(value, 'bracketreplace')[0])
-        content.seek(0)
-        view.bytes = content.read()
+        encoded = codec.encode(value, 'bracketreplace')[0]
+        if len(encoded) > view.ct_bytes:
+            raise ValueError(f"{value!r} won't fit in {self} "
+                             f"{len(encoded)} bytes > {view.ct_bytes}")
+        content = BytesIO(codec.encode(' ')[0] * view.ct_bytes)
+        content.write(encoded)
+        view.bytes = content.getvalue()
 
-    def parse(self, string):
+    def parse(self, obj, string):
         return string
 
 
 class StringZField(StringField):
     """ Terminated-string field. """
 
-    def _decode(self, obj):
+    def _decode(self, obj, view):
         """ Get the string and bytecount of the current value """
-        view = self.view(obj)
+        # Helper to avoid duplicating this in read/write
         codec = self.codec(obj).clean
         return codec.decode(view.bytes, 'bracketreplace')
 
-    def read(self, obj):
-        return self._decode(obj)[0]
+    def read(self, obj, view):
+        """ Read a terminated string. """
+        return self._decode(obj, view)[0]
 
-    def write(self, obj, value):
-        """ Write a terminated string
+    def write(self, obj, view, value):
+        """ Write a terminated string.
 
-        Before writing, the old value is decoded and compared to the new one,
-        and the change is ignored if they match. This prevents spurious changes
-        when there are multiple valid encodings for a string.
-
-        Replacing a string with a longer string will usually cause problems,
-        but some use cases call for it. Doing so is allowed, but emits a
-        warning.
+        Replacing a string with a longer string emits a warning. No-op
+        changes are ignored as per StringField.write().
         """
         codec = self.codec(obj).clean
-        s_old, bct_old = self._decode(obj)
+        s_old, bct_old = self._decode(obj, view)
         if value == s_old:
             return
         b_new = codec.encode(value, 'bracketreplace')[0]
@@ -393,13 +414,20 @@ class StringZField(StringField):
         else:
             log.debug("replacing string '%s' (len %s) with '%s' (len %s)",
                       s_old, bct_old, value, len(b_new))
-        self.view(obj).write(b_new)
+        view.write(b_new)
 
 
 class IntField(Field):
-    """ Integral field. """
+    """ Integral field.
+
+    The field's `arg` value is added on read and subtracted on write. This
+    is intended mostly to support crossreferences that index items starting
+    from one (with 0 indicating None).
+    """
+
     def _enum(self, obj):
-        """ Get any relevant enum type """
+        """ Get the enum type, if any. """
+        # FIXME: figure out how to cache this?
         try:
             return obj.root.map.enums.get(self.display)
         except (KeyError, AttributeError) as ex:
@@ -416,8 +444,7 @@ class IntField(Field):
                 return target[self.ref]
         raise MapError(f"bad cross-reference in {self}: {self.ref}")
 
-    def read(self, obj):
-        view = self.view(obj)
+    def read(self, obj, view):
         i = getattr(view, self.type) + (self.arg or 0)
         enum = self._enum(obj)
         return (enum(i) if enum
@@ -425,36 +452,42 @@ class IntField(Field):
                 else HexInt(i, len(view)) if self.display in ('hex', 'pointer')
                 else i)
 
-    def write(self, obj, value):
-        if isinstance(value, str):
-            enum = self._enum(obj)
-            xref = self._xref(obj)
-            if enum and value in enum.__members__:
-                value = enum[value]
-            elif xref:
-                if not value:
-                    log.debug("empty cross-ref for %s ignored", self.name)
-                    return
-                value = locate(xref, value)
-            else:
-                value = int(value, 0)
-        view = self.view(obj)
+    def write(self, obj, view, value):
         value -= (self.arg or 0)
         setattr(view, self.type, value)
+
+    def parse(self, obj, string):
+        enum = self._enum(obj)
+        xref = self._xref(obj)
+        # FIXME: treats empty xrefs as NOOPs. This is probably not the right
+        # behavior, but not doing so causes spurious changes when the target
+        # table contains multiple unnamed items, as happens in one of the
+        # stock maps. Disambiguating crossrefs when dumping/building may be
+        # problematic in general.
+        return (enum[string] if enum
+                else self.NOOP if xref and not string
+                else locate(xref, string) if xref
+                else self._parse_xref(obj, string) if xref
+                else int(string, 0))
 
 
 class StructField(Field):
     """ Field containing a nested structure. """
-    def read(self, obj):
-        view = self.view(obj)
+    def read(self, obj, view):
         return obj.root.map.structs[self.type](view, obj)
 
-    def write(self, obj, value):  # pylint: disable=unused-argument
-        target = self.read(obj)
+    def write(self, obj, view, value):  # pylint: disable=unused-argument
+        target = self.read(obj, view)
         if isinstance(value, str):
             target.parse(value)
         else:
             value.copy(target)
+
+    def parse(self, obj, string):
+        # FIXME: not sure how to handle this appropriately, you can't parse
+        # a string into a value-type here. Maybe return a dict and have
+        # write() do update instead of target.parse?
+        return string
 
 
 class ObjectField(StructField):

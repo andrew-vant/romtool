@@ -3,3 +3,5 @@ monsters	0	name	IMP
 monsters	0	hp	8
 monsters	12	name	SAHAG
 monsters	12	hp	28
+spells	5	name	SLEP
+spells	2	effect	8

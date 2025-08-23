@@ -42,7 +42,7 @@ class MonsterExtra(IntField):
             sl = slice(3*i+1, 3*i+3, Unit.bytes)
             yield extype, tail[sl]
 
-    def _view(self, obj):
+    def view(self, obj):
         view = next((view for extype, view
                      in self._extras(obj)
                      if extype == self.arg),
@@ -53,8 +53,7 @@ class MonsterExtra(IntField):
         end = start + (self.size.eval(obj) * self.unit)
         return view[start:end]
 
-    def read(self, obj):
-        view = self._view(obj)
+    def read(self, obj, view):
         if view is None:
             return None
         value = view.uint
@@ -62,10 +61,9 @@ class MonsterExtra(IntField):
             value = HexInt(value, len(view))
         return value
 
-    def write(self, obj, value):
+    def write(self, obj, view, value):
         # Probably this conversion should happen elsewhere...
         value = None if value == '' else value
-        view = self._view(obj)
         fid = self.id
         name = self.name
 

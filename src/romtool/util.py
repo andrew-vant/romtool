@@ -290,16 +290,17 @@ class Locator:
         # better way to get around the EntityList perf problem right
         # now...double check that it's still a problem.)
         try:
-            return next(i for i, e in enumerate(sequence) if e.name == name)
+            i = next(i for i, e in enumerate(sequence) if e.name == name)
         except AttributeError as ex:
             try:
-                return int(name, 0)
+                i = int(name, 0)
             except ValueError:
                 raise MapError(f"Tried to look up {sequence.name} by name, "
                                f"but they are nameless") from ex
         except StopIteration as ex:
             seqname = getattr(sequence, 'id', 'sequence')
             raise ValueError(f"No object named {name} in {seqname}") from ex
+        return IndexInt(sequence, i)
 
 
 locate = Locator()
