@@ -435,10 +435,7 @@ class IntField(Field):
                 if not value:
                     log.debug("empty cross-ref for %s ignored", self.name)
                     return
-                key = value
                 value = locate(xref, value)
-                if xref[value].name == key:
-                    return  # FIXME: Can't remember why, needs comment
             else:
                 value = int(value, 0)
         view = self.view(obj)
