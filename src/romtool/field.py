@@ -429,7 +429,7 @@ class IntField(Field):
         if isinstance(value, str):
             enum = self._enum(obj)
             xref = self._xref(obj)
-            if enum and value in enum:
+            if enum and value in enum.__members__:
                 value = enum[value]
             elif xref:
                 if not value:
