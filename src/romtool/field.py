@@ -410,10 +410,11 @@ class IntField(Field):
         """ Get cross-reference target, if any. """
         if not self.ref:
             return None
-        targets = ChainMap(obj.root.entities, obj.root.tables)
-        if self.ref not in targets:
-            raise MapError(f"bad cross-reference: {self.ref}")
-        return targets[self.ref]
+        # ChainMap doesn't play nice with addict.Dict, or I'd use it here
+        for target in obj.root.entities, obj.root.tables:
+            if self.ref in target:
+                return target[self.ref]
+        raise MapError(f"bad cross-reference in {self}: {self.ref}")
 
     def read(self, obj):
         view = self.view(obj)
