@@ -282,9 +282,9 @@ class Field(ABC):  # pylint: disable=too-many-instance-attributes
     def parse(self, string):
         """ Parse the string representation of this field's value type
 
-        Returns the resulting value.
+        The default implementation returns the string unchanged.
         """
-        raise NotImplementedError(f"don't know how to parse a {type(self)}")
+        return string
 
     @staticmethod
     def from_tsv_row(row, extra_fieldtypes=None):
