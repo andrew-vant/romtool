@@ -463,7 +463,8 @@ class IntField(Field):
         # behavior, but not doing so causes spurious changes when the target
         # table contains multiple unnamed items, as happens in one of the
         # stock maps. Disambiguating crossrefs when dumping/building may be
-        # problematic in general.
+        # problematic in general. Maybe dump them with an unambiguous
+        # name+index, but allow name alone for changes to simplify editing?
         return (enum[string] if enum
                 else self.NOOP if xref and not string
                 else locate(xref, string) if xref
